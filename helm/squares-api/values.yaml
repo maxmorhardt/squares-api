@@ -1,0 +1,65 @@
+fullnameOverride: squares-api
+
+image:
+  repository: maxmorhardt/squares-api
+  tag: '0.0.1'
+  pullPolicy: Always
+  revisionHistoryLimit: 2
+  readinessProbe:
+    path: /
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 30
+    failureThreshold: 5
+    successThreshold: 1
+  livenessProbe:
+    path: /
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 30
+    failureThreshold: 5
+    successThreshold: 1
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+  name: http
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: squares-api.maxstash.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: squares-api.maxstash.io-tls
+      hosts:
+        - squares-api.maxstash.io
+  
+resources:
+  limits:
+    cpu: 1
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPU: 90
+  targetRAM: 90
+
+pdb:
+  minAvailable: 1
+
+metrics:
+  service:
+    type: ClusterIP
+    port: 2112
+    targetPort: 2112
+    name: metrics
