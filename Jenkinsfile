@@ -57,7 +57,7 @@ pipeline {
 					sh """
 						go version
 						
-						go mod download
+						go mod download -x
 						go build -v -x -o squares-api ./cmd/main.go
 					"""
 				}
