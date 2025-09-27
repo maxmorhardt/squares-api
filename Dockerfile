@@ -1,8 +1,11 @@
-FROM --platform=linux/arm64 golang:alpine
+FROM --platform=linux/arm64 alpine:latest
 
-RUN apk add --no-cache ca-certificates
+WORKDIR /app
 
 COPY squares-api .
+
+RUN apk add --no-cache ca-certificates && \
+    chmod +x squares-api
 
 EXPOSE 8080
 
