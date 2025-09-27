@@ -13,7 +13,7 @@ pipeline {
 
 
 	environment {
-		GITHUB_URL = 'https://github.com/maxmorhardt/squares'
+		GITHUB_URL = 'https://github.com/maxmorhardt/squares-api'
 
 		DOCKER_REGISTRY = 'docker.io'
 		DOCKER_REGISTRY_FULL = "oci://${env.DOCKER_REGISTRY}"
