@@ -6,4 +6,4 @@ COPY ./server .
 
 EXPOSE 8080
 
-CMD ["./server"]
+CMD ["./squares-api"]

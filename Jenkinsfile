@@ -58,7 +58,7 @@ pipeline {
 						go version
 						
 						go mod download
-						CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/main.go
+						go build -o squares-api ./cmd/main.go
 					"""
 				}
 			}
