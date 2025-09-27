@@ -2,7 +2,7 @@ FROM --platform=linux/arm64 alpine:latest
 
 RUN apk add --no-cache ca-certificates
 
-COPY ./server .
+COPY squares-api .
 
 EXPOSE 8080
 
