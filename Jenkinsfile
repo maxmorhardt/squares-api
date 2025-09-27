@@ -18,7 +18,7 @@ pipeline {
 		DOCKER_REGISTRY = 'docker.io'
 		DOCKER_REGISTRY_FULL = "oci://${env.DOCKER_REGISTRY}"
 
-		APP_NAME = "squares"
+		APP_NAME = "squares-api"
 		CHART_NAME = "$APP_NAME-chart"
 		NAMESPACE = "maxstash-apps"
 	}
