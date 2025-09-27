@@ -58,7 +58,7 @@ pipeline {
 						go version
 						
 						go mod download -x
-						go build -v -o squares-api ./cmd/main.go
+						GOOS=linux GOARCH=arm64 go build -v -o squares-api ./cmd/main.go
 					"""
 				}
 			}
