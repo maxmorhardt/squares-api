@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 alpine:latest
+FROM --platform=linux/arm64 golang:alpine
 
 RUN apk add --no-cache ca-certificates
 
