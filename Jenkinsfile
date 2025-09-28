@@ -57,8 +57,7 @@ pipeline {
 					sh """
 						go mod download -x
 
-						CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-						go build -p 1 -o squares-api ./cmd/main.go
+						GOOS=linux GOARCH=arm64 go build -o squares-api ./cmd/main.go
 
 						ls -lah squares-api
 						file squares-api
