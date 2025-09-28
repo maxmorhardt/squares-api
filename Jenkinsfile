@@ -59,7 +59,7 @@ pipeline {
 
 						GOOS=linux GOARCH=arm64 go build -o squares-api ./cmd/main.go
 
-						ls -lah squares-api
+						ls -lah
 						file squares-api
 						ldd squares-api
 					"""
