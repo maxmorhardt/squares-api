@@ -55,12 +55,12 @@ pipeline {
 			steps {
 				script {
 					sh """
-						go version
-						
 						go mod download -x
-						CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -p 2 -v -o squares-api ./cmd/main.go
 
-						ls -lah
+						CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+						go build -p 1 -ldflags="-s -w" -o squares-api ./cmd/main.go
+
+						ls -lah squares-api
 						file squares-api
 						ldd squares-api
 					"""
