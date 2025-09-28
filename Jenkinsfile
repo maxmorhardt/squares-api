@@ -55,7 +55,7 @@ pipeline {
 			steps {
 				script {
 					sh """
-						go mod download -x
+						go mod download
 
 						GOOS=linux GOARCH=arm64 go build -o squares-api ./cmd/main.go
 
