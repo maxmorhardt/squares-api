@@ -7,4 +7,4 @@ RUN apk add --no-cache ca-certificates && \
 
 EXPOSE 8080
 
-CMD ["./squares-api"]
+CMD ["sh", "-c", "./squares-api"]
