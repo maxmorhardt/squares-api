@@ -23,12 +23,12 @@ var (
 		[]string{"path"},
 	)
 
- activeConnections = prometheus.NewGauge(
+	activeConnections = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "active_connections",
 			Help: "Number of active connections",
 		},
-	)	
+	)
 )
 
 func init() {
@@ -36,17 +36,17 @@ func init() {
 }
 
 func PrometheusMiddleware(c *gin.Context) {
- path := c.Request.URL.Path
+	path := c.Request.URL.Path
 
- timer := prometheus.NewTimer(httpRequestDuration.WithLabelValues(path))
+	timer := prometheus.NewTimer(httpRequestDuration.WithLabelValues(path))
 
- httpRequestsTotal.WithLabelValues(path).Inc()
+	httpRequestsTotal.WithLabelValues(path).Inc()
 
- activeConnections.Inc()
+	activeConnections.Inc()
 
- c.Next()
+	c.Next()
 
- timer.ObserveDuration()
+	timer.ObserveDuration()
 
- activeConnections.Dec()
+	activeConnections.Dec()
 }

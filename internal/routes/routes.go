@@ -13,13 +13,13 @@ func SetupRouter() *gin.Engine {
 
 	r.Use(metrics.PrometheusMiddleware)
 
-	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
-
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "UP",
 		})
 	})
+
+	go http.ListenAndServe(":2112", promhttp.Handler())
 
 	return r
 }
