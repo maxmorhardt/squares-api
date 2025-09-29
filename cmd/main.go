@@ -1,23 +1,8 @@
 package main
 
-import (
-	"net/http"
-	"squares-api/internal/routes"
-
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
+import "squares-api/internal/routes"
 
 func main() {
-	go prometheus()
-	gin()
-}
-
-func prometheus() {
-	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":2112", nil)
-}
-
-func gin() {
 	r := routes.SetupRouter()
-	r.Run(":8080")
+	r.Run("127.0.0.1:8080")
 }
