@@ -1,8 +1,7 @@
 package main
 
-import "squares-api/internal/routes"
+import "github.com/maxmorhardt/squares-api/internal/routes"
 
 func main() {
-	r := routes.SetupRouter()
-	r.Run(":8080")
+	routes.NewRouter().Run(":8080")
 }

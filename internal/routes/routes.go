@@ -1,14 +1,17 @@
 package routes
 
 import (
+	"context"
+	"log"
 	"net/http"
-	"squares-api/internal/metrics"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func SetupRouter() *gin.Engine {
+func NewRouter() *gin.Engine {
 	r := gin.Default()
 
 	r.Use(metrics.PrometheusMiddleware)
@@ -19,7 +22,18 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
+	RegisterSquaresRoutes(r)
+	
 	go http.ListenAndServe(":2112", promhttp.Handler())
 
 	return r
+}
+
+func OIDCVerifier() *oidc.IDTokenVerifier {
+	provider, err := oidc.NewProvider(context.Background(), "https://auth.maxstash.io/realms/maxstash")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return provider.Verifier(&oidc.Config{SkipClientIDCheck: true})
 }
