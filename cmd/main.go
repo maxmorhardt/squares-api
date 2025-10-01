@@ -1,7 +1,32 @@
 package main
 
-import "github.com/maxmorhardt/squares-api/internal/routes"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	_ "github.com/maxmorhardt/squares-api/docs"
+	"github.com/maxmorhardt/squares-api/internal/handler"
+	"github.com/maxmorhardt/squares-api/internal/routes"
+	"github.com/maxmorhardt/squares-api/pkg/logger"
+	"github.com/maxmorhardt/squares-api/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+)
 
 func main() {
-	routes.NewRouter().Run(":8080")
+	r := gin.New()
+
+	r.Use(gin.Recovery())
+	r.Use(metrics.PrometheusMiddleware)
+	r.Use(logger.LoggerMiddleware)
+
+	r.GET("/health", handler.HealthCheck)
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+
+	routes.RegisterSquaresRoutes(r.Group("/squares"))
+	
+	go http.ListenAndServe(":2112", promhttp.Handler())
+
+	r.Run(":8080")
 }

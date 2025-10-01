@@ -1,16 +1,12 @@
 package routes
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/config"
+	"github.com/maxmorhardt/squares-api/internal/handler"
 	"github.com/maxmorhardt/squares-api/pkg/auth"
 )
 
-func RegisterSquaresRoutes(r *gin.Engine) {
-	r.GET("/", auth.RoleMiddleware(OIDCVerifier()), func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "UP",
-		})
-	})
+func RegisterSquaresRoutes(rg *gin.RouterGroup) {
+	rg.GET("/", auth.RoleMiddleware(config.OIDCVerifier), handler.Test)
 }

@@ -37,16 +37,13 @@ func init() {
 
 func PrometheusMiddleware(c *gin.Context) {
 	path := c.Request.URL.Path
-
 	timer := prometheus.NewTimer(httpRequestDuration.WithLabelValues(path))
 
 	httpRequestsTotal.WithLabelValues(path).Inc()
-
 	activeConnections.Inc()
 
 	c.Next()
 
 	timer.ObserveDuration()
-
 	activeConnections.Dec()
 }
