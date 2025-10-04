@@ -1,5 +1,8 @@
 info:
   contact: {}
+  description: API for squares.maxstash.io
+  title: Squares API
+  version: "1.0"
 paths:
   /health:
     get:
@@ -16,4 +19,26 @@ paths:
       summary: Health check
       tags:
       - health
+  /squares:
+    get:
+      description: Returns service status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Health check
+      tags:
+      - health
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

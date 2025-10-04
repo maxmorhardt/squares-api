@@ -27,7 +27,10 @@ pipeline {
 		stage('Setup') {
 			steps {
 				script {
-					withCredentials([file(credentialsId: 'kube-config', variable: 'KUBE_CONFIG')]) {
+					withCredentials([
+						file(credentialsId: 'kube-config', variable: 'KUBE_CONFIG'),
+						file(credentialsId: 'squares-api-env', variable: 'SQUARES_API_ENV')
+					]) {
 						checkout scmGit(
 							branches: [[
 								name: "$BRANCH_NAME"
@@ -39,6 +42,7 @@ pipeline {
 						)
 
 						sh 'mkdir -p $WORKSPACE/.kube && cp $KUBE_CONFIG $WORKSPACE/.kube/config'
+						sh 'cp $SQUARES_API_ENV $WORKSPACE/.env'
 						sh 'ls -lah'
 
 						echo "APP_NAME: $APP_NAME"

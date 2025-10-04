@@ -4,7 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	_ "github.com/maxmorhardt/squares-api/docs"
+	"github.com/maxmorhardt/squares-api/internal/db"
 	"github.com/maxmorhardt/squares-api/internal/handler"
 	"github.com/maxmorhardt/squares-api/internal/routes"
 	"github.com/maxmorhardt/squares-api/pkg/logger"
@@ -14,7 +16,17 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
+// @title           Squares API
+// @version         1.0
+// @description     API for squares.maxstash.io
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
+	godotenv.Load()
+	db.Init()
+	
 	r := gin.New()
 
 	r.Use(gin.Recovery())

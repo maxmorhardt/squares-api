@@ -22,18 +22,15 @@ func LoggerMiddleware(c *gin.Context) {
 		requestId = uuid.New().String()
 	}
 
-	requestLogger := slog.Default().With("request_id", requestId)
-	c.Set("logger", requestLogger)
+	logger := slog.Default().With("request_id", requestId)
+	c.Set("logger", logger)
 
-	if (c.Request.URL.Path == "/health") {
-		c.Next()
-		return
+	if (c.Request.URL.Path != "/health") {
+		logger.Info("request initiated",
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path,
+		)
 	}
-
-	requestLogger.Info("request initiated",
-		"method", c.Request.Method,
-		"path", c.Request.URL.Path,
-	)
 
 	c.Next()
 }
