@@ -102,9 +102,7 @@ pipeline {
 			steps {
 				script {
 					withCredentials([
-						usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD'),
-						file(credentialsId: 'squares-api-env', variable: 'SQUARES_API_ENV')
-					]) {
+						usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
 						sh """							
 							helm upgrade $APP_NAME $DOCKER_REGISTRY_FULL/$DOCKER_USERNAME/$CHART_NAME \
 								--version $HELM_VERSION \
