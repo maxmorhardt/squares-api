@@ -8,5 +8,5 @@ import (
 )
 
 func RegisterSquaresRoutes(rg *gin.RouterGroup) {
-	rg.GET("/", auth.RoleMiddleware(config.OIDCVerifier), handler.Test)
+	rg.POST("/", auth.RoleMiddleware(config.OIDCVerifier), handler.CreateGridHandler)
 }

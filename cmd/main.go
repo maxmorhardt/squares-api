@@ -36,7 +36,7 @@ func main() {
 	r.GET("/health", handler.HealthCheck)
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 
-	routes.RegisterSquaresRoutes(r.Group("/squares"))
+	routes.RegisterSquaresRoutes(r.Group("/grid"))
 	
 	go http.ListenAndServe(":2112", promhttp.Handler())
 

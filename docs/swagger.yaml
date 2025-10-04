@@ -1,9 +1,94 @@
+definitions:
+  handler.CreateGridRequest:
+    properties:
+      data:
+        items:
+          items:
+            type: string
+          type: array
+        type: array
+      name:
+        type: string
+      xLabels:
+        items:
+          type: string
+        type: array
+      yLabels:
+        items:
+          type: string
+        type: array
+    type: object
+  model.GridSwagger:
+    properties:
+      createdAt:
+        type: string
+      createdBy:
+        type: string
+      data:
+        items:
+          items:
+            type: string
+          type: array
+        type: array
+      id:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
+      updatedBy:
+        type: string
+      xlabels:
+        items:
+          format: int32
+          type: integer
+        type: array
+      ylabels:
+        items:
+          format: int32
+          type: integer
+        type: array
+    type: object
 info:
   contact: {}
   description: API for squares.maxstash.io
   title: Squares API
   version: "1.0"
 paths:
+  /grids:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new 10x10 grid with X and Y labels
+      parameters:
+      - description: Grid to create
+        in: body
+        name: grid
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateGridRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.GridSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new Grid
+      tags:
+      - grids
   /health:
     get:
       description: Returns UP if service is running
@@ -16,23 +101,6 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Health check
-      tags:
-      - health
-  /squares:
-    get:
-      description: Returns service status
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
       summary: Health check
       tags:
       - health

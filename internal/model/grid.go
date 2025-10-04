@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const ContextUserKey = "currentUser"
 
 type Grid struct {
 	ID        uuid.UUID      `gorm:"primaryKey"`
@@ -18,6 +17,18 @@ type Grid struct {
 	YLabels   datatypes.JSON
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	CreatedBy string
+	UpdatedBy string
+}
+
+type GridSwagger struct {
+	ID        uuid.UUID
+	Name      string
+	Data      [][]string
+	XLabels   []int8
+	YLabels   []int8
+	CreatedAt string
+	UpdatedAt string
 	CreatedBy string
 	UpdatedBy string
 }

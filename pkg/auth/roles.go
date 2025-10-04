@@ -82,7 +82,7 @@ func validateRoles(c *gin.Context, claims *Claims, logger *slog.Logger, allowedR
 }
 
 func setContext(c *gin.Context, claims *Claims) {
-	c.Set("username", claims.Username)
+	c.Set("user", claims.Username)
 	c.Set("roles", claims.Roles)
 	c.Next()
 }
