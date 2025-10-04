@@ -20,6 +20,7 @@ pipeline {
 
 		APP_NAME = "squares-api"
 		CHART_NAME = "$APP_NAME-chart"
+		ENV_SECRET_NAME = "$APP_NAME-env"
 		NAMESPACE = "maxstash-apps"
 	}
 
@@ -27,10 +28,7 @@ pipeline {
 		stage('Setup') {
 			steps {
 				script {
-					withCredentials([
-						file(credentialsId: 'kube-config', variable: 'KUBE_CONFIG'),
-						file(credentialsId: 'squares-api-env', variable: 'SQUARES_API_ENV')
-					]) {
+					withCredentials([file(credentialsId: 'kube-config', variable: 'KUBE_CONFIG')]) {
 						checkout scmGit(
 							branches: [[
 								name: "$BRANCH_NAME"
@@ -42,7 +40,6 @@ pipeline {
 						)
 
 						sh 'mkdir -p $WORKSPACE/.kube && cp $KUBE_CONFIG $WORKSPACE/.kube/config'
-						sh 'cp $SQUARES_API_ENV $WORKSPACE/.env'
 						sh 'ls -lah'
 
 						echo "APP_NAME: $APP_NAME"
@@ -104,8 +101,14 @@ pipeline {
 		stage('CD') {
 			steps {
 				script {
-					withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+					withCredentials([
+						usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD'),
+						file(credentialsId: 'squares-api-env', variable: 'SQUARES_API_ENV')
+					]) {
 						sh """
+							cp $SQUARES_API_ENV $WORKSPACE/.env
+							kubectl create secret generic $ENV_SECRET_NAME --from-file=$WORKSPACE/.env
+
 							helm upgrade $APP_NAME $DOCKER_REGISTRY_FULL/$DOCKER_USERNAME/$CHART_NAME \
 								--version $HELM_VERSION \
 								--install \
