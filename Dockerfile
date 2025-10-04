@@ -1,7 +1,6 @@
 FROM --platform=linux/arm64 alpine:latest
 
 COPY squares-api .
-COPY .env .
 
 RUN apk add --no-cache ca-certificates && \
     chmod +x squares-api
