@@ -105,10 +105,7 @@ pipeline {
 						usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD'),
 						file(credentialsId: 'squares-api-env', variable: 'SQUARES_API_ENV')
 					]) {
-						sh """
-							cp $SQUARES_API_ENV $WORKSPACE/.env
-							kubectl create secret generic $ENV_SECRET_NAME --from-file=$WORKSPACE/.env
-
+						sh """							
 							helm upgrade $APP_NAME $DOCKER_REGISTRY_FULL/$DOCKER_USERNAME/$CHART_NAME \
 								--version $HELM_VERSION \
 								--install \
