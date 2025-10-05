@@ -1,5 +1,7 @@
 FROM --platform=linux/arm64 alpine:latest
 
+ENV APP_ENV release
+
 COPY squares-api .
 
 RUN apk add --no-cache ca-certificates && \

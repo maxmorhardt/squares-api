@@ -17,6 +17,11 @@ const docTemplate = `{
     "paths": {
         "/grids": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Creates a new 10x10 grid with X and Y labels",
                 "consumes": [
                     "application/json"
@@ -35,7 +40,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.CreateGridRequest"
+                            "$ref": "#/definitions/model.CreateGridRequest"
                         }
                     }
                 ],
@@ -49,19 +54,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.APIError"
                         }
                     }
                 }
@@ -81,10 +80,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.Health"
                         }
                     }
                 }
@@ -92,32 +88,35 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "handler.CreateGridRequest": {
+        "model.APIError": {
             "type": "object",
             "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
+                "code": {
+                    "type": "integer",
+                    "example": 400
                 },
+                "message": {
+                    "type": "string",
+                    "example": "invalid request"
+                },
+                "requestId": {
+                    "type": "string",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2025-10-05T13:45:00Z"
+                }
+            }
+        },
+        "model.CreateGridRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
                 "name": {
                     "type": "string"
-                },
-                "xLabels": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "yLabels": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
@@ -166,6 +165,15 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "model.Health": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "UP"
+                }
+            }
         }
     },
     "securityDefinitions": {
@@ -179,7 +187,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "1.0.0",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},

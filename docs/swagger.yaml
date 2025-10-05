@@ -1,22 +1,25 @@
 definitions:
-  handler.CreateGridRequest:
+  model.APIError:
     properties:
-      data:
-        items:
-          items:
-            type: string
-          type: array
-        type: array
+      code:
+        example: 400
+        type: integer
+      message:
+        example: invalid request
+        type: string
+      requestId:
+        example: 123e4567-e89b-12d3-a456-426614174000
+        type: string
+      timestamp:
+        example: "2025-10-05T13:45:00Z"
+        type: string
+    type: object
+  model.CreateGridRequest:
+    properties:
       name:
         type: string
-      xLabels:
-        items:
-          type: string
-        type: array
-      yLabels:
-        items:
-          type: string
-        type: array
+    required:
+    - name
     type: object
   model.GridSwagger:
     properties:
@@ -49,11 +52,17 @@ definitions:
           type: integer
         type: array
     type: object
+  model.Health:
+    properties:
+      status:
+        example: UP
+        type: string
+    type: object
 info:
   contact: {}
   description: API for squares.maxstash.io
   title: Squares API
-  version: "1.0"
+  version: 1.0.0
 paths:
   /grids:
     post:
@@ -66,7 +75,7 @@ paths:
         name: grid
         required: true
         schema:
-          $ref: '#/definitions/handler.CreateGridRequest'
+          $ref: '#/definitions/model.CreateGridRequest'
       produces:
       - application/json
       responses:
@@ -77,15 +86,13 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/model.APIError'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
       summary: Create a new Grid
       tags:
       - grids
@@ -98,9 +105,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/model.Health'
       summary: Health check
       tags:
       - health

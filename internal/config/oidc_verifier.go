@@ -11,10 +11,12 @@ var (
 	OIDCVerifier *oidc.IDTokenVerifier
 )
 
+const authProvider = "https://auth.maxstash.io/realms/maxstash"
+
 func init() {
-	provider, err := oidc.NewProvider(context.Background(), "https://auth.maxstash.io/realms/maxstash")
+	provider, err := oidc.NewProvider(context.Background(), authProvider)
 	if err != nil {
-		slog.Error("unable to create oidc provider", "err", err)
+		slog.Error("unable to create oidc provider", "error", err)
 		panic(err)
 	}
 

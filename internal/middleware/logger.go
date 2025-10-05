@@ -1,4 +1,4 @@
-package logger
+package middleware
 
 import (
 	"log/slog"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/maxmorhardt/squares-api/internal/model"
 )
 
 func init() {
@@ -23,7 +24,9 @@ func LoggerMiddleware(c *gin.Context) {
 	}
 
 	logger := slog.Default().With("request_id", requestId)
-	c.Set("logger", logger)
+
+	c.Set(model.RequestIDKey, requestId)
+	c.Set(model.LoggerKey, logger)
 
 	if (c.Request.URL.Path != "/health") {
 		logger.Info("request initiated",
@@ -36,7 +39,7 @@ func LoggerMiddleware(c *gin.Context) {
 }
 
 func FromContext(c *gin.Context) *slog.Logger {
-	if requestLogger, ok := c.Get("logger"); ok {
+	if requestLogger, ok := c.Get(model.LoggerKey); ok {
 		return requestLogger.(*slog.Logger)
 	}
 
