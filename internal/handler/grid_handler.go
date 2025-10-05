@@ -28,9 +28,12 @@ func CreateGridHandler(c *gin.Context) {
 
 	var req model.CreateGridRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Error("failed to bind json", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, err.Error(), c))
 		return
 	}
+
+	log.Info("create grid request json bound successfully", "name", req.Name)
 
 	grid := initGridData(&req)
 
@@ -38,10 +41,12 @@ func CreateGridHandler(c *gin.Context) {
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
 
 	if err := repo.Create(ctx, &grid); err != nil {
+		log.Error("failed to create grid in repository", "error", err)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("failed to create new grid: %s", err), c))
 		return
 	}
 
+	log.Info("grid created successfully", "grid_id", grid.ID, "name", grid.Name)
 	c.JSON(http.StatusOK, grid)
 }
 
