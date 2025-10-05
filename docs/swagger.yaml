@@ -8,7 +8,7 @@ definitions:
         example: invalid request
         type: string
       requestId:
-        example: 123e4567-e89b-12d3-a456-426614174000
+        example: 7db692fa-c767-468f-af3d-9231b0f88c69
         type: string
       timestamp:
         example: "2025-10-05T13:45:00Z"

@@ -93,7 +93,7 @@
                 },
                 "requestId": {
                     "type": "string",
-                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                    "example": "7db692fa-c767-468f-af3d-9231b0f88c69"
                 },
                 "timestamp": {
                     "type": "string",
