@@ -65,6 +65,26 @@ info:
   version: 1.0.0
 paths:
   /grids:
+    get:
+      description: Returns all grids
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.GridSwagger'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get all grids
+      tags:
+      - grids
     post:
       consumes:
       - application/json
@@ -94,6 +114,70 @@ paths:
       security:
       - BearerAuth: []
       summary: Create a new Grid
+      tags:
+      - grids
+  /grids/{id}:
+    get:
+      description: Returns a single grid by ID
+      parameters:
+      - description: Grid ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.GridSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get a grid by ID
+      tags:
+      - grids
+  /grids/user/{username}:
+    get:
+      description: Returns all grids created by a specific user
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.GridSwagger'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get all grids by username
       tags:
       - grids
   /health:
