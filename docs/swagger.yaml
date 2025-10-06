@@ -27,17 +27,15 @@ definitions:
         type: integer
       createdAt:
         type: string
-      createdBy:
-        type: string
       gridId:
         type: string
       id:
         type: string
+      owner:
+        type: string
       row:
         type: integer
       updatedAt:
-        type: string
-      updatedBy:
         type: string
       value:
         type: string
@@ -77,15 +75,9 @@ definitions:
     type: object
   model.UpdateGridCellRequest:
     properties:
-      col:
-        type: integer
-      row:
-        type: integer
       value:
         type: string
     required:
-    - col
-    - row
     - value
     type: object
 info:
@@ -179,13 +171,13 @@ paths:
       summary: Get a grid by ID
       tags:
       - grids
-  /grids/{id}/cell:
+  /grids/cell/{id}:
     patch:
       consumes:
       - application/json
       description: Updates the value of a specific cell in a grid
       parameters:
-      - description: Grid ID
+      - description: Cell ID
         in: path
         name: id
         required: true
