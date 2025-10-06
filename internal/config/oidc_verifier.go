@@ -7,9 +7,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 )
 
-var (
-	OIDCVerifier *oidc.IDTokenVerifier
-)
+var OIDCVerifier *oidc.IDTokenVerifier
 
 const authProvider = "https://auth.maxstash.io/realms/maxstash"
 

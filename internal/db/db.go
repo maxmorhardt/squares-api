@@ -32,6 +32,7 @@ func Init() {
 	}
 
 	db.AutoMigrate(&model.Grid{})
+	db.AutoMigrate(&model.GridCell{})
 
 	DB = db
 }

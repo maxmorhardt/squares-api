@@ -36,7 +36,22 @@ func CreateGridHandler(c *gin.Context) {
 
 	log.Info("create grid request json bound successfully", "name", req.Name)
 
-	grid := initGridData(&req)
+	// Initialize XLabels and YLabels arrays with -1
+	xLabels := make([]int8, 10)
+	yLabels := make([]int8, 10)
+	for i := 0; i < 10; i++ {
+		xLabels[i] = -1
+		yLabels[i] = -1
+	}
+
+	xLabelsJSON, _ := json.Marshal(xLabels)
+	yLabelsJSON, _ := json.Marshal(yLabels)
+
+	grid := model.Grid{
+		Name:    req.Name,
+		XLabels: xLabelsJSON,
+		YLabels: yLabelsJSON,
+	}
 
 	repo := repository.NewGridRepository()
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
@@ -47,33 +62,8 @@ func CreateGridHandler(c *gin.Context) {
 		return
 	}
 
-	log.Info("grid created successfully", "grid_id", grid.ID, "name", grid.Name)
+	log.Info("grid and cells created successfully", "grid_id", grid.ID, "name", grid.Name)
 	c.JSON(http.StatusOK, grid)
-}
-
-func initGridData(req *model.CreateGridRequest) model.Grid {
-	data := make([][]string, 10)
-	for i := range data {
-		data[i] = make([]string, 10)
-	}
-
-	xLabels := make([]int8, 10)
-	yLabels := make([]int8, 10)
-	for i := range int8(10) {
-		xLabels[i] = -1
-		yLabels[i] = -1
-	}
-
-	dataJSON, _ := json.Marshal(data)
-	xLabelsJSON, _ := json.Marshal(xLabels)
-	yLabelsJSON, _ := json.Marshal(yLabels)
-
-	return model.Grid{
-		Name:    req.Name,
-		Data:    dataJSON,
-		XLabels: xLabelsJSON,
-		YLabels: yLabelsJSON,
-	}
 }
 
 // @Summary Get all grids
@@ -150,7 +140,6 @@ func GetGridsByUserHandler(c *gin.Context) {
 // @Router /grids/{id} [get]
 func GetGridByIDHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
-	log.Info("get grid by id handler called")
 
 	gridID := c.Param("id")
 	if gridID == "" {
@@ -177,4 +166,60 @@ func GetGridByIDHandler(c *gin.Context) {
 
 	log.Info("grid retrieved successfully", "grid_id", grid.ID, "name", grid.Name)
 	c.JSON(http.StatusOK, grid)
+}
+
+// @Summary Update a single cell in a grid
+// @Description Updates the value of a specific cell in a grid
+// @Tags grids
+// @Accept json
+// @Produce json
+// @Param id path string true "Grid ID"
+// @Param cell body model.UpdateGridCellRequest true "Cell update data"
+// @Success 200 {object} model.GridCell
+// @Failure 400 {object} model.APIError
+// @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
+// @Security BearerAuth
+// @Router /grids/{id}/cell [patch]
+func UpdateGridCellHandler(c *gin.Context) {
+	log := middleware.FromContext(c)
+
+	gridIDStr := c.Param("id")
+	if gridIDStr == "" {
+		log.Error("grid id not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "grid id is required", c))
+		return
+	}
+
+	var req model.UpdateGridCellRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Error("failed to bind json", "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, err.Error(), c))
+		return
+	}
+
+	gridID, err := uuid.Parse(gridIDStr)
+	if err != nil {
+		log.Error("invalid grid id", "id", gridIDStr, "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "invalid grid id", c))
+		return
+	}
+
+	repo := repository.NewGridRepository()
+	user := c.GetString(model.UserKey)
+	ctx := context.WithValue(c.Request.Context(), model.UserKey, user)
+
+	if err := repo.UpdateCell(ctx, gridID, req.Row, req.Col, req.Value, user); err != nil {
+		log.Error("failed to update grid cell", "grid_id", gridID, "row", req.Row, "col", req.Col, "error", err)
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("failed to update grid cell: %s", err), c))
+		return
+	}
+
+	log.Info("grid cell updated successfully", "grid_id", gridID, "row", req.Row, "col", req.Col)
+	c.JSON(http.StatusOK, gin.H{
+		"gridID": gridID,
+		"row":    req.Row,
+		"col":    req.Col,
+		"value":  req.Value,
+	})
 }

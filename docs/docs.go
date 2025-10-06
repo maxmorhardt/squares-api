@@ -199,6 +199,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/grids/{id}/cell": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the value of a specific cell in a grid",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "grids"
+                ],
+                "summary": "Update a single cell in a grid",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Grid ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cell update data",
+                        "name": "cell",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateGridCellRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.GridCell"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "description": "Returns UP if service is running",
@@ -253,23 +317,52 @@ const docTemplate = `{
                 }
             }
         },
-        "model.GridSwagger": {
+        "model.GridCell": {
             "type": "object",
             "properties": {
+                "col": {
+                    "type": "integer"
+                },
                 "createdAt": {
                     "type": "string"
                 },
                 "createdBy": {
                     "type": "string"
                 },
-                "data": {
+                "gridId": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "row": {
+                    "type": "integer"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "updatedBy": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.GridSwagger": {
+            "type": "object",
+            "properties": {
+                "cells": {
                     "type": "array",
                     "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
+                        "$ref": "#/definitions/model.GridCell"
                     }
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "createdBy": {
+                    "type": "string"
                 },
                 "id": {
                     "type": "string"
@@ -286,15 +379,13 @@ const docTemplate = `{
                 "xlabels": {
                     "type": "array",
                     "items": {
-                        "type": "integer",
-                        "format": "int32"
+                        "type": "integer"
                     }
                 },
                 "ylabels": {
                     "type": "array",
                     "items": {
-                        "type": "integer",
-                        "format": "int32"
+                        "type": "integer"
                     }
                 }
             }
@@ -305,6 +396,25 @@ const docTemplate = `{
                 "status": {
                     "type": "string",
                     "example": "UP"
+                }
+            }
+        },
+        "model.UpdateGridCellRequest": {
+            "type": "object",
+            "required": [
+                "col",
+                "row",
+                "value"
+            ],
+            "properties": {
+                "col": {
+                    "type": "integer"
+                },
+                "row": {
+                    "type": "integer"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         }

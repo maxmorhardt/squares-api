@@ -21,18 +21,37 @@ definitions:
     required:
     - name
     type: object
-  model.GridSwagger:
+  model.GridCell:
     properties:
+      col:
+        type: integer
       createdAt:
         type: string
       createdBy:
         type: string
-      data:
+      gridId:
+        type: string
+      id:
+        type: string
+      row:
+        type: integer
+      updatedAt:
+        type: string
+      updatedBy:
+        type: string
+      value:
+        type: string
+    type: object
+  model.GridSwagger:
+    properties:
+      cells:
         items:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/model.GridCell'
         type: array
+      createdAt:
+        type: string
+      createdBy:
+        type: string
       id:
         type: string
       name:
@@ -43,12 +62,10 @@ definitions:
         type: string
       xlabels:
         items:
-          format: int32
           type: integer
         type: array
       ylabels:
         items:
-          format: int32
           type: integer
         type: array
     type: object
@@ -57,6 +74,19 @@ definitions:
       status:
         example: UP
         type: string
+    type: object
+  model.UpdateGridCellRequest:
+    properties:
+      col:
+        type: integer
+      row:
+        type: integer
+      value:
+        type: string
+    required:
+    - col
+    - row
+    - value
     type: object
 info:
   contact: {}
@@ -147,6 +177,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a grid by ID
+      tags:
+      - grids
+  /grids/{id}/cell:
+    patch:
+      consumes:
+      - application/json
+      description: Updates the value of a specific cell in a grid
+      parameters:
+      - description: Grid ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cell update data
+        in: body
+        name: cell
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateGridCellRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.GridCell'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Update a single cell in a grid
       tags:
       - grids
   /grids/user/{username}:
