@@ -5,7 +5,5 @@ type CreateGridRequest struct {
 }
 
 type UpdateGridCellRequest struct {
-	Row   int    `json:"row" binding:"required"`
-	Col   int    `json:"col" binding:"required"`
 	Value string `json:"value" binding:"required"`
 }

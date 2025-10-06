@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/db"
@@ -16,7 +15,7 @@ type GridRepository interface {
 	GetAllByUser(ctx context.Context, username string) ([]model.Grid, error)
 	GetByID(ctx context.Context, id string) (model.Grid, error)
 	CreateCells(ctx context.Context, cells []model.GridCell) error
-	UpdateCell(ctx context.Context, gridID uuid.UUID, row, col int, value, user string) error
+	UpdateCell(ctx context.Context, cellID uuid.UUID, value, user string) (model.GridCell, error)
 }
 
 type gridRepository struct {
@@ -78,27 +77,31 @@ func (r *gridRepository) GetByID(ctx context.Context, id string) (model.Grid, er
 	return grid, err
 }
 
-
 func (r *gridRepository) CreateCells(ctx context.Context, cells []model.GridCell) error {
 	return r.db.WithContext(ctx).Create(&cells).Error
 }
 
-func (r *gridRepository) UpdateCell(ctx context.Context, gridID uuid.UUID, row, col int, value, user string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func (r *gridRepository) UpdateCell(ctx context.Context, cellID uuid.UUID, value, user string) (model.GridCell, error) {
+	var updatedCell model.GridCell
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var cell model.GridCell
-		if err := tx.Where("grid_id = ? AND row = ? AND col = ?", gridID, row, col).First(&cell).Error; err != nil {
-			return fmt.Errorf("cell not found: %w", err)
+		if err := tx.Where("id = ?", cellID).First(&cell).Error; err != nil {
+			return err
 		}
 
 		cell.Value = value
 		if user != "" {
-			cell.UpdatedBy = user
+			cell.Owner = user
 		}
 
 		if err := tx.Save(&cell).Error; err != nil {
-			return fmt.Errorf("failed to update cell: %w", err)
+			return err
 		}
 
+		updatedCell = cell
 		return nil
 	})
+
+	return updatedCell, err
 }

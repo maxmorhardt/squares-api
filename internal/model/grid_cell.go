@@ -15,8 +15,7 @@ type GridCell struct {
 	Value     string    `json:"value"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
-	CreatedBy string    `json:"createdBy"`
-	UpdatedBy string    `json:"updatedBy"`
+	Owner     string    `json:"owner"`
 }
 
 func (gc *GridCell) BeforeCreate(tx *gorm.DB) (err error) {
@@ -24,17 +23,5 @@ func (gc *GridCell) BeforeCreate(tx *gorm.DB) (err error) {
 		gc.ID = uuid.New()
 	}
 
-	if user, ok := tx.Statement.Context.Value(UserKey).(string); ok {
-		gc.CreatedBy = user
-		gc.UpdatedBy = user
-	}
-
-	return
-}
-
-func (gc *GridCell) BeforeUpdate(tx *gorm.DB) (err error) {
-	if user, ok := tx.Statement.Context.Value(UserKey).(string); ok {
-		gc.UpdatedBy = user
-	}
 	return
 }

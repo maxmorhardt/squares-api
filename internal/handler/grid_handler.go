@@ -58,7 +58,7 @@ func CreateGridHandler(c *gin.Context) {
 
 	if err := repo.Create(ctx, &grid); err != nil {
 		log.Error("failed to create grid in repository", "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("failed to create new grid: %s", err), c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to create new grid: %s", err), c))
 		return
 	}
 
@@ -76,7 +76,6 @@ func CreateGridHandler(c *gin.Context) {
 // @Router /grids [get]
 func GetAllGridsHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
-	log.Info("get all grids handler called")
 
 	repo := repository.NewGridRepository()
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
@@ -84,7 +83,7 @@ func GetAllGridsHandler(c *gin.Context) {
 	grids, err := repo.GetAll(ctx)
 	if err != nil {
 		log.Error("failed to get all grids", "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "failed to get all grids", c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get all grids: %s", err), c))
 		return
 	}
 
@@ -109,7 +108,7 @@ func GetGridsByUserHandler(c *gin.Context) {
 	username := c.Param("username")
 	if username == "" {
 		log.Error("username not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "username is required", c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Username is required", c))
 		return
 	}
 
@@ -119,7 +118,7 @@ func GetGridsByUserHandler(c *gin.Context) {
 	grids, err := repo.GetAllByUser(ctx, username)
 	if err != nil {
 		log.Error("failed to get grids by user", "username", username, "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "failed to get grids by user", c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get grids for user %s: %s", username, err), c))
 		return
 	}
 
@@ -144,7 +143,7 @@ func GetGridByIDHandler(c *gin.Context) {
 	gridID := c.Param("id")
 	if gridID == "" {
 		log.Error("grid id not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "grid id is required", c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Grid id is required", c))
 		return
 	}
 
@@ -154,13 +153,13 @@ func GetGridByIDHandler(c *gin.Context) {
 	grid, err := repo.GetByID(ctx, gridID)
 	if err != nil {
 		log.Error("failed to get grid by id", "id", gridID, "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("failed to get grid: %s", err), c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get grid %s: %s", gridID, err), c))
 		return
 	}
 
 	if grid.ID == uuid.Nil {
 		log.Error("grid not found", "id", gridID)
-		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "grid not found", c))
+		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Grid not found", c))
 		return
 	}
 
@@ -173,21 +172,21 @@ func GetGridByIDHandler(c *gin.Context) {
 // @Tags grids
 // @Accept json
 // @Produce json
-// @Param id path string true "Grid ID"
+// @Param id path string true "Cell ID"
 // @Param cell body model.UpdateGridCellRequest true "Cell update data"
 // @Success 200 {object} model.GridCell
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /grids/{id}/cell [patch]
+// @Router /grids/cell/{id} [patch]
 func UpdateGridCellHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
 
-	gridIDStr := c.Param("id")
-	if gridIDStr == "" {
-		log.Error("grid id not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "grid id is required", c))
+	cellIDParam := c.Param("id")
+	if cellIDParam == "" {
+		log.Error("cell id not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Cell id is required", c))
 		return
 	}
 
@@ -198,10 +197,10 @@ func UpdateGridCellHandler(c *gin.Context) {
 		return
 	}
 
-	gridID, err := uuid.Parse(gridIDStr)
+	cellID, err := uuid.Parse(cellIDParam)
 	if err != nil {
-		log.Error("invalid grid id", "id", gridIDStr, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "invalid grid id", c))
+		log.Error("invalid cell id", "param", cellIDParam, "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid cell id: %s", cellIDParam), c))
 		return
 	}
 
@@ -209,17 +208,13 @@ func UpdateGridCellHandler(c *gin.Context) {
 	user := c.GetString(model.UserKey)
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, user)
 
-	if err := repo.UpdateCell(ctx, gridID, req.Row, req.Col, req.Value, user); err != nil {
-		log.Error("failed to update grid cell", "grid_id", gridID, "row", req.Row, "col", req.Col, "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("failed to update grid cell: %s", err), c))
+	updatedCell, err := repo.UpdateCell(ctx, cellID, req.Value, user)
+	if err != nil {
+		log.Error("failed to update grid cell", "cell_id", cellID, "value", req.Value, "user", user, "error", err)
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to update grid cell: %s", err), c))
 		return
 	}
 
-	log.Info("grid cell updated successfully", "grid_id", gridID, "row", req.Row, "col", req.Col)
-	c.JSON(http.StatusOK, gin.H{
-		"gridID": gridID,
-		"row":    req.Row,
-		"col":    req.Col,
-		"value":  req.Value,
-	})
+	log.Info("grid cell updated successfully", "cell_id", cellID, "value", req.Value, "user", user)
+	c.JSON(http.StatusOK, updatedCell)
 }

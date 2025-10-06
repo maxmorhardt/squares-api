@@ -12,5 +12,5 @@ func RegisterSquaresRoutes(rg *gin.RouterGroup) {
 	rg.GET("", middleware.RoleMiddleware(config.OIDCVerifier, "squares-admin"), handler.GetAllGridsHandler)
 	rg.GET("/user/:username", middleware.RoleMiddleware(config.OIDCVerifier), handler.GetGridsByUserHandler)
 	rg.GET("/:id", middleware.RoleMiddleware(config.OIDCVerifier), handler.GetGridByIDHandler)
-	rg.PATCH("/:id/cell", middleware.RoleMiddleware(config.OIDCVerifier), handler.UpdateGridCellHandler)
+	rg.PATCH("/cell/:id", middleware.RoleMiddleware(config.OIDCVerifier), handler.UpdateGridCellHandler)
 }
