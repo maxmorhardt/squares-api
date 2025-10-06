@@ -60,8 +60,8 @@ func initGridData(req *model.CreateGridRequest) model.Grid {
 	xLabels := make([]int8, 10)
 	yLabels := make([]int8, 10)
 	for i := range int8(10) {
-		xLabels[i] = 0
-		yLabels[i] = 0
+		xLabels[i] = -1
+		yLabels[i] = -1
 	}
 
 	dataJSON, _ := json.Marshal(data)

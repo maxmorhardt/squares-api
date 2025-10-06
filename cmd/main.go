@@ -40,6 +40,7 @@ func main() {
 	r := gin.New()
 
 	r.Use(gin.Recovery())
+	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.PrometheusMiddleware)
 	r.Use(middleware.LoggerMiddleware)
 
