@@ -2,18 +2,14 @@ package main
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/maxmorhardt/squares-api/docs"
-	"github.com/maxmorhardt/squares-api/internal/db"
-	"github.com/maxmorhardt/squares-api/internal/handler"
+	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
 	"github.com/maxmorhardt/squares-api/internal/routes"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	swaggerfiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // @title           Squares API
@@ -26,17 +22,10 @@ import (
 // @name Authorization
 func main() {
 	godotenv.Load()
-	db.Init()
 
-	env := os.Getenv("APP_ENV")
+	config.InitDB()
+	config.InitRedis()
 
-	switch env {
-	case "release":
-		gin.SetMode(gin.ReleaseMode)
-	default:
-		gin.SetMode(gin.DebugMode)
-	}
-	
 	r := gin.New()
 
 	r.Use(gin.Recovery())
@@ -44,11 +33,10 @@ func main() {
 	r.Use(middleware.PrometheusMiddleware)
 	r.Use(middleware.LoggerMiddleware)
 
-	r.GET("/health", handler.HealthCheck)
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
-
+	routes.RegisterRootRoutes(r.Group(""))
 	routes.RegisterSquaresRoutes(r.Group("/grids"))
-	
+	routes.RegisterWebSocketRoutes(r.Group("/ws"))
+
 	go http.ListenAndServe(":2112", promhttp.Handler())
 
 	r.Run(":8080")

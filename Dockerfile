@@ -1,6 +1,6 @@
 FROM --platform=linux/arm64 alpine:latest
 
-ENV APP_ENV release
+ENV GIN_MODE release
 
 COPY squares-api .
 

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/maxmorhardt/squares-api/internal/db"
+	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/gorm"
 )
@@ -24,7 +24,7 @@ type gridRepository struct {
 
 func NewGridRepository() GridRepository {
 	return &gridRepository{
-		db: db.DB,
+		db: config.DB,
 	}
 }
 

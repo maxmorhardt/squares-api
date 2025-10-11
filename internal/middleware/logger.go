@@ -11,9 +11,9 @@ import (
 
 func init() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-    Level: slog.LevelInfo,
+		Level: slog.LevelInfo,
 	}))
-	
+
 	slog.SetDefault(logger)
 }
 
@@ -23,12 +23,15 @@ func LoggerMiddleware(c *gin.Context) {
 		requestId = uuid.New().String()
 	}
 
-	logger := slog.Default().With("request_id", requestId)
+	logger := slog.Default().With(
+		"request_id", requestId,
+		"client_ip", c.ClientIP(),
+	)
 
 	c.Set(model.RequestIDKey, requestId)
 	c.Set(model.LoggerKey, logger)
 
-	if (c.Request.URL.Path != "/health") {
+	if c.Request.URL.Path != "/health" {
 		logger.Info("request initiated",
 			"method", c.Request.Method,
 			"path", c.Request.URL.Path,

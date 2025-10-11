@@ -15,6 +15,53 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/events/{gridId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Establishes a persistent SSE connection to receive real-time updates for a specific grid",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Connect to Server-Sent Events stream for real-time grid updates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Grid ID to listen for updates",
+                        "name": "gridId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.GridChannelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/grids": {
             "get": {
                 "security": [
@@ -332,6 +379,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "locked": {
+                    "type": "boolean"
+                },
                 "owner": {
                     "type": "string"
                 },
@@ -339,6 +389,29 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "updatedAt": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.GridChannelResponse": {
+            "type": "object",
+            "properties": {
+                "cellId": {
+                    "type": "string"
+                },
+                "gridId": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updatedBy": {
                     "type": "string"
                 },
                 "value": {

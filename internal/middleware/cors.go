@@ -13,12 +13,12 @@ func CORSMiddleware() gin.HandlerFunc {
 			if origin == "http://localhost:3000" || origin == "https://squares.maxstash.io" {
 				return true
 			}
-			
+
 			return false
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Cache-Control"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	})

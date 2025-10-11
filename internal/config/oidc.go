@@ -14,7 +14,7 @@ const authProvider = "https://auth.maxstash.io/realms/maxstash"
 func init() {
 	provider, err := oidc.NewProvider(context.Background(), authProvider)
 	if err != nil {
-		slog.Error("unable to create oidc provider", "error", err)
+		slog.Error("failed to create oidc provider", "error", err)
 		panic(err)
 	}
 

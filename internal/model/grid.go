@@ -37,5 +37,6 @@ func (g *Grid) BeforeUpdate(tx *gorm.DB) (err error) {
 	if user, ok := tx.Statement.Context.Value(UserKey).(string); ok {
 		g.UpdatedBy = user
 	}
+	
 	return
 }
