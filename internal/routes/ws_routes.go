@@ -6,6 +6,6 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/handler"
 )
 
-func RegisterSSERoutes(rg *gin.RouterGroup) {
-	rg.GET("/:gridId", handler.SSEHandler)
+func RegisterWebSocketRoutes(rg *gin.RouterGroup) {
+	rg.GET("/grids/:gridId", handler.WebSocketHandler)
 }

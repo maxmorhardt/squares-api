@@ -25,7 +25,7 @@ func main() {
 
 	config.InitDB()
 	config.InitRedis()
-	
+
 	r := gin.New()
 
 	r.Use(gin.Recovery())
@@ -35,8 +35,8 @@ func main() {
 
 	routes.RegisterRootRoutes(r.Group(""))
 	routes.RegisterSquaresRoutes(r.Group("/grids"))
-	routes.RegisterSSERoutes(r.Group("/events"))
-	
+	routes.RegisterWebSocketRoutes(r.Group("/ws"))
+
 	go http.ListenAndServe(":2112", promhttp.Handler())
 
 	r.Run(":8080")
