@@ -31,11 +31,28 @@ definitions:
         type: string
       id:
         type: string
+      locked:
+        type: boolean
       owner:
         type: string
       row:
         type: integer
       updatedAt:
+        type: string
+      value:
+        type: string
+    type: object
+  model.GridChannelResponse:
+    properties:
+      cellId:
+        type: string
+      gridId:
+        type: string
+      timestamp:
+        type: string
+      type:
+        type: string
+      updatedBy:
         type: string
       value:
         type: string
@@ -86,6 +103,37 @@ info:
   title: Squares API
   version: 1.0.0
 paths:
+  /events/{gridId}:
+    get:
+      description: Establishes a persistent SSE connection to receive real-time updates
+        for a specific grid
+      parameters:
+      - description: Grid ID to listen for updates
+        format: uuid
+        in: path
+        name: gridId
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.GridChannelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Connect to Server-Sent Events stream for real-time grid updates
+      tags:
+      - events
   /grids:
     get:
       description: Returns all grids

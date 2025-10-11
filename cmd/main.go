@@ -33,7 +33,7 @@ func main() {
 	r.Use(middleware.PrometheusMiddleware)
 	r.Use(middleware.LoggerMiddleware)
 
-	routes.RegisterRootRoutes(r.Group("/"))
+	routes.RegisterRootRoutes(r.Group(""))
 	routes.RegisterSquaresRoutes(r.Group("/grids"))
 	routes.RegisterSSERoutes(r.Group("/events"))
 	

@@ -13,8 +13,19 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
 	"github.com/maxmorhardt/squares-api/internal/model"
+	"github.com/maxmorhardt/squares-api/internal/repository"
 )
 
+// @Summary Connect to Server-Sent Events stream for real-time grid updates
+// @Description Establishes a persistent SSE connection to receive real-time updates for a specific grid
+// @Tags events
+// @Produce text/event-stream
+// @Param gridId path string true "Grid ID to listen for updates" format(uuid)
+// @Success 200 {object} model.GridChannelResponse
+// @Failure 400 {object} model.APIError
+// @Failure 401 {object} model.APIError
+// @Security BearerAuth
+// @Router /events/{gridId} [get]
 func SSEHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
 
@@ -34,7 +45,6 @@ func SSEHandler(c *gin.Context) {
 		return
 	}
 
-	log.Info("starting sse connection handler", "user", claims.Username, "gridId", gridId)
 	handleSSEConnection(c, log, gridId, claims.Username)
 }
 
@@ -48,6 +58,15 @@ func validateSSERequest(c *gin.Context, log *slog.Logger) (*model.Claims, uuid.U
 	if err != nil || gridId == uuid.Nil {
 		log.Error("invalid or missing grid id", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid or missing Grid ID", c))
+		return nil, uuid.Nil
+	}
+
+	gridRepo := repository.NewGridRepository()
+	_, err = gridRepo.GetByID(c.Request.Context(), gridId.String())
+	if err != nil {
+		log.Error("grid not found", "gridId", gridId)
+		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Grid not found", c))
+
 		return nil, uuid.Nil
 	}
 
@@ -74,16 +93,15 @@ func handleSSEConnection(c *gin.Context, log *slog.Logger, gridId uuid.UUID, use
 	for {
 		select {
 		case msg := <-redisChannel:
-			log.Info("received redis message", "channel", msg.Channel, "payload_length", len(msg.Payload))
+			log.Info("received redis message", "channel", msg.Channel)
 			if err := handleRedisMessage(c, log, msg); err != nil {
-				log.Warn("failed to handle redis message, closing connection", "error", err)
+				log.Warn("failed to handle redis message - closing connection", "error", err)
 				return
 			}
 
 		case <-ticker.C:
-			log.Debug("sending keepalive message", "gridId", gridId)
 			if err := sendSSEMessage(c, log, model.NewKeepAliveMessage(gridId)); err != nil {
-				log.Warn("failed to send keepalive, closing connection", "error", err)
+				log.Warn("failed to send keepalive - closing connection", "error", err)
 				return
 			}
 
