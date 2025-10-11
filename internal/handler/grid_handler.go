@@ -11,6 +11,7 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/middleware"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
+	"github.com/maxmorhardt/squares-api/internal/service"
 )
 
 // @Summary Create a new Grid
@@ -212,6 +213,13 @@ func UpdateGridCellHandler(c *gin.Context) {
 		log.Error("failed to update grid cell", "cell_id", cellID, "value", req.Value, "user", user, "error", err)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to update grid cell: %s", err), c))
 		return
+	}
+
+	eventSvc := &service.EventService{}
+	if err := eventSvc.PublishCellUpdate(ctx, updatedCell.GridID, updatedCell.ID, updatedCell.Value, user); err != nil {
+		log.Error("failed to publish cell update", "gridId", updatedCell.GridID, "cellId", updatedCell.ID, "error", err)
+	} else {
+		log.Info("cell update published successfully", "gridId", updatedCell.GridID, "cellId", updatedCell.ID)
 	}
 
 	log.Info("grid cell updated successfully", "cell_id", cellID, "value", req.Value, "user", user)
