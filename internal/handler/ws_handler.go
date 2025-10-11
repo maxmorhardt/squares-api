@@ -102,18 +102,10 @@ func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.L
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	// Handle incoming WebSocket messages from client
-	go func() {
-		for {
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				log.Info("websocket read error, client disconnected", "error", err)
-				return
-			}
-			// For now, we just read and ignore client messages
-			// In the future, we could handle client-to-server messages here
-		}
-	}()
+	jwtChecker := time.NewTicker(5 * time.Minute)
+	defer jwtChecker.Stop()
+
+	go handleIncomingMessages(conn)
 
 	for {
 		select {
@@ -130,8 +122,28 @@ func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.L
 				return
 			}
 
+		case <-jwtChecker.C:
+			if shouldCloseConnection(c, log, username) {
+				log.Info("closing websocket connection - token validation failed", "user", username)
+				if err := sendWebSocketMessage(conn, log, model.NewClosedConnectionMessage(gridId, username)); err != nil {
+					log.Warn("failed to send closed connection message", "error", err)
+				}
+
+				conn.Close()
+				return
+			}
+
 		case <-ctx.Done():
 			log.Info("websocket client disconnected", "user", username, "gridId", gridId)
+			return
+		}
+	}
+}
+
+func handleIncomingMessages(conn *websocket.Conn) {
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
 			return
 		}
 	}
@@ -162,4 +174,20 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.Gr
 
 	log.Debug("websocket message sent successfully", "type", data.Type, "size", len(jsonData))
 	return nil
+}
+
+func shouldCloseConnection(c *gin.Context, log *slog.Logger, username string) bool {
+	claims := middleware.VerifyToken(c, config.OIDCVerifier, log)
+
+	if claims == nil {
+		log.Info("token validation failed for websocket connection", "user", username)
+		return true
+	}
+
+	if claims.Username != username {
+		log.Warn("username mismatch in token", "expected", username, "actual", claims.Username)
+		return true
+	}
+
+	return false
 }

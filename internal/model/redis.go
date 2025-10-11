@@ -10,6 +10,7 @@ const (
 	CellUpdateType    string = "cell_update"
 	KeepAliveType     string = "keepalive"
 	ConnectedType     string = "connected"
+	ClosedConnectionType string = "connection_closed"
 	GridChannelPrefix string = "grid"
 )
 
@@ -37,9 +38,18 @@ func NewConnectedMessage(gridId uuid.UUID, username string) *GridChannelResponse
 	return &GridChannelResponse{
 		Type:      ConnectedType,
 		GridID:    gridId,
-		CellID:    uuid.Nil,
 		Value:     "connected",
-		UpdatedBy: username,
+		UpdatedBy: "system",
+		Timestamp: time.Now(),
+	}
+}
+
+func NewClosedConnectionMessage(gridId uuid.UUID, username string) *GridChannelResponse {
+	return &GridChannelResponse{
+		Type:      ClosedConnectionType,
+		GridID:    gridId,
+		Value:     "disconnected",
+		UpdatedBy: "system",
 		Timestamp: time.Now(),
 	}
 }
