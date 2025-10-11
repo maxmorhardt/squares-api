@@ -16,6 +16,7 @@ type GridCell struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 	Owner     string    `json:"owner"`
+	Locked    bool      `json:"locked"`
 }
 
 func (gc *GridCell) BeforeCreate(tx *gorm.DB) (err error) {

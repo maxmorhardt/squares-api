@@ -8,12 +8,9 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/maxmorhardt/squares-api/docs"
 	"github.com/maxmorhardt/squares-api/internal/db"
-	"github.com/maxmorhardt/squares-api/internal/handler"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
 	"github.com/maxmorhardt/squares-api/internal/routes"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	swaggerfiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // @title           Squares API
@@ -44,10 +41,9 @@ func main() {
 	r.Use(middleware.PrometheusMiddleware)
 	r.Use(middleware.LoggerMiddleware)
 
-	r.GET("/health", handler.HealthCheck)
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
-
+	routes.RegisterRootRoutes(r.Group("/"))
 	routes.RegisterSquaresRoutes(r.Group("/grids"))
+	routes.RegisterSSERoutes(r.Group("/events"))
 	
 	go http.ListenAndServe(":2112", promhttp.Handler())
 
