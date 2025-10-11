@@ -7,60 +7,60 @@ import (
 )
 
 const (
-	CellUpdateType       string = "cell_update"
+	SquareUpdateType     string = "square_update"
 	KeepAliveType        string = "keepalive"
 	ConnectedType        string = "connected"
 	ClosedConnectionType string = "connection_closed"
-	GridChannelPrefix    string = "grid"
+	ContestChannelPrefix string = "contest"
 )
 
-type GridChannelResponse struct {
-	Type        string    `json:"type"`
-	GridID      uuid.UUID `json:"gridId"`
-	CellID      uuid.UUID `json:"cellId"`
-	Value       string    `json:"value"`
-	UpdatedBy   string    `json:"updatedBy"`
-	Timestamp   time.Time `json:"timestamp"`
+type ContestChannelResponse struct {
+	Type      string    `json:"type"`
+	ContestID uuid.UUID `json:"contestId"`
+	SquareID  uuid.UUID `json:"squareId"`
+	Value     string    `json:"value"`
+	UpdatedBy string    `json:"updatedBy"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
-func NewKeepAliveMessage(gridId uuid.UUID) *GridChannelResponse {
-	return &GridChannelResponse{
+func NewKeepAliveMessage(contestId uuid.UUID) *ContestChannelResponse {
+	return &ContestChannelResponse{
 		Type:      KeepAliveType,
-		GridID:    gridId,
-		CellID:    uuid.Nil,
+		ContestID: contestId,
+		SquareID:  uuid.Nil,
 		Value:     "keepalive",
 		UpdatedBy: "system",
 		Timestamp: time.Now(),
 	}
 }
 
-func NewConnectedMessage(gridId uuid.UUID, username string) *GridChannelResponse {
-	return &GridChannelResponse{
+func NewConnectedMessage(contestId uuid.UUID, username string) *ContestChannelResponse {
+	return &ContestChannelResponse{
 		Type:      ConnectedType,
-		GridID:    gridId,
-		CellID:    uuid.Nil,
+		ContestID: contestId,
+		SquareID:  uuid.Nil,
 		Value:     "connected",
 		UpdatedBy: "system",
 		Timestamp: time.Now(),
 	}
 }
 
-func NewClosedConnectionMessage(gridId uuid.UUID, username string) *GridChannelResponse {
-	return &GridChannelResponse{
+func NewClosedConnectionMessage(contestId uuid.UUID, username string) *ContestChannelResponse {
+	return &ContestChannelResponse{
 		Type:      ClosedConnectionType,
-		GridID:    gridId,
-		CellID:    uuid.Nil,
+		ContestID: contestId,
+		SquareID:  uuid.Nil,
 		Value:     "disconnected",
 		UpdatedBy: "system",
 		Timestamp: time.Now(),
 	}
 }
 
-func NewCellUpdateMessage(gridId, cellId uuid.UUID, value, updatedBy string) *GridChannelResponse {
-	return &GridChannelResponse{
-		Type:      CellUpdateType,
-		GridID:    gridId,
-		CellID:    cellId,
+func NewSquareUpdateMessage(contestId, squareId uuid.UUID, value, updatedBy string) *ContestChannelResponse {
+	return &ContestChannelResponse{
+		Type:      SquareUpdateType,
+		ContestID: contestId,
+		SquareID:  squareId,
 		Value:     value,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),

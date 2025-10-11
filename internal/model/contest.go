@@ -8,35 +8,35 @@ import (
 	"gorm.io/gorm"
 )
 
-type Grid struct {
+type Contest struct {
 	ID        uuid.UUID      `json:"id" gorm:"primaryKey"`
 	Name      string         `json:"name"`
 	XLabels   datatypes.JSON `json:"xLabels"`
 	YLabels   datatypes.JSON `json:"yLabels"`
-	Cells     []GridCell     `json:"cells" gorm:"foreignKey:GridID;constraint:OnDelete:CASCADE"`
+	Squares   []Square       `json:"squares" gorm:"foreignKey:ContestID;constraint:OnDelete:CASCADE"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	CreatedBy string         `json:"createdBy"`
 	UpdatedBy string         `json:"updatedBy"`
 }
 
-func (g *Grid) BeforeCreate(tx *gorm.DB) (err error) {
-	if g.ID == uuid.Nil {
-		g.ID = uuid.New()
+func (c *Contest) BeforeCreate(tx *gorm.DB) (err error) {
+	if c.ID == uuid.Nil {
+		c.ID = uuid.New()
 	}
 
 	if user, ok := tx.Statement.Context.Value(UserKey).(string); ok {
-		g.CreatedBy = user
-		g.UpdatedBy = user
+		c.CreatedBy = user
+		c.UpdatedBy = user
 	}
 
 	return
 }
 
-func (g *Grid) BeforeUpdate(tx *gorm.DB) (err error) {
+func (c *Contest) BeforeUpdate(tx *gorm.DB) (err error) {
 	if user, ok := tx.Statement.Context.Value(UserKey).(string); ok {
-		g.UpdatedBy = user
+		c.UpdatedBy = user
 	}
-	
+
 	return
 }

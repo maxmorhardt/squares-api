@@ -34,7 +34,7 @@ func main() {
 	r.Use(middleware.LoggerMiddleware)
 
 	routes.RegisterRootRoutes(r.Group(""))
-	routes.RegisterSquaresRoutes(r.Group("/grids"))
+	routes.RegisterContestRoutes(r.Group("/contests"))
 	routes.RegisterWebSocketRoutes(r.Group("/ws"))
 
 	go http.ListenAndServe(":2112", promhttp.Handler())

@@ -23,22 +23,22 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// @Summary Connect to WebSocket for real-time grid updates
-// @Description Establishes a persistent WebSocket connection to receive real-time updates for a specific grid
+// @Summary Connect to WebSocket for real-time contest updates
+// @Description Establishes a persistent WebSocket connection to receive real-time updates for a specific contest
 // @Tags events
-// @Param gridId path string true "Grid ID to listen for updates" format(uuid)
+// @Param contestId path string true "Contest ID to listen for updates" format(uuid)
 // @Success 101 {string} string "WebSocket connection upgraded"
 // @Failure 400 {object} model.APIError
 // @Failure 401 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /ws/grids/{gridId} [get]
+// @Router /ws/contests/{contestId} [get]
 func WebSocketHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
 
-	claims, gridId := validateWebSocketRequest(c, log)
-	if claims == nil || gridId == uuid.Nil {
+	claims, contestId := validateWebSocketRequest(c, log)
+	if claims == nil || contestId == uuid.Nil {
 		return
 	}
 
@@ -57,13 +57,13 @@ func WebSocketHandler(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	log.Info("websocket connection established", "user", claims.Username, "gridId", gridId)
-	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(gridId, claims.Username)); err != nil {
+	log.Info("websocket connection established", "user", claims.Username, "contestId", contestId)
+	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestId, claims.Username)); err != nil {
 		log.Error("failed to send connected message", "error", err)
 		return
 	}
 
-	handleWebSocketConnection(conn, c, log, gridId, claims.Username)
+	handleWebSocketConnection(conn, c, log, contestId, claims.Username)
 }
 
 func validateWebSocketRequest(c *gin.Context, log *slog.Logger) (*model.Claims, uuid.UUID) {
@@ -72,34 +72,34 @@ func validateWebSocketRequest(c *gin.Context, log *slog.Logger) (*model.Claims, 
 		return nil, uuid.Nil
 	}
 
-	gridId, err := uuid.Parse(c.Param("gridId"))
-	if err != nil || gridId == uuid.Nil {
-		log.Error("invalid or missing grid id", "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid or missing Grid ID", c))
+	contestId, err := uuid.Parse(c.Param("contestId"))
+	if err != nil || contestId == uuid.Nil {
+		log.Error("invalid or missing contest id", "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid or missing Contest ID", c))
 		return nil, uuid.Nil
 	}
 
-	gridRepo := repository.NewGridRepository()
-	_, err = gridRepo.GetByID(c.Request.Context(), gridId.String())
+	contestRepo := repository.NewContestRepository()
+	_, err = contestRepo.GetByID(c.Request.Context(), contestId.String())
 	if err != nil {
-		log.Error("grid not found", "gridId", gridId)
-		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Grid not found", c))
+		log.Error("contest not found", "contestId", contestId)
+		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
 		return nil, uuid.Nil
 	}
 
-	log.Info("websocket client validated", "user", claims.Username, "gridId", gridId)
-	return claims, gridId
+	log.Info("websocket client validated", "user", claims.Username, "contestId", contestId)
+	return claims, contestId
 }
 
-func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.Logger, gridId uuid.UUID, username string) {
+func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.Logger, contestId uuid.UUID, username string) {
 	ctx := c.Request.Context()
 
-	gridChannel := fmt.Sprintf("%s:%s", model.GridChannelPrefix, gridId)
-	log.Info("subscribing to redis channel", "channel", gridChannel)
+	contestChannel := fmt.Sprintf("%s:%s", model.ContestChannelPrefix, contestId)
+	log.Info("subscribing to redis channel", "channel", contestChannel)
 
-	pubsub := config.RedisClient.Subscribe(ctx, gridChannel)
+	pubsub := config.RedisClient.Subscribe(ctx, contestChannel)
 	defer func() {
-		log.Info("closing redis subscription", "channel", gridChannel)
+		log.Info("closing redis subscription", "channel", contestChannel)
 		pubsub.Close()
 	}()
 
@@ -122,7 +122,7 @@ func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.L
 			}
 
 		case <-ticker.C:
-			if err := sendWebSocketMessage(conn, log, model.NewKeepAliveMessage(gridId)); err != nil {
+			if err := sendWebSocketMessage(conn, log, model.NewKeepAliveMessage(contestId)); err != nil {
 				log.Warn("failed to send keepalive - closing connection", "error", err)
 				return
 			}
@@ -130,7 +130,7 @@ func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.L
 		case <-jwtChecker.C:
 			if shouldCloseConnection(c, log, username) {
 				log.Info("closing websocket connection - token validation failed", "user", username)
-				if err := sendWebSocketMessage(conn, log, model.NewClosedConnectionMessage(gridId, username)); err != nil {
+				if err := sendWebSocketMessage(conn, log, model.NewClosedConnectionMessage(contestId, username)); err != nil {
 					log.Warn("failed to send closed connection message", "error", err)
 				}
 				conn.Close()
@@ -138,7 +138,7 @@ func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.L
 			}
 
 		case <-ctx.Done():
-			log.Info("websocket client disconnected", "user", username, "gridId", gridId)
+			log.Info("websocket client disconnected", "user", username, "contestId", contestId)
 			return
 		}
 	}
@@ -154,17 +154,17 @@ func handleIncomingMessages(conn *websocket.Conn) {
 }
 
 func handleWebSocketRedisMessage(conn *websocket.Conn, log *slog.Logger, msg *redis.Message) error {
-	var updateData model.GridChannelResponse
+	var updateData model.ContestChannelResponse
 	if err := json.Unmarshal([]byte(msg.Payload), &updateData); err != nil {
 		log.Error("failed to unmarshal redis message", "error", err, "payload", msg.Payload)
 		return nil
 	}
 
-	log.Info("sending redis update to client", "type", updateData.Type, "gridId", updateData.GridID, "cellId", updateData.CellID)
+	log.Info("sending redis update to client", "type", updateData.Type, "contestId", updateData.ContestID, "squareId", updateData.SquareID)
 	return sendWebSocketMessage(conn, log, &updateData)
 }
 
-func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.GridChannelResponse) error {
+func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.ContestChannelResponse) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		log.Error("failed to marshal websocket message", "error", err, "type", data.Type)

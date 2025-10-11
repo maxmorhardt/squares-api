@@ -6,12 +6,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type GridSwagger struct {
+type ContestSwagger struct {
 	ID        uuid.UUID
 	Name      string
 	XLabels   []int
 	YLabels   []int
-	Cells     []GridCell
+	Squares   []Square
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	CreatedBy string

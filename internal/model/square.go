@@ -7,21 +7,20 @@ import (
 	"gorm.io/gorm"
 )
 
-type GridCell struct {
+type Square struct {
 	ID        uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
-	GridID    uuid.UUID `json:"gridId" gorm:"type:uuid;index"`
+	ContestID uuid.UUID `json:"contestId" gorm:"type:uuid;index"`
 	Row       int       `json:"row"`
 	Col       int       `json:"col"`
 	Value     string    `json:"value"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 	Owner     string    `json:"owner"`
-	Locked    bool      `json:"locked"`
 }
 
-func (gc *GridCell) BeforeCreate(tx *gorm.DB) (err error) {
-	if gc.ID == uuid.Nil {
-		gc.ID = uuid.New()
+func (s *Square) BeforeCreate(tx *gorm.DB) (err error) {
+	if s.ID == uuid.Nil {
+		s.ID = uuid.New()
 	}
 
 	return

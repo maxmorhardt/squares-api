@@ -23,7 +23,7 @@ func InitDB() {
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		host, port, user, password, dbname, sslmode,
-  )
+	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -31,8 +31,8 @@ func InitDB() {
 		panic(err)
 	}
 
-	db.AutoMigrate(&model.Grid{})
-	db.AutoMigrate(&model.GridCell{})
+	db.AutoMigrate(&model.Contest{})
+	db.AutoMigrate(&model.Square{})
 
 	DB = db
 }

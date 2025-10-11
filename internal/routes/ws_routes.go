@@ -7,5 +7,5 @@ import (
 )
 
 func RegisterWebSocketRoutes(rg *gin.RouterGroup) {
-	rg.GET("/grids/:gridId", handler.WebSocketHandler)
+	rg.GET("/contests/:contestId", handler.WebSocketHandler)
 }

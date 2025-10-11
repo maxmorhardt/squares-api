@@ -1,9 +1,9 @@
 package model
 
-type CreateGridRequest struct {
+type CreateContestRequest struct {
 	Name string `json:"name" binding:"required"`
 }
 
-type UpdateGridCellRequest struct {
+type UpdateSquareRequest struct {
 	Value string `json:"value" binding:"required"`
 }
