@@ -1,4 +1,4 @@
-package db
+package config
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 
 var DB *gorm.DB
 
-func Init() {
+func InitDB() {
 	host := os.Getenv("DB_HOST")
 	port := os.Getenv("DB_PORT")
 	user := os.Getenv("DB_USER")

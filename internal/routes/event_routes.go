@@ -7,5 +7,5 @@ import (
 )
 
 func RegisterSSERoutes(rg *gin.RouterGroup) {
-	rg.GET("/events", handler.SSEHandler)
+	rg.GET("/", handler.SSEHandler)
 }

@@ -2,12 +2,11 @@ package main
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/maxmorhardt/squares-api/docs"
-	"github.com/maxmorhardt/squares-api/internal/db"
+	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
 	"github.com/maxmorhardt/squares-api/internal/routes"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -23,16 +22,9 @@ import (
 // @name Authorization
 func main() {
 	godotenv.Load()
-	db.Init()
 
-	env := os.Getenv("APP_ENV")
-
-	switch env {
-	case "release":
-		gin.SetMode(gin.ReleaseMode)
-	default:
-		gin.SetMode(gin.DebugMode)
-	}
+	config.InitDB()
+	config.InitRedis()
 	
 	r := gin.New()
 
