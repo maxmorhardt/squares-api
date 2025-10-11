@@ -2,7 +2,9 @@ package model
 
 type ctxKey string
 
-const UserKey ctxKey = "user"
-const RequestIDKey ctxKey = "request_id"
-const RolesKey ctxKey = "roles"
-const LoggerKey ctxKey = "logger"
+const (
+	UserKey      ctxKey = "user"
+	RequestIDKey ctxKey = "request_id"
+	RolesKey     ctxKey = "roles"
+	LoggerKey    ctxKey = "logger"
+)
