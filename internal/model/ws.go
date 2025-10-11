@@ -15,12 +15,12 @@ const (
 )
 
 type GridChannelResponse struct {
-	Type      string    `json:"type"`
-	GridID    uuid.UUID `json:"gridId"`
-	CellID    uuid.UUID `json:"cellId"`
-	Value     string    `json:"value"`
-	UpdatedBy string    `json:"updatedBy"`
-	Timestamp time.Time `json:"timestamp"`
+	Type        string    `json:"type"`
+	GridID      uuid.UUID `json:"gridId"`
+	CellID      uuid.UUID `json:"cellId"`
+	Value       string    `json:"value"`
+	UpdatedBy   string    `json:"updatedBy"`
+	Timestamp   time.Time `json:"timestamp"`
 }
 
 func NewKeepAliveMessage(gridId uuid.UUID) *GridChannelResponse {
