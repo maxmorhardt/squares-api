@@ -29,17 +29,16 @@ func CreateGridHandler(c *gin.Context) {
 
 	var req model.CreateGridRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Error("failed to bind json", "error", err)
+		log.Error("failed to bind create grid json", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, err.Error(), c))
 		return
 	}
 
 	log.Info("create grid request json bound successfully", "name", req.Name)
 
-	// Initialize XLabels and YLabels arrays with -1
 	xLabels := make([]int8, 10)
 	yLabels := make([]int8, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		xLabels[i] = -1
 		yLabels[i] = -1
 	}

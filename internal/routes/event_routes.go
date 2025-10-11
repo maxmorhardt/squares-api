@@ -7,5 +7,5 @@ import (
 )
 
 func RegisterSSERoutes(rg *gin.RouterGroup) {
-	rg.GET("/", handler.SSEHandler)
+	rg.GET("/:gridId", handler.SSEHandler)
 }

@@ -36,6 +36,11 @@ image:
       secretKeyRef:
         name: squares-api-env
         key: db-ssl-mode
+  - name: REDIS_HOST
+    valueFrom:
+      secretKeyRef:
+        name: squares-api-env
+        key: redis-host
   readinessProbe:
     path: /health
     initialDelaySeconds: 30
