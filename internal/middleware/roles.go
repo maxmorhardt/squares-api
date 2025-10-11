@@ -15,7 +15,7 @@ func RoleMiddleware(verifier *oidc.IDTokenVerifier, allowedRoles ...string) gin.
 	return func(c *gin.Context) {
 		log := FromContext(c)
 
-		claims := VerifyToken(c, verifier, log)
+		claims := VerifyToken(c, verifier, log, false)
 		if claims == nil {
 			return
 		}
@@ -29,30 +29,47 @@ func RoleMiddleware(verifier *oidc.IDTokenVerifier, allowedRoles ...string) gin.
 	}
 }
 
-func VerifyToken(c *gin.Context, verifier *oidc.IDTokenVerifier, log *slog.Logger) *model.Claims {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-		log.Warn("missing authorization header")
-		c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Missing authorization header", c))
-		return nil
+func VerifyToken(c *gin.Context, verifier *oidc.IDTokenVerifier, log *slog.Logger, isWebSocket bool) *model.Claims {
+	var token string
+	if  isWebSocket {
+			wsProtocol := c.Request.Header.Get("Sec-WebSocket-Protocol")
+			if wsProtocol == "" {
+				log.Warn("missing sec-websocket-protocol header")
+				c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Missing Sec-WebSocket-Protocol header", c))
+				return nil
+			}
+
+			token = wsProtocol
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			log.Warn("missing authorization header")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Missing Authorization header", c))
+			return nil
+		}
+
+		token = strings.TrimPrefix(authHeader, "Bearer ")
 	}
-
-	token := strings.TrimPrefix(authHeader, "Bearer ")
-
+	
 	idToken, err := verifier.Verify(c.Request.Context(), token)
 	if err != nil {
 		log.Warn("failed to verify token", "error", err)
-		c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Invalid token", c))
+		if !isWebSocket {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Invalid token", c))
+		}
 		return nil
 	}
 
 	claims := model.Claims{}
 	if err := idToken.Claims(&claims); err != nil {
 		log.Warn("failed to parse claims", "err", err)
-		c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Invalid token", c))
+		if !isWebSocket {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Invalid token claims", c))
+		}
 		return nil
 	}
 
+	log.Info("token verified", "user", claims.Username, "roles", claims.Roles)
 	return &claims
 }
 

@@ -17,7 +17,11 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/repository"
 )
 
-var upgrader = websocket.Upgrader{}
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
 
 // @Summary Connect to WebSocket for real-time grid updates
 // @Description Establishes a persistent WebSocket connection to receive real-time updates for a specific grid
@@ -29,7 +33,7 @@ var upgrader = websocket.Upgrader{}
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /events/{gridId} [get]
+// @Router /ws/grids/{gridId} [get]
 func WebSocketHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
 
@@ -38,16 +42,22 @@ func WebSocketHandler(c *gin.Context) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	token := c.Request.Header.Get("Sec-WebSocket-Protocol")
+	responseHeader := http.Header{}
+	if token != "" {
+		responseHeader.Set("Sec-WebSocket-Protocol", token)
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, responseHeader)
 	if err != nil {
 		log.Error("failed to upgrade connection to websocket", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Failed to upgrade to WebSocket", c))
+
 		return
 	}
 	defer conn.Close()
 
 	log.Info("websocket connection established", "user", claims.Username, "gridId", gridId)
-
 	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(gridId, claims.Username)); err != nil {
 		log.Error("failed to send connected message", "error", err)
 		return
@@ -57,7 +67,7 @@ func WebSocketHandler(c *gin.Context) {
 }
 
 func validateWebSocketRequest(c *gin.Context, log *slog.Logger) (*model.Claims, uuid.UUID) {
-	claims := middleware.VerifyToken(c, config.OIDCVerifier, log)
+	claims := middleware.VerifyToken(c, config.OIDCVerifier, log, true)
 	if claims == nil {
 		return nil, uuid.Nil
 	}
@@ -123,7 +133,6 @@ func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.L
 				if err := sendWebSocketMessage(conn, log, model.NewClosedConnectionMessage(gridId, username)); err != nil {
 					log.Warn("failed to send closed connection message", "error", err)
 				}
-
 				conn.Close()
 				return
 			}
@@ -171,7 +180,7 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.Gr
 }
 
 func shouldCloseConnection(c *gin.Context, log *slog.Logger, username string) bool {
-	claims := middleware.VerifyToken(c, config.OIDCVerifier, log)
+	claims := middleware.VerifyToken(c, config.OIDCVerifier, log, true)
 
 	if claims == nil {
 		log.Info("token validation failed for websocket connection", "user", username)
