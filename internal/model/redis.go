@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	CellUpdateType    string = "cell_update"
-	KeepAliveType     string = "keepalive"
-	ConnectedType     string = "connected"
+	CellUpdateType       string = "cell_update"
+	KeepAliveType        string = "keepalive"
+	ConnectedType        string = "connected"
 	ClosedConnectionType string = "connection_closed"
-	GridChannelPrefix string = "grid"
+	GridChannelPrefix    string = "grid"
 )
 
 type GridChannelResponse struct {
@@ -38,6 +38,7 @@ func NewConnectedMessage(gridId uuid.UUID, username string) *GridChannelResponse
 	return &GridChannelResponse{
 		Type:      ConnectedType,
 		GridID:    gridId,
+		CellID:    uuid.Nil,
 		Value:     "connected",
 		UpdatedBy: "system",
 		Timestamp: time.Now(),
@@ -48,6 +49,7 @@ func NewClosedConnectionMessage(gridId uuid.UUID, username string) *GridChannelR
 	return &GridChannelResponse{
 		Type:      ClosedConnectionType,
 		GridID:    gridId,
+		CellID:    uuid.Nil,
 		Value:     "disconnected",
 		UpdatedBy: "system",
 		Timestamp: time.Now(),

@@ -17,12 +17,7 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/repository"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		return origin == "http://localhost:3000" || origin == "https://squares.maxstash.io"
-	},
-}
+var upgrader = websocket.Upgrader{}
 
 // @Summary Connect to WebSocket for real-time grid updates
 // @Description Establishes a persistent WebSocket connection to receive real-time updates for a specific grid
@@ -172,7 +167,6 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.Gr
 		return err
 	}
 
-	log.Debug("websocket message sent successfully", "type", data.Type, "size", len(jsonData))
 	return nil
 }
 

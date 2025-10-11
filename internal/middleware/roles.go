@@ -53,7 +53,6 @@ func VerifyToken(c *gin.Context, verifier *oidc.IDTokenVerifier, log *slog.Logge
 		return nil
 	}
 
-	log.Info("token verified", "user", claims.Username, "roles", claims.Roles)
 	return &claims
 }
 
