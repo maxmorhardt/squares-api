@@ -317,8 +317,8 @@ func RandomizeContestLabelsHandler(c *gin.Context) {
 		return
 	}
 
-	if err := redisService.PublishLabelsUpdate(ctx, updatedContest.ID, xLabels, yLabels, user); err != nil {
-		log.Error("failed to publish labels update", "contestId", updatedContest.ID, "user", user, "error", err)
+	if err := redisService.PublishContestUpdate(ctx, updatedContest.ID, xLabels, yLabels, user); err != nil {
+		log.Error("failed to publish contest update", "contestId", updatedContest.ID, "user", user, "error", err)
 	}
 
 	log.Info("contest labels randomized successfully", "contest_id", contestID, "user", user)

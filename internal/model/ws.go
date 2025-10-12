@@ -8,7 +8,7 @@ import (
 
 const (
 	SquareUpdateType     string = "square_update"
-	LabelsUpdateType     string = "labels_update"
+	ContestUpdateType    string = "contest_update"
 	KeepAliveType        string = "keepalive"
 	ConnectedType        string = "connected"
 	ClosedConnectionType string = "connection_closed"
@@ -70,9 +70,9 @@ func NewSquareUpdateMessage(contestId, squareId uuid.UUID, value, updatedBy stri
 	}
 }
 
-func NewLabelsUpdateMessage(contestId uuid.UUID, xLabels, yLabels []int8, updatedBy string) *ContestChannelResponse {
+func NewContestUpdateMessage(contestId uuid.UUID, xLabels, yLabels []int8, updatedBy string) *ContestChannelResponse {
 	return &ContestChannelResponse{
-		Type:      LabelsUpdateType,
+		Type:      ContestUpdateType,
 		ContestID: contestId,
 		SquareID:  uuid.Nil,
 		XLabels:   xLabels,

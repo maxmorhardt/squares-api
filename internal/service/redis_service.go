@@ -21,8 +21,8 @@ func (s *RedisService) PublishSquareUpdate(ctx context.Context, contestID uuid.U
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
 }
 
-func (s *RedisService) PublishLabelsUpdate(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, updatedBy string) error {
-	updateMessage := model.NewLabelsUpdateMessage(contestID, xLabels, yLabels, updatedBy)
+func (s *RedisService) PublishContestUpdate(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, updatedBy string) error {
+	updateMessage := model.NewContestUpdateMessage(contestID, xLabels, yLabels, updatedBy)
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
 }
 
