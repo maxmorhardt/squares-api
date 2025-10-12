@@ -15,75 +15,28 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/events/{gridId}": {
+        "/contests": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Establishes a persistent SSE connection to receive real-time updates for a specific grid",
-                "produces": [
-                    "text/event-stream"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Connect to Server-Sent Events stream for real-time grid updates",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Grid ID to listen for updates",
-                        "name": "gridId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/model.GridChannelResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    }
-                }
-            }
-        },
-        "/grids": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns all grids",
+                "description": "Returns all contests",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "grids"
+                    "contests"
                 ],
-                "summary": "Get all grids",
+                "summary": "Get all contests",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/model.GridSwagger"
+                                "$ref": "#/definitions/model.ContestSwagger"
                             }
                         }
                     },
@@ -101,7 +54,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new 10x10 grid with X and Y labels",
+                "description": "Creates a new 10x10 contest with X and Y labels. Contest name must be 1-20 characters with only letters, numbers, spaces, hyphens, and underscores. Team names are optional but follow the same validation rules.",
                 "consumes": [
                     "application/json"
                 ],
@@ -109,17 +62,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "grids"
+                    "contests"
                 ],
-                "summary": "Create a new Grid",
+                "summary": "Create a new Contest",
                 "parameters": [
                     {
-                        "description": "Grid to create",
-                        "name": "grid",
+                        "description": "Contest to create",
+                        "name": "contest",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.CreateGridRequest"
+                            "$ref": "#/definitions/model.CreateContestRequest"
                         }
                     }
                 ],
@@ -127,7 +80,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.GridSwagger"
+                            "$ref": "#/definitions/model.ContestSwagger"
                         }
                     },
                     "400": {
@@ -145,14 +98,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/grids/cell/{id}": {
-            "patch": {
+        "/contests/square/{id}": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the value of a specific cell in a grid",
+                "description": "Updates the value of a specific square in a contest. Value must be 1-3 uppercase letters or numbers only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -160,24 +113,24 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "grids"
+                    "contests"
                 ],
-                "summary": "Update a single cell in a grid",
+                "summary": "Update a single square in a contest",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Cell ID",
+                        "description": "Square ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Cell update data",
-                        "name": "cell",
+                        "description": "Square update data",
+                        "name": "square",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.UpdateGridCellRequest"
+                            "$ref": "#/definitions/model.UpdateSquareRequest"
                         }
                     }
                 ],
@@ -185,7 +138,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.GridCell"
+                            "$ref": "#/definitions/model.Square"
                         }
                     },
                     "400": {
@@ -209,21 +162,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/grids/user/{username}": {
+        "/contests/user/{username}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all grids created by a specific user",
+                "description": "Returns all contests created by a specific user",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "grids"
+                    "contests"
                 ],
-                "summary": "Get all grids by username",
+                "summary": "Get all contests by username",
                 "parameters": [
                     {
                         "type": "string",
@@ -239,7 +192,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/model.GridSwagger"
+                                "$ref": "#/definitions/model.ContestSwagger"
                             }
                         }
                     },
@@ -258,25 +211,20 @@ const docTemplate = `{
                 }
             }
         },
-        "/grids/{id}": {
+        "/contests/{id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns a single grid by ID",
+                "description": "Returns a single contest by its ID (public endpoint, no authentication required)",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "grids"
+                    "contests"
                 ],
-                "summary": "Get a grid by ID",
+                "summary": "Get a contest by ID",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Grid ID",
+                        "description": "Contest ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -286,7 +234,59 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.GridSwagger"
+                            "$ref": "#/definitions/model.ContestSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/contests/{id}/randomize-labels": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Randomizes the X and Y labels for a specific contest with numbers 0-9 (no repeats)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contests"
+                ],
+                "summary": "Randomize contest labels",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Contest ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.ContestSwagger"
                         }
                     },
                     "400": {
@@ -329,6 +329,62 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/ws/contests/{contestId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Establishes a persistent WebSocket connection to receive real-time updates for a specific contest",
+                "tags": [
+                    "ws"
+                ],
+                "summary": "Connect to WebSocket for real-time contest updates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Contest ID to listen for updates",
+                        "name": "contestId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "WebSocket connection upgraded",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -353,80 +409,12 @@ const docTemplate = `{
                 }
             }
         },
-        "model.CreateGridRequest": {
-            "type": "object",
-            "required": [
-                "name"
-            ],
-            "properties": {
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.GridCell": {
+        "model.ContestSwagger": {
             "type": "object",
             "properties": {
-                "col": {
-                    "type": "integer"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "gridId": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "locked": {
-                    "type": "boolean"
-                },
-                "owner": {
-                    "type": "string"
-                },
-                "row": {
-                    "type": "integer"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.GridChannelResponse": {
-            "type": "object",
-            "properties": {
-                "cellId": {
-                    "type": "string"
-                },
-                "gridId": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "updatedBy": {
-                    "type": "string"
-                },
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.GridSwagger": {
-            "type": "object",
-            "properties": {
-                "cells": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.GridCell"
-                    }
+                "awayTeam": {
+                    "type": "string",
+                    "example": "Away Team"
                 },
                 "createdAt": {
                     "type": "string"
@@ -434,11 +422,22 @@ const docTemplate = `{
                 "createdBy": {
                     "type": "string"
                 },
+                "homeTeam": {
+                    "type": "string",
+                    "example": "Home Team"
+                },
                 "id": {
                     "type": "string"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "My Contest"
+                },
+                "squares": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Square"
+                    }
                 },
                 "updatedAt": {
                     "type": "string"
@@ -446,17 +445,41 @@ const docTemplate = `{
                 "updatedBy": {
                     "type": "string"
                 },
-                "xlabels": {
+                "xLabels": {
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
                 },
-                "ylabels": {
+                "yLabels": {
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "model.CreateContestRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "awayTeam": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "example": "Away Team"
+                },
+                "homeTeam": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "example": "Home Team"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "minLength": 1,
+                    "example": "My Contest"
                 }
             }
         },
@@ -469,14 +492,45 @@ const docTemplate = `{
                 }
             }
         },
-        "model.UpdateGridCellRequest": {
+        "model.Square": {
             "type": "object",
-            "required": [
-                "value"
-            ],
+            "properties": {
+                "col": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "contestId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "row": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "MRM"
+                }
+            }
+        },
+        "model.UpdateSquareRequest": {
+            "type": "object",
             "properties": {
                 "value": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 3,
+                    "example": "MRM"
                 }
             }
         }

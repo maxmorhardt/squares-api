@@ -26,20 +26,21 @@ func RoleMiddleware(verifier *oidc.IDTokenVerifier, allowedRoles ...string) gin.
 		}
 
 		ValidateRoles(c, claims, log, allowedRoles...)
+		setContext(c, claims)
 	}
 }
 
 func VerifyToken(c *gin.Context, verifier *oidc.IDTokenVerifier, log *slog.Logger, isWebSocket bool) *model.Claims {
 	var token string
-	if  isWebSocket {
-			wsProtocol := c.Request.Header.Get("Sec-WebSocket-Protocol")
-			if wsProtocol == "" {
-				log.Warn("missing sec-websocket-protocol header")
-				c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Missing Sec-WebSocket-Protocol header", c))
-				return nil
-			}
+	if isWebSocket {
+		wsProtocol := c.Request.Header.Get("Sec-WebSocket-Protocol")
+		if wsProtocol == "" {
+			log.Warn("missing sec-websocket-protocol header")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Missing Sec-WebSocket-Protocol header", c))
+			return nil
+		}
 
-			token = wsProtocol
+		token = wsProtocol
 	} else {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
@@ -93,7 +94,6 @@ func ValidateRoles(c *gin.Context, claims *model.Claims, log *slog.Logger, allow
 	}
 
 	log.Info("user authorized", "user", claims.Username, "roles", claims.Roles)
-	setContext(c, claims)
 }
 
 func setContext(c *gin.Context, claims *model.Claims) {

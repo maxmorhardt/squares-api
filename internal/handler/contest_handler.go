@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -16,7 +18,7 @@ import (
 )
 
 // @Summary Create a new Contest
-// @Description Creates a new 10x10 contest with X and Y labels
+// @Description Creates a new 10x10 contest with X and Y labels. Contest name must be 1-20 characters with only letters, numbers, spaces, hyphens, and underscores. Team names are optional but follow the same validation rules.
 // @Tags contests
 // @Accept json
 // @Produce json
@@ -34,6 +36,24 @@ func CreateContestHandler(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Error("failed to bind create contest json", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, err.Error(), c))
+		return
+	}
+
+	if !isValidNameOrTeam(req.Name) {
+		log.Error("invalid contest name", "name", req.Name)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores", c))
+		return
+	}
+
+	if req.HomeTeam != "" && !isValidNameOrTeam(req.HomeTeam) {
+		log.Error("invalid home team name", "homeTeam", req.HomeTeam)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Home team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores", c))
+		return
+	}
+
+	if req.AwayTeam != "" && !isValidNameOrTeam(req.AwayTeam) {
+		log.Error("invalid away team name", "awayTeam", req.AwayTeam)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Away team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores", c))
 		return
 	}
 
@@ -66,6 +86,15 @@ func CreateContestHandler(c *gin.Context) {
 
 	log.Info("create contest request json bound successfully", "name", req.Name)
 	c.JSON(http.StatusOK, contest)
+}
+
+func isValidNameOrTeam(name string) bool {
+	if len(name) == 0 || len(name) > 20 {
+		return false
+	}
+	matches, _ := regexp.MatchString(`^[A-Za-z0-9\s\-_]{1,20}$`, name)
+
+	return matches
 }
 
 // @Summary Get all contests
@@ -128,7 +157,7 @@ func GetContestsByUserHandler(c *gin.Context) {
 }
 
 // @Summary Get a contest by ID
-// @Description Returns a single contest by its ID
+// @Description Returns a single contest by its ID (public endpoint, no authentication required)
 // @Tags contests
 // @Produce json
 // @Param id path string true "Contest ID"
@@ -136,7 +165,6 @@ func GetContestsByUserHandler(c *gin.Context) {
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
-// @Security BearerAuth
 // @Router /contests/{id} [get]
 func GetContestByIDHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
@@ -156,7 +184,7 @@ func GetContestByIDHandler(c *gin.Context) {
 		return
 	}
 
-	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
+	ctx := c.Request.Context()
 
 	contest, err := repo.GetByID(ctx, contestID.String())
 	if err != nil {
@@ -167,8 +195,10 @@ func GetContestByIDHandler(c *gin.Context) {
 
 	log.Info("contest retrieved successfully", "contest_id", contest.ID)
 	c.JSON(http.StatusOK, contest)
-} // @Summary Update a single square in a contest
-// @Description Updates the value of a specific square in a contest
+}
+
+// @Summary Update a single square in a contest
+// @Description Updates the value of a specific square in a contest. Value must be 1-3 uppercase letters or numbers only.
 // @Tags contests
 // @Accept json
 // @Produce json
@@ -199,6 +229,13 @@ func UpdateSquareHandler(c *gin.Context) {
 		return
 	}
 
+	req.Value = strings.ToUpper(req.Value)
+	if !isValidSquareValue(req.Value) {
+		log.Error("invalid square value", "value", req.Value)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Value must be 1-3 uppercase letters or numbers", c))
+		return
+	}
+
 	squareID, err := uuid.Parse(squareIDParam)
 	if err != nil {
 		log.Error("invalid square id", "param", squareIDParam, "error", err)
@@ -218,12 +255,23 @@ func UpdateSquareHandler(c *gin.Context) {
 
 	if err := redisService.PublishSquareUpdate(ctx, updatedSquare.ContestID, updatedSquare.ID, updatedSquare.Value, user); err != nil {
 		log.Error("failed to publish square update", "contestId", updatedSquare.ContestID, "squareId", updatedSquare.ID, "error", err)
-	} else {
-		log.Info("square update published successfully", "contestId", updatedSquare.ContestID, "squareId", updatedSquare.ID)
 	}
 
 	log.Info("square updated successfully", "square_id", squareID, "value", req.Value, "user", user)
 	c.JSON(http.StatusOK, updatedSquare)
+}
+
+func isValidSquareValue(val string) bool {
+	if val == "" {
+		return true
+	}
+
+	if len(val) > 3 {
+		return false
+	}
+	matches, _ := regexp.MatchString(`^[A-Z0-9]{1,3}$`, val)
+
+	return matches
 }
 
 // @Summary Randomize contest labels
@@ -271,8 +319,6 @@ func RandomizeContestLabelsHandler(c *gin.Context) {
 
 	if err := redisService.PublishLabelsUpdate(ctx, updatedContest.ID, xLabels, yLabels, user); err != nil {
 		log.Error("failed to publish labels update", "contestId", updatedContest.ID, "user", user, "error", err)
-	} else {
-		log.Info("labels update published successfully", "contestId", updatedContest.ID, "user", user)
 	}
 
 	log.Info("contest labels randomized successfully", "contest_id", contestID, "user", user)

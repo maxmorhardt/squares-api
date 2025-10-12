@@ -31,13 +31,6 @@ func LoggerMiddleware(c *gin.Context) {
 	c.Set(model.RequestIDKey, requestId)
 	c.Set(model.LoggerKey, logger)
 
-	if c.Request.URL.Path != "/health" {
-		logger.Info("request initiated",
-			"method", c.Request.Method,
-			"path", c.Request.URL.Path,
-		)
-	}
-
 	c.Next()
 }
 

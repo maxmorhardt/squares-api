@@ -10,9 +10,9 @@ import (
 type Square struct {
 	ID        uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
 	ContestID uuid.UUID `json:"contestId" gorm:"type:uuid;index"`
-	Row       int       `json:"row"`
-	Col       int       `json:"col"`
-	Value     string    `json:"value"`
+	Row       int       `json:"row" example:"0" description:"Square row position (0-9)"`
+	Col       int       `json:"col" example:"0" description:"Square column position (0-9)"`
+	Value     string    `json:"value" example:"MRM" description:"Square value (1-3 uppercase letters/numbers only)"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 	Owner     string    `json:"owner"`

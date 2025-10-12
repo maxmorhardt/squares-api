@@ -14,13 +14,9 @@ type ContestRepository interface {
 	Create(ctx context.Context, contest *model.Contest) error
 	GetAll(ctx context.Context) ([]model.Contest, error)
 	GetAllByUser(ctx context.Context, username string) ([]model.Contest, error)
-	GetByUserAndName(ctx context.Context, username, name string) (model.Contest, error)
-	GetByID(ctx context.Context, id string) (model.Contest, error) // For internal validation (WebSocket, etc.)
-	CheckNameExists(ctx context.Context, username, name string) (bool, error)
-	CreateSquares(ctx context.Context, squares []model.Square) error
+	GetByID(ctx context.Context, id string) (model.Contest, error)
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (model.Square, error)
 	UpdateLabels(ctx context.Context, contestID string, xLabels, yLabels []int8, user string) (model.Contest, error)
-	UpdateLabelsByUserAndName(ctx context.Context, username, name string, xLabels, yLabels []int8, user string) (model.Contest, error)
 }
 
 type contestRepository struct {
@@ -34,23 +30,25 @@ func NewContestRepository() ContestRepository {
 }
 
 func (r *contestRepository) Create(ctx context.Context, contest *model.Contest) error {
-	if err := r.db.WithContext(ctx).Create(contest).Error; err != nil {
-		return err
-	}
-
-	var squares []model.Square
-	for row := range 10 {
-		for col := range 10 {
-			squares = append(squares, model.Square{
-				ContestID: contest.ID,
-				Row:       row,
-				Col:       col,
-				Value:     "",
-			})
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(contest).Error; err != nil {
+			return err
 		}
-	}
 
-	return r.CreateSquares(ctx, squares)
+		var squares []model.Square
+		for row := range 10 {
+			for col := range 10 {
+				squares = append(squares, model.Square{
+					ContestID: contest.ID,
+					Row:       row,
+					Col:       col,
+					Value:     "",
+				})
+			}
+		}
+
+		return tx.Create(&squares).Error
+	})
 }
 
 func (r *contestRepository) GetAll(ctx context.Context) ([]model.Contest, error) {
@@ -72,16 +70,6 @@ func (r *contestRepository) GetAllByUser(ctx context.Context, username string) (
 	return contests, err
 }
 
-func (r *contestRepository) GetByUserAndName(ctx context.Context, username, name string) (model.Contest, error) {
-	var contest model.Contest
-	err := r.db.WithContext(ctx).
-		Preload("Squares").
-		Where("created_by = ? AND name = ?", username, name).
-		First(&contest).Error
-
-	return contest, err
-}
-
 func (r *contestRepository) GetByID(ctx context.Context, id string) (model.Contest, error) {
 	var contest model.Contest
 	err := r.db.WithContext(ctx).
@@ -89,20 +77,6 @@ func (r *contestRepository) GetByID(ctx context.Context, id string) (model.Conte
 		First(&contest, "id = ?", id).Error
 
 	return contest, err
-}
-
-func (r *contestRepository) CheckNameExists(ctx context.Context, username, name string) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).
-		Model(&model.Contest{}).
-		Where("created_by = ? AND name = ?", username, name).
-		Count(&count).Error
-
-	return count > 0, err
-}
-
-func (r *contestRepository) CreateSquares(ctx context.Context, squares []model.Square) error {
-	return r.db.WithContext(ctx).Create(&squares).Error
 }
 
 func (r *contestRepository) UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (model.Square, error) {
@@ -128,36 +102,6 @@ func (r *contestRepository) UpdateSquare(ctx context.Context, squareID uuid.UUID
 	})
 
 	return updatedSquare, err
-}
-
-func (r *contestRepository) UpdateLabelsByUserAndName(ctx context.Context, username, name string, xLabels, yLabels []int8, user string) (model.Contest, error) {
-	var updatedContest model.Contest
-
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var contest model.Contest
-		if err := tx.Where("created_by = ? AND name = ?", username, name).First(&contest).Error; err != nil {
-			return err
-		}
-
-		xLabelsJSON, _ := json.Marshal(xLabels)
-		yLabelsJSON, _ := json.Marshal(yLabels)
-
-		contest.XLabels = xLabelsJSON
-		contest.YLabels = yLabelsJSON
-
-		if user != "" {
-			contest.UpdatedBy = user
-		}
-
-		if err := tx.Save(&contest).Error; err != nil {
-			return err
-		}
-
-		updatedContest = contest
-		return nil
-	})
-
-	return updatedContest, err
 }
 
 func (r *contestRepository) UpdateLabels(ctx context.Context, contestID string, xLabels, yLabels []int8, user string) (model.Contest, error) {

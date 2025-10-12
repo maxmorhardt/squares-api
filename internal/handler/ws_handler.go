@@ -25,7 +25,7 @@ var upgrader = websocket.Upgrader{
 
 // @Summary Connect to WebSocket for real-time contest updates
 // @Description Establishes a persistent WebSocket connection to receive real-time updates for a specific contest
-// @Tags events
+// @Tags ws
 // @Param contestId path string true "Contest ID to listen for updates" format(uuid)
 // @Success 101 {string} string "WebSocket connection upgraded"
 // @Failure 400 {object} model.APIError
@@ -42,6 +42,7 @@ func WebSocketHandler(c *gin.Context) {
 		return
 	}
 
+	// need header in response
 	token := c.Request.Header.Get("Sec-WebSocket-Protocol")
 	responseHeader := http.Header{}
 	if token != "" {
@@ -113,6 +114,7 @@ func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.L
 
 	go handleIncomingMessages(conn)
 
+	// main event loop
 	for {
 		select {
 		case msg := <-redisChannel:
