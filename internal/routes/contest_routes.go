@@ -12,5 +12,6 @@ func RegisterContestRoutes(rg *gin.RouterGroup) {
 	rg.GET("", middleware.RoleMiddleware(config.OIDCVerifier, "squares-admin"), handler.GetAllContestsHandler)
 	rg.GET("/user/:username", middleware.RoleMiddleware(config.OIDCVerifier), handler.GetContestsByUserHandler)
 	rg.GET("/:id", middleware.RoleMiddleware(config.OIDCVerifier), handler.GetContestByIDHandler)
-	rg.PATCH("/square/:id", middleware.RoleMiddleware(config.OIDCVerifier), handler.UpdateSquareHandler)
+	rg.POST("/square/:id", middleware.RoleMiddleware(config.OIDCVerifier), handler.UpdateSquareHandler)
+	rg.POST("/:id/randomize-labels", middleware.RoleMiddleware(config.OIDCVerifier), handler.RandomizeContestLabelsHandler)
 }

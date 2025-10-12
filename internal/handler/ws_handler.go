@@ -79,8 +79,9 @@ func validateWebSocketRequest(c *gin.Context, log *slog.Logger) (*model.Claims, 
 		return nil, uuid.Nil
 	}
 
-	contestRepo := repository.NewContestRepository()
-	_, err = contestRepo.GetByID(c.Request.Context(), contestId.String())
+	repo := repository.NewContestRepository()
+	_, err = repo.GetByID(c.Request.Context(), contestId.String())
+
 	if err != nil {
 		log.Error("contest not found", "contestId", contestId)
 		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))

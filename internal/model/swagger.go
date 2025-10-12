@@ -11,6 +11,8 @@ type ContestSwagger struct {
 	Name      string
 	XLabels   []int
 	YLabels   []int
+	HomeTeam  string
+	AwayTeam  string
 	Squares   []Square
 	CreatedAt time.Time
 	UpdatedAt time.Time

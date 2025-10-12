@@ -13,6 +13,8 @@ type Contest struct {
 	Name      string         `json:"name"`
 	XLabels   datatypes.JSON `json:"xLabels"`
 	YLabels   datatypes.JSON `json:"yLabels"`
+	HomeTeam  string         `json:"homeTeam,omitempty"`
+	AwayTeam  string         `json:"awayTeam,omitempty"`
 	Squares   []Square       `json:"squares" gorm:"foreignKey:ContestID;constraint:OnDelete:CASCADE"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`

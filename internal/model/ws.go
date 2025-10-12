@@ -8,6 +8,7 @@ import (
 
 const (
 	SquareUpdateType     string = "square_update"
+	LabelsUpdateType     string = "labels_update"
 	KeepAliveType        string = "keepalive"
 	ConnectedType        string = "connected"
 	ClosedConnectionType string = "connection_closed"
@@ -17,8 +18,10 @@ const (
 type ContestChannelResponse struct {
 	Type      string    `json:"type"`
 	ContestID uuid.UUID `json:"contestId"`
-	SquareID  uuid.UUID `json:"squareId"`
-	Value     string    `json:"value"`
+	SquareID  uuid.UUID `json:"squareId,omitempty"`
+	Value     string    `json:"value,omitempty"`
+	XLabels   []int8    `json:"xLabels,omitempty"`
+	YLabels   []int8    `json:"yLabels,omitempty"`
 	UpdatedBy string    `json:"updatedBy"`
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -62,6 +65,18 @@ func NewSquareUpdateMessage(contestId, squareId uuid.UUID, value, updatedBy stri
 		ContestID: contestId,
 		SquareID:  squareId,
 		Value:     value,
+		UpdatedBy: updatedBy,
+		Timestamp: time.Now(),
+	}
+}
+
+func NewLabelsUpdateMessage(contestId uuid.UUID, xLabels, yLabels []int8, updatedBy string) *ContestChannelResponse {
+	return &ContestChannelResponse{
+		Type:      LabelsUpdateType,
+		ContestID: contestId,
+		SquareID:  uuid.Nil,
+		XLabels:   xLabels,
+		YLabels:   yLabels,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
 	}

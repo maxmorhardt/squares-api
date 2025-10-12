@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,7 @@ import (
 // @Router /contests [post]
 func CreateContestHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
+	repo := repository.NewContestRepository()
 
 	var req model.CreateContestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -35,7 +37,8 @@ func CreateContestHandler(c *gin.Context) {
 		return
 	}
 
-	log.Info("create contest request json bound successfully", "name", req.Name)
+	user := c.GetString(model.UserKey)
+	ctx := context.WithValue(c.Request.Context(), model.UserKey, user)
 
 	xLabels := make([]int8, 10)
 	yLabels := make([]int8, 10)
@@ -48,13 +51,12 @@ func CreateContestHandler(c *gin.Context) {
 	yLabelsJSON, _ := json.Marshal(yLabels)
 
 	contest := model.Contest{
-		Name:    req.Name,
-		XLabels: xLabelsJSON,
-		YLabels: yLabelsJSON,
+		Name:     req.Name,
+		HomeTeam: req.HomeTeam,
+		AwayTeam: req.AwayTeam,
+		XLabels:  xLabelsJSON,
+		YLabels:  yLabelsJSON,
 	}
-
-	repo := repository.NewContestRepository()
-	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
 
 	if err := repo.Create(ctx, &contest); err != nil {
 		log.Error("failed to create contest in repository", "error", err)
@@ -62,7 +64,7 @@ func CreateContestHandler(c *gin.Context) {
 		return
 	}
 
-	log.Info("contest and squares created successfully", "contest_id", contest.ID, "name", contest.Name)
+	log.Info("create contest request json bound successfully", "name", req.Name)
 	c.JSON(http.StatusOK, contest)
 }
 
@@ -76,8 +78,8 @@ func CreateContestHandler(c *gin.Context) {
 // @Router /contests [get]
 func GetAllContestsHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
-
 	repo := repository.NewContestRepository()
+
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
 
 	contests, err := repo.GetAll(ctx)
@@ -103,7 +105,7 @@ func GetAllContestsHandler(c *gin.Context) {
 // @Router /contests/user/{username} [get]
 func GetContestsByUserHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
-	log.Info("get contests by user handler called")
+	repo := repository.NewContestRepository()
 
 	username := c.Param("username")
 	if username == "" {
@@ -112,7 +114,6 @@ func GetContestsByUserHandler(c *gin.Context) {
 		return
 	}
 
-	repo := repository.NewContestRepository()
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
 
 	contests, err := repo.GetAllByUser(ctx, username)
@@ -127,7 +128,7 @@ func GetContestsByUserHandler(c *gin.Context) {
 }
 
 // @Summary Get a contest by ID
-// @Description Returns a single contest by ID
+// @Description Returns a single contest by its ID
 // @Tags contests
 // @Produce json
 // @Param id path string true "Contest ID"
@@ -139,35 +140,34 @@ func GetContestsByUserHandler(c *gin.Context) {
 // @Router /contests/{id} [get]
 func GetContestByIDHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
+	repo := repository.NewContestRepository()
 
-	contestID := c.Param("id")
-	if contestID == "" {
+	contestIDParam := c.Param("id")
+	if contestIDParam == "" {
 		log.Error("contest id not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest id is required", c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
 		return
 	}
 
-	repo := repository.NewContestRepository()
+	contestID, err := uuid.Parse(contestIDParam)
+	if err != nil {
+		log.Error("invalid contest id", "param", contestIDParam, "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid contest id: %s", contestIDParam), c))
+		return
+	}
+
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
 
-	contest, err := repo.GetByID(ctx, contestID)
+	contest, err := repo.GetByID(ctx, contestID.String())
 	if err != nil {
-		log.Error("failed to get contest by id", "id", contestID, "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get contest %s: %s", contestID, err), c))
-		return
-	}
-
-	if contest.ID == uuid.Nil {
-		log.Error("contest not found", "id", contestID)
+		log.Error("failed to get contest by id", "contest_id", contestID, "error", err)
 		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
 		return
 	}
 
-	log.Info("contest retrieved successfully", "contest_id", contest.ID, "name", contest.Name)
+	log.Info("contest retrieved successfully", "contest_id", contest.ID)
 	c.JSON(http.StatusOK, contest)
-}
-
-// @Summary Update a single square in a contest
+} // @Summary Update a single square in a contest
 // @Description Updates the value of a specific square in a contest
 // @Tags contests
 // @Accept json
@@ -179,9 +179,11 @@ func GetContestByIDHandler(c *gin.Context) {
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /contests/square/{id} [patch]
+// @Router /contests/square/{id} [post]
 func UpdateSquareHandler(c *gin.Context) {
 	log := middleware.FromContext(c)
+	repo := repository.NewContestRepository()
+	redisService := service.NewRedisService()
 
 	squareIDParam := c.Param("id")
 	if squareIDParam == "" {
@@ -204,7 +206,6 @@ func UpdateSquareHandler(c *gin.Context) {
 		return
 	}
 
-	repo := repository.NewContestRepository()
 	user := c.GetString(model.UserKey)
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, user)
 
@@ -215,8 +216,7 @@ func UpdateSquareHandler(c *gin.Context) {
 		return
 	}
 
-	redisSvc := service.NewRedisService()
-	if err := redisSvc.PublishSquareUpdate(ctx, updatedSquare.ContestID, updatedSquare.ID, updatedSquare.Value, user); err != nil {
+	if err := redisService.PublishSquareUpdate(ctx, updatedSquare.ContestID, updatedSquare.ID, updatedSquare.Value, user); err != nil {
 		log.Error("failed to publish square update", "contestId", updatedSquare.ContestID, "squareId", updatedSquare.ID, "error", err)
 	} else {
 		log.Info("square update published successfully", "contestId", updatedSquare.ContestID, "squareId", updatedSquare.ID)
@@ -224,4 +224,71 @@ func UpdateSquareHandler(c *gin.Context) {
 
 	log.Info("square updated successfully", "square_id", squareID, "value", req.Value, "user", user)
 	c.JSON(http.StatusOK, updatedSquare)
+}
+
+// @Summary Randomize contest labels
+// @Description Randomizes the X and Y labels for a specific contest with numbers 0-9 (no repeats)
+// @Tags contests
+// @Produce json
+// @Param id path string true "Contest ID"
+// @Success 200 {object} model.ContestSwagger
+// @Failure 400 {object} model.APIError
+// @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
+// @Security BearerAuth
+// @Router /contests/{id}/randomize-labels [post]
+func RandomizeContestLabelsHandler(c *gin.Context) {
+	log := middleware.FromContext(c)
+	repo := repository.NewContestRepository()
+	redisService := service.NewRedisService()
+
+	contestIDParam := c.Param("id")
+	if contestIDParam == "" {
+		log.Error("contest id not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
+		return
+	}
+
+	contestID, err := uuid.Parse(contestIDParam)
+	if err != nil {
+		log.Error("invalid contest id", "param", contestIDParam, "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid contest id: %s", contestIDParam), c))
+		return
+	}
+
+	user := c.GetString(model.UserKey)
+	ctx := context.WithValue(c.Request.Context(), model.UserKey, user)
+
+	xLabels := generateRandomizedLabels()
+	yLabels := generateRandomizedLabels()
+
+	updatedContest, err := repo.UpdateLabels(ctx, contestID.String(), xLabels, yLabels, user)
+	if err != nil {
+		log.Error("failed to update contest labels", "contest_id", contestID, "user", user, "error", err)
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to randomize contest labels: %s", err), c))
+		return
+	}
+
+	if err := redisService.PublishLabelsUpdate(ctx, updatedContest.ID, xLabels, yLabels, user); err != nil {
+		log.Error("failed to publish labels update", "contestId", updatedContest.ID, "user", user, "error", err)
+	} else {
+		log.Info("labels update published successfully", "contestId", updatedContest.ID, "user", user)
+	}
+
+	log.Info("contest labels randomized successfully", "contest_id", contestID, "user", user)
+	c.JSON(http.StatusOK, updatedContest)
+}
+
+func generateRandomizedLabels() []int8 {
+	labels := make([]int8, 10)
+	for i := range int8(10) {
+		labels[i] = i
+	}
+
+	for i := len(labels) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		labels[i], labels[j] = labels[j], labels[i]
+	}
+
+	return labels
 }

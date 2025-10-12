@@ -27,3 +27,15 @@ func (s *RedisService) PublishSquareUpdate(ctx context.Context, contestID uuid.U
 
 	return config.RedisClient.Publish(ctx, channel, jsonData).Err()
 }
+
+func (s *RedisService) PublishLabelsUpdate(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, updatedBy string) error {
+	updateMessage := model.NewLabelsUpdateMessage(contestID, xLabels, yLabels, updatedBy)
+
+	channel := fmt.Sprintf("%s:%s", model.ContestChannelPrefix, contestID)
+	jsonData, err := json.Marshal(updateMessage)
+	if err != nil {
+		return err
+	}
+
+	return config.RedisClient.Publish(ctx, channel, jsonData).Err()
+}
