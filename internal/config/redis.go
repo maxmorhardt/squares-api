@@ -10,6 +10,11 @@ import (
 
 var RedisClient *redis.Client
 
+const (
+	poolSize     int = 15
+	minIdleConns int = 3
+)
+
 func InitRedis() {
 	redisHost := os.Getenv("REDIS_HOST")
 	if redisHost == "" {
@@ -17,9 +22,12 @@ func InitRedis() {
 	}
 
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr: redisHost,
-		DB:   0,
+		Addr:         redisHost,
+		PoolSize:     poolSize,
+		MinIdleConns: minIdleConns,
 	})
+
+	slog.Info("redis connection configured", "pool_size", poolSize, "min_idle_conns", minIdleConns)
 
 	ctx := context.Background()
 	_, err := RedisClient.Ping(ctx).Result()

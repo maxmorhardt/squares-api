@@ -2,16 +2,17 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/handler"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
+	"github.com/maxmorhardt/squares-api/internal/model"
 )
 
 func RegisterContestRoutes(rg *gin.RouterGroup) {
-	rg.POST("", middleware.RoleMiddleware(config.OIDCVerifier), handler.CreateContestHandler)
-	rg.GET("", middleware.RoleMiddleware(config.OIDCVerifier, "squares-admin"), handler.GetAllContestsHandler)
-	rg.GET("/user/:username", middleware.RoleMiddleware(config.OIDCVerifier), handler.GetContestsByUserHandler)
-	rg.GET("/:id", handler.GetContestByIDHandler)
-	rg.POST("/square/:id", middleware.RoleMiddleware(config.OIDCVerifier), handler.UpdateSquareHandler)
-	rg.POST("/:id/randomize-labels", middleware.RoleMiddleware(config.OIDCVerifier), handler.RandomizeContestLabelsHandler)
+	rg.GET("", middleware.AuthMiddleware(model.SquaresAdminGroup), handler.GetAllContestsHandler)
+	rg.PUT("", middleware.AuthMiddleware(), handler.CreateContestHandler)
+	rg.PATCH(":id", middleware.AuthMiddleware(), handler.UpdateContestHandler)
+	rg.GET("/:id", middleware.AuthMiddleware(), handler.GetContestByIDHandler)
+	rg.GET("/user/:username", middleware.AuthMiddleware(), handler.GetContestsByUserHandler)
+	rg.PATCH("/square/:id", middleware.AuthMiddleware(), handler.UpdateSquareHandler)
+	rg.POST("/:id/randomize-labels", middleware.AuthMiddleware(), handler.RandomizeContestLabelsHandler)
 }

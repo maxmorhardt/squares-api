@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/maxmorhardt/squares-api/internal/config"
-	"github.com/maxmorhardt/squares-api/internal/middleware"
 	"github.com/maxmorhardt/squares-api/internal/model"
-	"github.com/maxmorhardt/squares-api/internal/repository"
+	"github.com/maxmorhardt/squares-api/internal/service"
+	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
 var upgrader = websocket.Upgrader{
@@ -35,12 +34,15 @@ var upgrader = websocket.Upgrader{
 // @Security BearerAuth
 // @Router /ws/contests/{contestId} [get]
 func WebSocketHandler(c *gin.Context) {
-	log := middleware.FromContext(c)
+	log := util.LoggerFromContext(c)
 
-	claims, contestId := validateWebSocketRequest(c, log)
-	if claims == nil || contestId == uuid.Nil {
+	contestId := service.ValidateWebSocketRequest(c)
+	if contestId == uuid.Nil {
 		return
 	}
+
+	log.With("contest_id", contestId)
+	user := c.GetString(model.UserKey)
 
 	// need header in response
 	token := c.Request.Header.Get("Sec-WebSocket-Protocol")
@@ -58,57 +60,39 @@ func WebSocketHandler(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	log.Info("websocket connection established", "user", claims.Username, "contestId", contestId)
-	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestId, claims.Username)); err != nil {
+	log.Info("websocket connection established")
+	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestId)); err != nil {
 		log.Error("failed to send connected message", "error", err)
 		return
 	}
 
-	handleWebSocketConnection(conn, c, log, contestId, claims.Username)
-}
-
-func validateWebSocketRequest(c *gin.Context, log *slog.Logger) (*model.Claims, uuid.UUID) {
-	claims := middleware.VerifyToken(c, config.OIDCVerifier, log, true)
-	if claims == nil {
-		return nil, uuid.Nil
-	}
-
-	contestId, err := uuid.Parse(c.Param("contestId"))
-	if err != nil || contestId == uuid.Nil {
-		log.Error("invalid or missing contest id", "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid or missing Contest ID", c))
-		return nil, uuid.Nil
-	}
-
-	repo := repository.NewContestRepository()
-	_, err = repo.GetByID(c.Request.Context(), contestId.String())
-
-	if err != nil {
-		log.Error("contest not found", "contestId", contestId)
-		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
-		return nil, uuid.Nil
-	}
-
-	log.Info("websocket client validated", "user", claims.Username, "contestId", contestId)
-	return claims, contestId
+	handleWebSocketConnection(conn, c, log, contestId, user)
 }
 
 func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.Logger, contestId uuid.UUID, username string) {
 	ctx := c.Request.Context()
 
 	contestChannel := fmt.Sprintf("%s:%s", model.ContestChannelPrefix, contestId)
-	log.Info("subscribing to redis channel", "channel", contestChannel)
+	log.With("contest_channel", contestChannel)
+	log.Info("subscribing to redis channel")
 
 	pubsub := config.RedisClient.Subscribe(ctx, contestChannel)
 	defer func() {
-		log.Info("closing redis subscription", "channel", contestChannel)
+		log.Info("closing redis subscription")
 		pubsub.Close()
 	}()
 
 	redisChannel := pubsub.Channel()
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
 
+	pingChecker := time.NewTicker(30 * time.Second)
+	defer pingChecker.Stop()
+
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+	
 	jwtChecker := time.NewTicker(5 * time.Minute)
 	defer jwtChecker.Stop()
 
@@ -118,35 +102,42 @@ func handleWebSocketConnection(conn *websocket.Conn, c *gin.Context, log *slog.L
 	for {
 		select {
 		case msg := <-redisChannel:
-			log.Info("received redis message", "channel", msg.Channel)
-			if err := handleWebSocketRedisMessage(conn, log, msg); err != nil {
-				log.Warn("failed to handle redis message - closing connection", "error", err)
+			var updateData model.WSUpdate
+			if err := json.Unmarshal([]byte(msg.Payload), &updateData); err != nil {
+				log.Error("failed to unmarshal redis message", "error", err, "payload", msg.Payload)
 				return
 			}
 
-		case <-ticker.C:
-			if err := sendWebSocketMessage(conn, log, model.NewKeepAliveMessage(contestId)); err != nil {
-				log.Warn("failed to send keepalive - closing connection", "error", err)
+			if err := sendWebSocketMessage(conn, log, &updateData); err != nil {
+				log.Error("failed to send redis message to websocket client", "error", err)
+				return
+			}
+
+		case <-pingChecker.C:
+			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				log.Warn("failed to send ping", "error", err)
 				return
 			}
 
 		case <-jwtChecker.C:
 			if shouldCloseConnection(c, log, username) {
-				log.Info("closing websocket connection - token validation failed", "user", username)
-				if err := sendWebSocketMessage(conn, log, model.NewClosedConnectionMessage(contestId, username)); err != nil {
-					log.Warn("failed to send closed connection message", "error", err)
+				log.Warn("closing connection due to token validation failure")
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestId)); err != nil {
+					log.Error("failed to send disconnected message", "error", err)
 				}
 				conn.Close()
 				return
 			}
 
 		case <-ctx.Done():
-			log.Info("websocket client disconnected", "user", username, "contestId", contestId)
+			log.Info("websocket client disconnected")
 			return
 		}
 	}
 }
 
+// ignore incoming messages
 func handleIncomingMessages(conn *websocket.Conn) {
 	for {
 		_, _, err := conn.ReadMessage()
@@ -156,18 +147,7 @@ func handleIncomingMessages(conn *websocket.Conn) {
 	}
 }
 
-func handleWebSocketRedisMessage(conn *websocket.Conn, log *slog.Logger, msg *redis.Message) error {
-	var updateData model.ContestChannelResponse
-	if err := json.Unmarshal([]byte(msg.Payload), &updateData); err != nil {
-		log.Error("failed to unmarshal redis message", "error", err, "payload", msg.Payload)
-		return nil
-	}
-
-	log.Info("sending redis update to client", "type", updateData.Type, "contestId", updateData.ContestID, "squareId", updateData.SquareID)
-	return sendWebSocketMessage(conn, log, &updateData)
-}
-
-func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.ContestChannelResponse) error {
+func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WSUpdate) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		log.Error("failed to marshal websocket message", "error", err, "type", data.Type)
@@ -179,19 +159,20 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.Co
 		return err
 	}
 
+	log.Info("sending websocket message", "type", data.Type, "updated_by", data.UpdatedBy)
 	return nil
 }
 
 func shouldCloseConnection(c *gin.Context, log *slog.Logger, username string) bool {
-	claims := middleware.VerifyToken(c, config.OIDCVerifier, log, true)
-
+	claims := util.ClaimsFromContext(c)		
 	if claims == nil {
-		log.Info("token validation failed for websocket connection", "user", username)
+		log.Warn("claims not in ctx for websocket connection")
 		return true
 	}
 
-	if claims.Username != username {
-		log.Warn("username mismatch in token", "expected", username, "actual", claims.Username)
+	now := time.Now().Unix()
+	if claims.Expire < now {
+		log.Info("token expired for websocket connection", "expire", claims.Expire, "now", now)
 		return true
 	}
 

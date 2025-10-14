@@ -9,75 +9,66 @@ import (
 const (
 	SquareUpdateType     string = "square_update"
 	ContestUpdateType    string = "contest_update"
-	KeepAliveType        string = "keepalive"
 	ConnectedType        string = "connected"
-	ClosedConnectionType string = "connection_closed"
+	DisconnectType       string = "disconnected"
 	ContestChannelPrefix string = "contest"
 )
 
-type ContestChannelResponse struct {
-	Type      string    `json:"type"`
-	ContestID uuid.UUID `json:"contestId"`
-	SquareID  uuid.UUID `json:"squareId,omitempty"`
-	Value     string    `json:"value,omitempty"`
-	XLabels   []int8    `json:"xLabels,omitempty"`
-	YLabels   []int8    `json:"yLabels,omitempty"`
-	UpdatedBy string    `json:"updatedBy"`
-	Timestamp time.Time `json:"timestamp"`
+type WSUpdate struct {
+	Type      string           `json:"type"`
+	ContestID uuid.UUID        `json:"contestId"`
+	UpdatedBy string           `json:"updatedBy"`
+	Timestamp time.Time        `json:"timestamp"`
+	Square    *SquareWSUpdate  `json:"square,omitempty"`
+	Contest   *ContestWSUpdate `json:"contest,omitempty"`
 }
 
-func NewKeepAliveMessage(contestId uuid.UUID) *ContestChannelResponse {
-	return &ContestChannelResponse{
-		Type:      KeepAliveType,
-		ContestID: contestId,
-		SquareID:  uuid.Nil,
-		Value:     "keepalive",
-		UpdatedBy: "system",
-		Timestamp: time.Now(),
-	}
+type SquareWSUpdate struct {
+	SquareID uuid.UUID `json:"squareId"`
+	Value    string    `json:"value"`
 }
 
-func NewConnectedMessage(contestId uuid.UUID, username string) *ContestChannelResponse {
-	return &ContestChannelResponse{
+type ContestWSUpdate struct {
+	HomeTeam string `json:"homeTeam,omitempty"`
+	AwayTeam string `json:"awayTeam,omitempty"`
+	XLabels  []int8 `json:"xLabels,omitempty"`
+	YLabels  []int8 `json:"yLabels,omitempty"`
+}
+
+func NewConnectedMessage(contestId uuid.UUID) *WSUpdate {
+	return &WSUpdate{
 		Type:      ConnectedType,
 		ContestID: contestId,
-		SquareID:  uuid.Nil,
-		Value:     "connected",
 		UpdatedBy: "system",
 		Timestamp: time.Now(),
 	}
 }
 
-func NewClosedConnectionMessage(contestId uuid.UUID, username string) *ContestChannelResponse {
-	return &ContestChannelResponse{
-		Type:      ClosedConnectionType,
+func NewDisconnectedMessage(contestId uuid.UUID) *WSUpdate {
+	return &WSUpdate{
+		Type:      DisconnectType,
 		ContestID: contestId,
-		SquareID:  uuid.Nil,
-		Value:     "disconnected",
 		UpdatedBy: "system",
 		Timestamp: time.Now(),
 	}
 }
 
-func NewSquareUpdateMessage(contestId, squareId uuid.UUID, value, updatedBy string) *ContestChannelResponse {
-	return &ContestChannelResponse{
+func NewSquareUpdateMessage(contestId uuid.UUID, updatedBy string, squareUpdate *SquareWSUpdate) *WSUpdate {
+	return &WSUpdate{
 		Type:      SquareUpdateType,
 		ContestID: contestId,
-		SquareID:  squareId,
-		Value:     value,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
+		Square:    squareUpdate,
 	}
 }
 
-func NewContestUpdateMessage(contestId uuid.UUID, xLabels, yLabels []int8, updatedBy string) *ContestChannelResponse {
-	return &ContestChannelResponse{
+func NewContestUpdateMessage(contestId uuid.UUID, updatedBy string, contestUpdate *ContestWSUpdate) *WSUpdate {
+	return &WSUpdate{
 		Type:      ContestUpdateType,
 		ContestID: contestId,
-		SquareID:  uuid.Nil,
-		XLabels:   xLabels,
-		YLabels:   yLabels,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
+		Contest:   contestUpdate,
 	}
 }

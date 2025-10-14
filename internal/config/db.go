@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/driver/postgres"
@@ -11,6 +12,11 @@ import (
 )
 
 var DB *gorm.DB
+
+const (
+	maxOpenConns int = 25
+	maxIdleConns int = 5
+)
 
 func InitDB() {
 	host := os.Getenv("DB_HOST")
@@ -33,6 +39,18 @@ func InitDB() {
 
 	db.AutoMigrate(&model.Contest{})
 	db.AutoMigrate(&model.Square{})
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		slog.Error("failed to get database instance", "error", err)
+		panic(err)
+	}
+
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	slog.Info("database connection configured", "max_open_conns", maxOpenConns, "max_idle_conns", maxIdleConns)
 
 	DB = db
 }

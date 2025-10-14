@@ -33,11 +33,3 @@ func LoggerMiddleware(c *gin.Context) {
 
 	c.Next()
 }
-
-func FromContext(c *gin.Context) *slog.Logger {
-	if requestLogger, ok := c.Get(model.LoggerKey); ok {
-		return requestLogger.(*slog.Logger)
-	}
-
-	return slog.Default()
-}

@@ -31,10 +31,15 @@ definitions:
       name:
         example: My Contest
         type: string
+      owner:
+        type: string
       squares:
         items:
           $ref: '#/definitions/model.Square'
         type: array
+      status:
+        example: ACTIVE
+        type: string
       updatedAt:
         type: string
       updatedBy:
@@ -63,8 +68,11 @@ definitions:
         maxLength: 20
         minLength: 1
         type: string
+      owner:
+        type: string
     required:
     - name
+    - owner
     type: object
   model.Health:
     properties:
@@ -128,14 +136,12 @@ paths:
       summary: Get all contests
       tags:
       - contests
-    post:
+    put:
       consumes:
       - application/json
-      description: Creates a new 10x10 contest with X and Y labels. Contest name must
-        be 1-20 characters with only letters, numbers, spaces, hyphens, and underscores.
-        Team names are optional but follow the same validation rules.
+      description: Creates a new 10x10 contest
       parameters:
-      - description: Contest to create
+      - description: Contest
         in: body
         name: contest
         required: true
@@ -163,8 +169,7 @@ paths:
       - contests
   /contests/{id}:
     get:
-      description: Returns a single contest by its ID (public endpoint, no authentication
-        required)
+      description: Returns a single contest by its ID
       parameters:
       - description: Contest ID
         in: path
@@ -191,6 +196,40 @@ paths:
           schema:
             $ref: '#/definitions/model.APIError'
       summary: Get a contest by ID
+      tags:
+      - contests
+    patch:
+      consumes:
+      - application/json
+      description: Updates the values of a contest
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ContestSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Update contest
       tags:
       - contests
   /contests/{id}/randomize-labels:
@@ -228,18 +267,17 @@ paths:
       tags:
       - contests
   /contests/square/{id}:
-    post:
+    patch:
       consumes:
       - application/json
-      description: Updates the value of a specific square in a contest. Value must
-        be 1-3 uppercase letters or numbers only.
+      description: Updates the value of a specific square in a contest
       parameters:
       - description: Square ID
         in: path
         name: id
         required: true
         type: string
-      - description: Square update data
+      - description: Square
         in: body
         name: square
         required: true

@@ -6,30 +6,29 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/maxmorhardt/squares-api/internal/middleware"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/service"
+	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
 // @Summary Create a new Contest
-// @Description Creates a new 10x10 contest with X and Y labels. Contest name must be 1-20 characters with only letters, numbers, spaces, hyphens, and underscores. Team names are optional but follow the same validation rules.
+// @Description Creates a new 10x10 contest
 // @Tags contests
 // @Accept json
 // @Produce json
-// @Param contest body model.CreateContestRequest true "Contest to create"
+// @Param contest body model.CreateContestRequest true "Contest"
 // @Success 200 {object} model.ContestSwagger
 // @Failure 400 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /contests [post]
+// @Router /contests [put]
 func CreateContestHandler(c *gin.Context) {
-	log := middleware.FromContext(c)
+	log := util.LoggerFromContext(c)
 	repo := repository.NewContestRepository()
 
 	var req model.CreateContestRequest
@@ -39,43 +38,22 @@ func CreateContestHandler(c *gin.Context) {
 		return
 	}
 
-	if !isValidNameOrTeam(req.Name) {
-		log.Error("invalid contest name", "name", req.Name)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores", c))
-		return
-	}
-
-	if req.HomeTeam != "" && !isValidNameOrTeam(req.HomeTeam) {
-		log.Error("invalid home team name", "homeTeam", req.HomeTeam)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Home team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores", c))
-		return
-	}
-
-	if req.AwayTeam != "" && !isValidNameOrTeam(req.AwayTeam) {
-		log.Error("invalid away team name", "awayTeam", req.AwayTeam)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Away team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores", c))
-		return
-	}
-
 	user := c.GetString(model.UserKey)
-	ctx := context.WithValue(c.Request.Context(), model.UserKey, user)
-
-	xLabels := make([]int8, 10)
-	yLabels := make([]int8, 10)
-	for i := range 10 {
-		xLabels[i] = -1
-		yLabels[i] = -1
+	if !service.ValidateNewContest(c, req, user) {
+		return
 	}
-
-	xLabelsJSON, _ := json.Marshal(xLabels)
-	yLabelsJSON, _ := json.Marshal(yLabels)
+	
+	ctx := context.WithValue(c.Request.Context(), model.UserKey, user)
+	xLabelsJSON, yLabelsJSON := initLabels()
 
 	contest := model.Contest{
 		Name:     req.Name,
-		HomeTeam: req.HomeTeam,
-		AwayTeam: req.AwayTeam,
 		XLabels:  xLabelsJSON,
 		YLabels:  yLabelsJSON,
+		HomeTeam: req.HomeTeam,
+		AwayTeam: req.AwayTeam,
+		Owner:    req.Owner,
+		Status:   "ACTIVE",
 	}
 
 	if err := repo.Create(ctx, &contest); err != nil {
@@ -84,17 +62,22 @@ func CreateContestHandler(c *gin.Context) {
 		return
 	}
 
-	log.Info("create contest request json bound successfully", "name", req.Name)
+	log.Info("created contest", "name", req.Name, "contest_id", contest.ID, "owner", req.Owner)
 	c.JSON(http.StatusOK, contest)
 }
 
-func isValidNameOrTeam(name string) bool {
-	if len(name) == 0 || len(name) > 20 {
-		return false
+func initLabels() ([]byte, []byte) {
+	xLabels := make([]int8, 10)
+	yLabels := make([]int8, 10)
+	for i := range 10 {
+		xLabels[i] = -1
+		yLabels[i] = -1
 	}
-	matches, _ := regexp.MatchString(`^[A-Za-z0-9\s\-_]{1,20}$`, name)
+		
+	xLabelsJSON, _ := json.Marshal(xLabels)
+	yLabelsJSON, _ := json.Marshal(yLabels)
 
-	return matches
+	return xLabelsJSON, yLabelsJSON
 }
 
 // @Summary Get all contests
@@ -106,7 +89,7 @@ func isValidNameOrTeam(name string) bool {
 // @Security BearerAuth
 // @Router /contests [get]
 func GetAllContestsHandler(c *gin.Context) {
-	log := middleware.FromContext(c)
+	log := util.LoggerFromContext(c)
 	repo := repository.NewContestRepository()
 
 	ctx := context.WithValue(c.Request.Context(), model.UserKey, c.GetString(model.UserKey))
@@ -122,6 +105,22 @@ func GetAllContestsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, contests)
 }
 
+// @Summary Update contest
+// @Description Updates the values of a contest
+// @Tags contests
+// @Accept json
+// @Produce json
+// @Param id path string true "Contest ID"
+// @Success 200 {object} model.ContestSwagger
+// @Failure 400 {object} model.APIError
+// @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
+// @Security BearerAuth
+// @Router /contests/{id} [patch]
+func UpdateContestHandler(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, nil)
+}
+
 // @Summary Get all contests by username
 // @Description Returns all contests created by a specific user
 // @Tags contests
@@ -133,13 +132,14 @@ func GetAllContestsHandler(c *gin.Context) {
 // @Security BearerAuth
 // @Router /contests/user/{username} [get]
 func GetContestsByUserHandler(c *gin.Context) {
-	log := middleware.FromContext(c)
+	log := util.LoggerFromContext(c)
 	repo := repository.NewContestRepository()
 
 	username := c.Param("username")
-	if username == "" {
+	if username == "" || !service.IsDeclaredUser(c, username) {
 		log.Error("username not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Username is required", c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid username", c))
+
 		return
 	}
 
@@ -157,7 +157,7 @@ func GetContestsByUserHandler(c *gin.Context) {
 }
 
 // @Summary Get a contest by ID
-// @Description Returns a single contest by its ID (public endpoint, no authentication required)
+// @Description Returns a single contest by its ID
 // @Tags contests
 // @Produce json
 // @Param id path string true "Contest ID"
@@ -167,7 +167,7 @@ func GetContestsByUserHandler(c *gin.Context) {
 // @Failure 500 {object} model.APIError
 // @Router /contests/{id} [get]
 func GetContestByIDHandler(c *gin.Context) {
-	log := middleware.FromContext(c)
+	log := util.LoggerFromContext(c)
 	repo := repository.NewContestRepository()
 
 	contestIDParam := c.Param("id")
@@ -186,7 +186,7 @@ func GetContestByIDHandler(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	contest, err := repo.GetByID(ctx, contestID.String())
+	contest, err := repo.GetByID(ctx, contestID)
 	if err != nil {
 		log.Error("failed to get contest by id", "contest_id", contestID, "error", err)
 		c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
@@ -198,20 +198,20 @@ func GetContestByIDHandler(c *gin.Context) {
 }
 
 // @Summary Update a single square in a contest
-// @Description Updates the value of a specific square in a contest. Value must be 1-3 uppercase letters or numbers only.
+// @Description Updates the value of a specific square in a contest
 // @Tags contests
 // @Accept json
 // @Produce json
 // @Param id path string true "Square ID"
-// @Param square body model.UpdateSquareRequest true "Square update data"
+// @Param square body model.UpdateSquareRequest true "Square"
 // @Success 200 {object} model.Square
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /contests/square/{id} [post]
+// @Router /contests/square/{id} [patch]
 func UpdateSquareHandler(c *gin.Context) {
-	log := middleware.FromContext(c)
+	log := util.LoggerFromContext(c)
 	repo := repository.NewContestRepository()
 	redisService := service.NewRedisService()
 
@@ -230,9 +230,7 @@ func UpdateSquareHandler(c *gin.Context) {
 	}
 
 	req.Value = strings.ToUpper(req.Value)
-	if !isValidSquareValue(req.Value) {
-		log.Error("invalid square value", "value", req.Value)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Value must be 1-3 uppercase letters or numbers", c))
+	if !service.ValidateSquareUpdate(c, req) {
 		return
 	}
 
@@ -248,30 +246,17 @@ func UpdateSquareHandler(c *gin.Context) {
 
 	updatedSquare, err := repo.UpdateSquare(ctx, squareID, req.Value, user)
 	if err != nil {
-		log.Error("failed to update square", "square_id", squareID, "value", req.Value, "user", user, "error", err)
+		log.Error("failed to update square", "square_id", squareID, "value", req.Value, "error", err)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to update square: %s", err), c))
 		return
 	}
 
-	if err := redisService.PublishSquareUpdate(ctx, updatedSquare.ContestID, updatedSquare.ID, updatedSquare.Value, user); err != nil {
+	if err := redisService.PublishSquareUpdate(ctx, updatedSquare.ContestID, user, updatedSquare.ID, updatedSquare.Value); err != nil {
 		log.Error("failed to publish square update", "contestId", updatedSquare.ContestID, "squareId", updatedSquare.ID, "error", err)
 	}
 
-	log.Info("square updated successfully", "square_id", squareID, "value", req.Value, "user", user)
+	log.Info("square updated successfully", "square_id", squareID, "value", req.Value)
 	c.JSON(http.StatusOK, updatedSquare)
-}
-
-func isValidSquareValue(val string) bool {
-	if val == "" {
-		return true
-	}
-
-	if len(val) > 3 {
-		return false
-	}
-	matches, _ := regexp.MatchString(`^[A-Z0-9]{1,3}$`, val)
-
-	return matches
 }
 
 // @Summary Randomize contest labels
@@ -286,7 +271,7 @@ func isValidSquareValue(val string) bool {
 // @Security BearerAuth
 // @Router /contests/{id}/randomize-labels [post]
 func RandomizeContestLabelsHandler(c *gin.Context) {
-	log := middleware.FromContext(c)
+	log := util.LoggerFromContext(c)
 	repo := repository.NewContestRepository()
 	redisService := service.NewRedisService()
 
@@ -310,18 +295,18 @@ func RandomizeContestLabelsHandler(c *gin.Context) {
 	xLabels := generateRandomizedLabels()
 	yLabels := generateRandomizedLabels()
 
-	updatedContest, err := repo.UpdateLabels(ctx, contestID.String(), xLabels, yLabels, user)
+	updatedContest, err := repo.UpdateLabels(ctx, contestID, xLabels, yLabels, user)
 	if err != nil {
-		log.Error("failed to update contest labels", "contest_id", contestID, "user", user, "error", err)
+		log.Error("failed to update contest labels", "contest_id", contestID, "error", err)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to randomize contest labels: %s", err), c))
 		return
 	}
 
-	if err := redisService.PublishContestUpdate(ctx, updatedContest.ID, xLabels, yLabels, user); err != nil {
-		log.Error("failed to publish contest update", "contestId", updatedContest.ID, "user", user, "error", err)
+	if err := redisService.PublishLabelsUpdate(ctx, updatedContest.ID, user, xLabels, yLabels); err != nil {
+		log.Error("failed to publish contest update", "contestId", updatedContest.ID, "error", err)
 	}
 
-	log.Info("contest labels randomized successfully", "contest_id", contestID, "user", user)
+	log.Info("contest labels randomized successfully", "contest_id", contestID)
 	c.JSON(http.StatusOK, updatedContest)
 }
 

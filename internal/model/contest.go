@@ -16,6 +16,8 @@ type Contest struct {
 	HomeTeam  string         `json:"homeTeam,omitempty"`
 	AwayTeam  string         `json:"awayTeam,omitempty"`
 	Squares   []Square       `json:"squares" gorm:"foreignKey:ContestID;constraint:OnDelete:CASCADE"`
+	Owner     string         `json:"owner"`
+	Status    string         `json:"status"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	CreatedBy string         `json:"createdBy"`

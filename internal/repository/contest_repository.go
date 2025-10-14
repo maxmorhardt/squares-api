@@ -14,9 +14,9 @@ type ContestRepository interface {
 	Create(ctx context.Context, contest *model.Contest) error
 	GetAll(ctx context.Context) ([]model.Contest, error)
 	GetAllByUser(ctx context.Context, username string) ([]model.Contest, error)
-	GetByID(ctx context.Context, id string) (model.Contest, error)
+	GetByID(ctx context.Context, id uuid.UUID) (model.Contest, error)
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (model.Square, error)
-	UpdateLabels(ctx context.Context, contestID string, xLabels, yLabels []int8, user string) (model.Contest, error)
+	UpdateLabels(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, user string) (model.Contest, error)
 }
 
 type contestRepository struct {
@@ -70,7 +70,7 @@ func (r *contestRepository) GetAllByUser(ctx context.Context, username string) (
 	return contests, err
 }
 
-func (r *contestRepository) GetByID(ctx context.Context, id string) (model.Contest, error) {
+func (r *contestRepository) GetByID(ctx context.Context, id uuid.UUID) (model.Contest, error) {
 	var contest model.Contest
 	err := r.db.WithContext(ctx).
 		Preload("Squares").
@@ -81,7 +81,6 @@ func (r *contestRepository) GetByID(ctx context.Context, id string) (model.Conte
 
 func (r *contestRepository) UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (model.Square, error) {
 	var updatedSquare model.Square
-
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var square model.Square
 		if err := tx.Where("id = ?", squareID).First(&square).Error; err != nil {
@@ -104,9 +103,8 @@ func (r *contestRepository) UpdateSquare(ctx context.Context, squareID uuid.UUID
 	return updatedSquare, err
 }
 
-func (r *contestRepository) UpdateLabels(ctx context.Context, contestID string, xLabels, yLabels []int8, user string) (model.Contest, error) {
+func (r *contestRepository) UpdateLabels(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, user string) (model.Contest, error) {
 	var updatedContest model.Contest
-
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var contest model.Contest
 		if err := tx.Where("id = ?", contestID).First(&contest).Error; err != nil {

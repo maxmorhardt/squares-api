@@ -48,13 +48,13 @@ const docTemplate = `{
                     }
                 }
             },
-            "post": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new 10x10 contest with X and Y labels. Contest name must be 1-20 characters with only letters, numbers, spaces, hyphens, and underscores. Team names are optional but follow the same validation rules.",
+                "description": "Creates a new 10x10 contest",
                 "consumes": [
                     "application/json"
                 ],
@@ -67,7 +67,7 @@ const docTemplate = `{
                 "summary": "Create a new Contest",
                 "parameters": [
                     {
-                        "description": "Contest to create",
+                        "description": "Contest",
                         "name": "contest",
                         "in": "body",
                         "required": true,
@@ -99,13 +99,13 @@ const docTemplate = `{
             }
         },
         "/contests/square/{id}": {
-            "post": {
+            "patch": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the value of a specific square in a contest. Value must be 1-3 uppercase letters or numbers only.",
+                "description": "Updates the value of a specific square in a contest",
                 "consumes": [
                     "application/json"
                 ],
@@ -125,7 +125,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Square update data",
+                        "description": "Square",
                         "name": "square",
                         "in": "body",
                         "required": true,
@@ -213,7 +213,7 @@ const docTemplate = `{
         },
         "/contests/{id}": {
             "get": {
-                "description": "Returns a single contest by its ID (public endpoint, no authentication required)",
+                "description": "Returns a single contest by its ID",
                 "produces": [
                     "application/json"
                 ],
@@ -221,6 +221,59 @@ const docTemplate = `{
                     "contests"
                 ],
                 "summary": "Get a contest by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Contest ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.ContestSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the values of a contest",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contests"
+                ],
+                "summary": "Update contest",
                 "parameters": [
                     {
                         "type": "string",
@@ -433,11 +486,18 @@ const docTemplate = `{
                     "type": "string",
                     "example": "My Contest"
                 },
+                "owner": {
+                    "type": "string"
+                },
                 "squares": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.Square"
                     }
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ACTIVE"
                 },
                 "updatedAt": {
                     "type": "string"
@@ -462,7 +522,8 @@ const docTemplate = `{
         "model.CreateContestRequest": {
             "type": "object",
             "required": [
-                "name"
+                "name",
+                "owner"
             ],
             "properties": {
                 "awayTeam": {
@@ -480,6 +541,9 @@ const docTemplate = `{
                     "maxLength": 20,
                     "minLength": 1,
                     "example": "My Contest"
+                },
+                "owner": {
+                    "type": "string"
                 }
             }
         },

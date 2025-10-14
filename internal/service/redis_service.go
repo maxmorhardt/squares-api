@@ -10,23 +10,36 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/model"
 )
 
-type RedisService struct{}
-
-func NewRedisService() *RedisService {
-	return &RedisService{}
+type RedisService interface	{
+	PublishSquareUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, squareID uuid.UUID, value string) error
+	PublishLabelsUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, xLabels, yLabels []int8) error
 }
 
-func (s *RedisService) PublishSquareUpdate(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, value string, updatedBy string) error {
-	updateMessage := model.NewSquareUpdateMessage(contestID, squareID, value, updatedBy)
+type redisService struct{}
+
+func NewRedisService() RedisService {
+	return &redisService{}
+}
+
+func (s *redisService) PublishSquareUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, squareID uuid.UUID, value string) error {
+	updateMessage := model.NewSquareUpdateMessage(contestID, updatedBy, &model.SquareWSUpdate{
+		SquareID: squareID,
+		Value:    value,
+	})
+
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
 }
 
-func (s *RedisService) PublishContestUpdate(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, updatedBy string) error {
-	updateMessage := model.NewContestUpdateMessage(contestID, xLabels, yLabels, updatedBy)
+func (s *redisService) PublishLabelsUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, xLabels, yLabels []int8) error {
+	updateMessage := model.NewContestUpdateMessage(contestID, updatedBy, &model.ContestWSUpdate{
+		XLabels: xLabels,
+		YLabels: yLabels,
+	})
+	
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
 }
 
-func (s *RedisService) publishToContestChannel(ctx context.Context, contestID uuid.UUID, message interface{}) error {
+func (s *redisService) publishToContestChannel(ctx context.Context, contestID uuid.UUID, message any) error {
 	channel := fmt.Sprintf("%s:%s", model.ContestChannelPrefix, contestID)
 	jsonData, err := json.Marshal(message)
 	if err != nil {

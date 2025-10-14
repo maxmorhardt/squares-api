@@ -4,33 +4,49 @@ import (
 	"net/http"
 	"strings"
 
-	"log/slog"
-
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
+	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
-func RoleMiddleware(verifier *oidc.IDTokenVerifier, allowedRoles ...string) gin.HandlerFunc {
+func AuthMiddleware(allowedGroups ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log := FromContext(c)
-
-		claims := VerifyToken(c, verifier, log, false)
-		if claims == nil {
-			return
-		}
-
-		if len(allowedRoles) == 0 {
-			setContext(c, claims)
-			return
-		}
-
-		ValidateRoles(c, claims, log, allowedRoles...)
-		setContext(c, claims)
+		claims := verifyToken(c, false)
+		authMiddleware(c, claims, allowedGroups...)
 	}
 }
 
-func VerifyToken(c *gin.Context, verifier *oidc.IDTokenVerifier, log *slog.Logger, isWebSocket bool) *model.Claims {
+func AuthMiddlewareWS(allowedGroups ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims := verifyToken(c, true)
+		authMiddleware(c, claims, allowedGroups...)
+	}
+}
+
+func authMiddleware(c *gin.Context, claims *model.Claims, allowedGroups ...string) {
+	if claims == nil {
+		return
+	}
+
+	c.Set(model.UserKey, claims.Username)
+	c.Set(model.ClaimsKey, claims)
+
+	log := util.LoggerFromContext(c)
+	log.With("user", claims.Username)
+
+	if len(allowedGroups) == 0 {
+		c.Next()
+		return
+	}
+
+	validateGroups(c, claims, allowedGroups...)
+	c.Next()
+}
+
+func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
+	log := util.LoggerFromContext(c)
+
 	var token string
 	if isWebSocket {
 		wsProtocol := c.Request.Header.Get("Sec-WebSocket-Protocol")
@@ -51,13 +67,14 @@ func VerifyToken(c *gin.Context, verifier *oidc.IDTokenVerifier, log *slog.Logge
 
 		token = strings.TrimPrefix(authHeader, "Bearer ")
 	}
-	
-	idToken, err := verifier.Verify(c.Request.Context(), token)
+
+	idToken, err := config.OIDCVerifier.Verify(c.Request.Context(), token)
 	if err != nil {
 		log.Warn("failed to verify token", "error", err)
 		if !isWebSocket {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Invalid token", c))
 		}
+
 		return nil
 	}
 
@@ -67,37 +84,34 @@ func VerifyToken(c *gin.Context, verifier *oidc.IDTokenVerifier, log *slog.Logge
 		if !isWebSocket {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Invalid token claims", c))
 		}
+
 		return nil
 	}
 
 	return &claims
 }
 
-func ValidateRoles(c *gin.Context, claims *model.Claims, log *slog.Logger, allowedRoles ...string) {
-	allowedSet := make(map[string]struct{}, len(allowedRoles))
-	for _, role := range allowedRoles {
-		allowedSet[role] = struct{}{}
+func validateGroups(c *gin.Context, claims *model.Claims, allowedGroups ...string) {
+	log := util.LoggerFromContext(c)
+
+	allowedSet := make(map[string]struct{}, len(allowedGroups))
+	for _, group := range allowedGroups {
+		allowedSet[group] = struct{}{}
 	}
 
-	hasRole := false
-	for _, role := range claims.Roles {
-		if _, allowedRole := allowedSet[role]; allowedRole {
-			hasRole = true
+	hasGroup := false
+	for _, group := range claims.Groups {
+		if _, allowedGroup := allowedSet[group]; allowedGroup {
+			hasGroup = true
 			break
 		}
 	}
 
-	if !hasRole {
-		log.Warn("user forbidden", "user", claims.Username, "roles", claims.Roles, "allowedRoles", allowedRoles)
+	if !hasGroup {
+		log.Warn("user forbidden", "groups", claims.Groups, "allowed_groups", allowedGroups)
 		c.AbortWithStatusJSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, "Forbidden", c))
 		return
 	}
 
-	log.Info("user authorized", "user", claims.Username, "roles", claims.Roles)
-}
-
-func setContext(c *gin.Context, claims *model.Claims) {
-	c.Set(model.UserKey, claims.Username)
-	c.Set(model.RolesKey, claims.Roles)
-	c.Next()
+	log.Info("user authorized", "groups", claims.Groups)
 }
