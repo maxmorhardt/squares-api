@@ -1,10 +1,10 @@
 package model
 
-type ctxKey string
+type CTXKey string
 
 const (
-	UserKey      ctxKey = "user"
-	RequestIDKey ctxKey = "request_id"
-	LoggerKey    ctxKey = "logger"
-	ClaimsKey    ctxKey = "claims"
+	UserKey      CTXKey = "user"
+	RequestIDKey CTXKey = "request_id"
+	LoggerKey    CTXKey = "logger"
+	ClaimsKey    CTXKey = "claims"
 )

@@ -29,8 +29,8 @@ func authMiddleware(c *gin.Context, claims *model.Claims, allowedGroups ...strin
 		return
 	}
 
-	c.Set(model.UserKey, claims.Username)
-	c.Set(model.ClaimsKey, claims)
+	util.SetGinContextValue(c, model.UserKey, claims.Username)
+	util.SetGinContextValue(c, model.ClaimsKey, claims)
 
 	log := util.LoggerFromContext(c)
 	log.With("user", claims.Username)

@@ -7,12 +7,12 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/model"
 )
 
-func RegisterContestRoutes(rg *gin.RouterGroup) {
-	rg.GET("", middleware.AuthMiddleware(model.SquaresAdminGroup), handler.GetAllContestsHandler)
-	rg.PUT("", middleware.AuthMiddleware(), handler.CreateContestHandler)
-	rg.PATCH(":id", middleware.AuthMiddleware(), handler.UpdateContestHandler)
-	rg.GET("/:id", middleware.AuthMiddleware(), handler.GetContestByIDHandler)
-	rg.GET("/user/:username", middleware.AuthMiddleware(), handler.GetContestsByUserHandler)
-	rg.PATCH("/square/:id", middleware.AuthMiddleware(), handler.UpdateSquareHandler)
-	rg.POST("/:id/randomize-labels", middleware.AuthMiddleware(), handler.RandomizeContestLabelsHandler)
+func RegisterContestRoutes(rg *gin.RouterGroup, h handler.ContestHandler) {
+	rg.GET("", middleware.AuthMiddleware(model.SquaresAdminGroup), h.GetAllContests)
+	rg.PUT("", middleware.AuthMiddleware(), h.CreateContest)
+	rg.GET("/:id", h.GetContestByID)
+	rg.PATCH(":id", middleware.AuthMiddleware(), h.UpdateContest)
+	rg.POST("/:id/randomize-labels", middleware.AuthMiddleware(), h.RandomizeLabels)
+	rg.PATCH("/square/:id", middleware.AuthMiddleware(), h.UpdateSquare)
+	rg.GET("/user/:username", middleware.AuthMiddleware(), h.GetContestsByUser)
 }

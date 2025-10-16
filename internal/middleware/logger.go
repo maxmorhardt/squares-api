@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/model"
+	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
 func init() {
@@ -28,8 +29,8 @@ func LoggerMiddleware(c *gin.Context) {
 		"client_ip", c.ClientIP(),
 	)
 
-	c.Set(model.RequestIDKey, requestId)
-	c.Set(model.LoggerKey, logger)
+	util.SetGinContextValue(c, model.RequestIDKey, requestId)
+	util.SetGinContextValue(c, model.LoggerKey, logger)
 
 	c.Next()
 }
