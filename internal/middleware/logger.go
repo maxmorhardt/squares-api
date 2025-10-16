@@ -19,18 +19,18 @@ func init() {
 }
 
 func LoggerMiddleware(c *gin.Context) {
-	requestId := c.GetHeader("X-Request-ID")
-	if requestId == "" {
-		requestId = uuid.New().String()
+	requestID := c.GetHeader("X-Request-ID")
+	if requestID == "" {
+		requestID = uuid.New().String()
 	}
 
-	logger := slog.Default().With(
-		"request_id", requestId,
+	log := slog.Default().With(
+		"request_id", requestID,
 		"client_ip", c.ClientIP(),
 	)
 
-	util.SetGinContextValue(c, model.RequestIDKey, requestId)
-	util.SetGinContextValue(c, model.LoggerKey, logger)
+	util.SetGinContextValue(c, model.RequestIDKey, requestID)
+	util.SetGinContextValue(c, model.LoggerKey, log)
 
 	c.Next()
 }

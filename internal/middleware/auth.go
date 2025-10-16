@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -21,11 +22,23 @@ func AuthMiddlewareWS(allowedGroups ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := verifyToken(c, true)
 		authMiddleware(c, claims, allowedGroups...)
+
+		connectionID := c.GetHeader("X-Connection-ID")
+		if connectionID == "" {
+			connectionID = uuid.New().String()
+		}
+
+		log := util.LoggerFromContext(c)
+		log = log.With("connection_id", connectionID)
+
+		util.SetGinContextValue(c, model.LoggerKey, log)
+		util.SetGinContextValue(c, model.ConnectionIDKey, connectionID)
 	}
 }
 
 func authMiddleware(c *gin.Context, claims *model.Claims, allowedGroups ...string) {
 	if claims == nil {
+		c.Abort()
 		return
 	}
 

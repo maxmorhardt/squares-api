@@ -28,6 +28,15 @@ func NewWebSocketService() WebSocketService {
 func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contestID uuid.UUID, conn *websocket.Conn) {
 	log := util.LoggerFromContext(ctx)
 
+	connectionID, ok := ctx.Value(model.ConnectionIDKey).(uuid.UUID)
+	if !ok {
+		log.Warn("failed to find connection id in context")
+		connectionID = uuid.New()
+		log = log.With("connection_id", connectionID)
+	}
+
+	sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID))
+
 	log.Info("subscribing to redis channel")
 	contestChannel := fmt.Sprintf("%s:%s", model.ContestChannelPrefix, contestID)
 	pubsub := config.RedisClient.Subscribe(ctx, contestChannel)
@@ -50,7 +59,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	defer jwtChecker.Stop()
 
 	go s.handleIncomingMessages(conn)
-	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, contestID, redisChannel, log)
+	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, contestID, connectionID, redisChannel, log)
 }
 
 // ignore incoming messages
@@ -69,7 +78,8 @@ func (s *websocketService) handleOutgoingMessages(
 	conn *websocket.Conn, 
 	pingChecker *time.Ticker, 
 	jwtChecker *time.Ticker, 
-	contestID uuid.UUID, 
+	contestID uuid.UUID,
+	connectionID uuid.UUID,
 	redisChannel <-chan *redis.Message,
 	log *slog.Logger,
 ) {
@@ -89,12 +99,14 @@ func (s *websocketService) handleOutgoingMessages(
 			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				log.Warn("failed to send ping", "error", err)
+				conn.Close()
+				return
 			}
 
 		case <-jwtChecker.C:
 			if shouldCloseConnection(ctx, log) {
 				log.Warn("closing connection due to token validation failure")
-				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID)); err != nil {
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
 					log.Error("failed to send disconnected message", "error", err)
 				}
 				conn.Close()

@@ -15,12 +15,13 @@ const (
 )
 
 type WSUpdate struct {
-	Type      string           `json:"type"`
-	ContestID uuid.UUID        `json:"contestId"`
-	UpdatedBy string           `json:"updatedBy"`
-	Timestamp time.Time        `json:"timestamp"`
-	Square    *SquareWSUpdate  `json:"square,omitempty"`
-	Contest   *ContestWSUpdate `json:"contest,omitempty"`
+	Type         string           `json:"type"`
+	ContestID    uuid.UUID        `json:"contestId"`
+	ConnectionID uuid.UUID        `json:"connectionId,omitempty"`
+	UpdatedBy    string           `json:"updatedBy"`
+	Timestamp    time.Time        `json:"timestamp"`
+	Square       *SquareWSUpdate  `json:"square,omitempty"`
+	Contest      *ContestWSUpdate `json:"contest,omitempty"`
 }
 
 type SquareWSUpdate struct {
@@ -35,21 +36,23 @@ type ContestWSUpdate struct {
 	YLabels  []int8 `json:"yLabels,omitempty"`
 }
 
-func NewConnectedMessage(contestId uuid.UUID) *WSUpdate {
+func NewConnectedMessage(contestId uuid.UUID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
-		Type:      ConnectedType,
-		ContestID: contestId,
-		UpdatedBy: "system",
-		Timestamp: time.Now(),
+		Type:         ConnectedType,
+		ContestID:    contestId,
+		ConnectionID: connectionID,
+		UpdatedBy:    "system",
+		Timestamp:    time.Now(),
 	}
 }
 
-func NewDisconnectedMessage(contestId uuid.UUID) *WSUpdate {
+func NewDisconnectedMessage(contestId uuid.UUID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
-		Type:      DisconnectType,
-		ContestID: contestId,
-		UpdatedBy: "system",
-		Timestamp: time.Now(),
+		Type:         DisconnectType,
+		ContestID:    contestId,
+		ConnectionID: connectionID,
+		UpdatedBy:    "system",
+		Timestamp:    time.Now(),
 	}
 }
 
