@@ -30,7 +30,8 @@ type websocketHandler struct {
 
 func NewWebSocketHandler(websocketService service.WebSocketService, validationService service.ValidationService) WebSocketHandler {
 	return &websocketHandler{
-		websocketService: websocketService,
+		websocketService:  websocketService,
+		validationService: validationService,
 	}
 }
 
@@ -48,7 +49,7 @@ func NewWebSocketHandler(websocketService service.WebSocketService, validationSe
 func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log := util.LoggerFromContext(c)
 
-	contestIDParam := c.Param("contestId")
+	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
 		log.Error("contest id is missing")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
@@ -62,7 +63,8 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 		return
 	}
 
-	log.With("contest_id", contestID)
+	log = log.With("contest_id", contestID)
+	util.SetGinContextValue(c, model.LoggerKey, log)
 
 	token := c.Request.Header.Get("Sec-WebSocket-Protocol")
 	responseHeader := http.Header{}

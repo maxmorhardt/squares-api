@@ -33,7 +33,8 @@ func authMiddleware(c *gin.Context, claims *model.Claims, allowedGroups ...strin
 	util.SetGinContextValue(c, model.ClaimsKey, claims)
 
 	log := util.LoggerFromContext(c)
-	log.With("user", claims.Username)
+	log = log.With("user", claims.Username)
+	util.SetGinContextValue(c, model.LoggerKey, log)
 
 	if len(allowedGroups) == 0 {
 		c.Next()

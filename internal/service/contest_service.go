@@ -32,9 +32,9 @@ func NewContestService(
 	authService AuthService, 
 ) ContestService {
 	return &contestService{
-		repo:              repo,
-		redisService:      redisService,
-		authService:       authService,
+		repo:         repo,
+		redisService: redisService,
+		authService:  authService,
 	}
 }
 
@@ -113,7 +113,7 @@ func (s *contestService) RandomizeLabels(ctx context.Context, contestID uuid.UUI
 	}
 
 	go func() {
-		if err := s.redisService.PublishLabelsUpdate(ctx, updatedContest.ID, user, xLabels, yLabels); err != nil {
+		if err := s.redisService.PublishLabelsUpdate(context.Background(), updatedContest.ID, user, xLabels, yLabels); err != nil {
 			log.Error("failed to publish contest update", "contestId", updatedContest.ID, "error", err)
 		}
 	}()
@@ -148,7 +148,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, squareID uuid.UUID, r
 	}
 
 	go func() {
-		if err := s.redisService.PublishSquareUpdate(ctx, updatedSquare.ContestID, user, updatedSquare.ID, updatedSquare.Value); err != nil {
+		if err := s.redisService.PublishSquareUpdate(context.Background(), updatedSquare.ContestID, user, updatedSquare.ID, updatedSquare.Value); err != nil {
 			log.Error("failed to publish square update", "contestId", updatedSquare.ContestID, "squareId", updatedSquare.ID, "error", err)
 		}
 	}()
@@ -166,5 +166,6 @@ func (c *contestService) GetContestsByUser(ctx context.Context, username string)
 		return nil, err
 	}
 
+	log.Info("retrieved contests by username", "count", len(contests))
 	return contests, nil
 }
