@@ -9,6 +9,7 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/util"
+	"gorm.io/gorm"
 )
 
 type ValidationService interface {
@@ -17,10 +18,14 @@ type ValidationService interface {
 	ValidateWSRequest(ctx context.Context, contestID uuid.UUID) error
 }
 
-type validationService struct{}
+type validationService struct{
+	contestRepo repository.ContestRepository
+}
 
-func NewValidationService() ValidationService {
-	return &validationService{}
+func NewValidationService(contestRepo repository.ContestRepository) ValidationService {
+	return &validationService{
+		contestRepo: contestRepo,
+	}
 }
 
 func (s *validationService) ValidateNewContest(ctx context.Context, req *model.CreateContestRequest, user string) error {
@@ -39,6 +44,17 @@ func (s *validationService) ValidateNewContest(ctx context.Context, req *model.C
 	if !isValidTeamName(req.AwayTeam) {
 		log.Error("invalid away team name", "away_team", req.AwayTeam)
 		return errors.New("Away team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
+	}
+
+	exists, err := s.contestRepo.ExistsByUserAndName(ctx, req.Owner, req.Name)
+	if err != nil {
+		log.Error("failed to check if contest exists", "owner", req.Owner, "name", req.Name, "error", err)
+		return err
+	}
+
+	if exists {
+		log.Error("contest already exists", "owner", req.Owner, "name", req.Name)
+		return gorm.ErrDuplicatedKey
 	}
 
 	return nil
@@ -88,12 +104,11 @@ func isValidSquareValue(val string) bool {
 func (s *validationService) ValidateWSRequest(ctx context.Context, contestID uuid.UUID) error {
 	log := util.LoggerFromContext(ctx)
 
-	repo := repository.NewContestRepository()
-	_, err := repo.GetByID(ctx, contestID)
+	exists, err := s.contestRepo.ExistsByID(ctx, contestID)
 
-	if err != nil {
+	if err != nil || !exists {
 		log.Error("contest not found")
-		return err
+		return gorm.ErrRecordNotFound
 	}
 
 	return nil

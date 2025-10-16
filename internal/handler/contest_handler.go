@@ -91,6 +91,11 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 
 	contest, err := h.contestService.CreateContest(c.Request.Context(), &req)
 	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest already exists", c))
+			return
+		}
+		
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to create new contest", c))
 		return
 	}

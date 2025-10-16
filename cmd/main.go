@@ -18,7 +18,6 @@ import (
 // @title           Squares API
 // @version         1.0.0
 // @description     API for squares.maxstash.io
-
 // @securityDefinitions.apikey BearerAuth
 // @type apiKey
 // @in header
@@ -55,7 +54,7 @@ func setupRoutes(r *gin.Engine) {
 	
 	authService := service.NewAuthService()
 	redisService := service.NewRedisService()
-	validationService := service.NewValidationService()
+	validationService := service.NewValidationService(contestRepo)
 
 	contestService := service.NewContestService(contestRepo, redisService, authService)
 	contestHandler := handler.NewContestHandler(contestService, authService, validationService)

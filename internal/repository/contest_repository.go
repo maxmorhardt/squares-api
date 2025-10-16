@@ -14,9 +14,11 @@ type ContestRepository interface {
 	GetAll(ctx context.Context) ([]model.Contest, error)
 	Create(ctx context.Context, contest *model.Contest) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Contest, error)
+	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
 	UpdateLabels(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, user string) (*model.Contest, error)
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (*model.Square, error)
 	GetAllByUser(ctx context.Context, username string) ([]model.Contest, error)
+	ExistsByUserAndName(ctx context.Context, username, name string) (bool, error)
 }
 
 type contestRepository struct {
@@ -67,6 +69,16 @@ func (r *contestRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.C
 		First(&contest, "id = ?", id).Error
 
 	return &contest, err
+}
+
+func (r *contestRepository) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Contest{}).
+		Where("id = ?", id).
+		Count(&count).Error
+
+	return count > 0, err
 }
 
 func (r *contestRepository) UpdateLabels(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, user string) (*model.Contest, error) {
@@ -130,4 +142,14 @@ func (r *contestRepository) GetAllByUser(ctx context.Context, username string) (
 		Find(&contests).Error
 
 	return contests, err
+}
+
+func (r *contestRepository) ExistsByUserAndName(ctx context.Context, username, name string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Contest{}).
+		Where("created_by = ? AND name = ?", username, name).
+		Count(&count).Error
+
+	return count > 0, err
 }
