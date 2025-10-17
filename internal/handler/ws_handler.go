@@ -51,14 +51,14 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 
 	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
-		log.Error("contest id is missing")
+		log.Warn("contest id is missing")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
 		return
 	}
 
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
-		log.Error("invalid or missing contest id", "error", err)
+		log.Warn("invalid contest id", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid Contest ID", c))
 		return
 	}
@@ -76,7 +76,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 			return
 		}
 
-		log.Error("failed to validate websocket request", "error", err)
+		log.Warn("failed to validate websocket request", "error", err)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Invalid Contest ID", c))
 		return
 	}

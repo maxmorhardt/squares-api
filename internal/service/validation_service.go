@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -32,17 +33,17 @@ func (s *validationService) ValidateNewContest(ctx context.Context, req *model.C
 	log := util.LoggerFromContext(ctx)
 
 	if !isValidContestName(req.Name) {
-		log.Error("invalid contest name", "name", req.Name)
+		log.Warn("invalid contest name", "name", req.Name)
 		return errors.New("Contest name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
 	}
 
 	if !isValidTeamName(req.HomeTeam) {
-		log.Error("invalid home team name", "home_team", req.HomeTeam)
+		log.Warn("invalid home team name", "home_team", req.HomeTeam)
 		return errors.New("Home team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
 	}
 
 	if !isValidTeamName(req.AwayTeam) {
-		log.Error("invalid away team name", "away_team", req.AwayTeam)
+		log.Warn("invalid away team name", "away_team", req.AwayTeam)
 		return errors.New("Away team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
 	}
 
@@ -53,8 +54,8 @@ func (s *validationService) ValidateNewContest(ctx context.Context, req *model.C
 	}
 
 	if exists {
-		log.Error("contest already exists", "owner", req.Owner, "name", req.Name)
-		return gorm.ErrDuplicatedKey
+		log.Warn("contest already exists", "owner", req.Owner, "name", req.Name)
+		return fmt.Errorf("Contest already exists with name %s for user %s", req.Name, req.Owner)
 	}
 
 	return nil
@@ -81,7 +82,7 @@ func (s *validationService) ValidateSquareUpdate(ctx context.Context, req *model
 	log := util.LoggerFromContext(ctx)
 
 	if !isValidSquareValue(req.Value) {
-		log.Error("invalid square value", "value", req.Value)
+		log.Warn("invalid square value", "value", req.Value)
 		return errors.New("Value must be 1-3 uppercase letters or numbers")
 	}
 
@@ -107,7 +108,7 @@ func (s *validationService) ValidateWSRequest(ctx context.Context, contestID uui
 	exists, err := s.contestRepo.ExistsByID(ctx, contestID)
 
 	if err != nil || !exists {
-		log.Error("contest not found")
+		log.Warn("contest not found")
 		return gorm.ErrRecordNotFound
 	}
 

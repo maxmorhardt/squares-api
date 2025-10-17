@@ -72,13 +72,13 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 
 	var req model.CreateContestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Error("failed to bind create contest json", "error", err)
+		log.Warn("failed to bind create contest json", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, err.Error(), c))
 		return
 	}
 
 	if !h.authService.IsDeclaredUser(c.Request.Context(), req.Owner) {
-		log.Error("user not authorized to create contest", "user", c.GetString(model.UserKey))
+		log.Warn("user not authorized to create contest", "user", c.GetString(model.UserKey))
 		c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, fmt.Sprintf("Not authorized to create contest for user %s", req.Owner), c))
 		return
 	}
@@ -91,11 +91,6 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 
 	contest, err := h.contestService.CreateContest(c.Request.Context(), &req)
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest already exists", c))
-			return
-		}
-		
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to create new contest", c))
 		return
 	}
@@ -118,14 +113,14 @@ func (h *contestHandler) GetContestByID(c *gin.Context) {
 
 	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
-		log.Error("contest id not provided")
+		log.Warn("contest id not provided")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
 		return
 	}
 
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
-		log.Error("invalid contest id", "param", contestIDParam, "error", err)
+		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid contest id: %s", contestIDParam), c))
 		return
 	}
@@ -176,14 +171,14 @@ func (h *contestHandler) RandomizeLabels(c *gin.Context) {
 
 	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
-		log.Error("contest id not provided")
+		log.Warn("contest id not provided")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
 		return
 	}
 
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
-		log.Error("invalid contest id", "param", contestIDParam, "error", err)
+		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid contest id: %s", contestIDParam), c))
 		return
 	}
@@ -220,21 +215,21 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 
 	squareIDParam := c.Param("id")
 	if squareIDParam == "" {
-		log.Error("square id not provided")
+		log.Warn("square id not provided")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Square ID is required", c))
 		return
 	}
 
 	squareID, err := uuid.Parse(squareIDParam)
 	if err != nil {
-		log.Error("invalid square id", "param", squareIDParam, "error", err)
+		log.Warn("invalid square id", "param", squareIDParam, "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid square id: %s", squareIDParam), c))
 		return
 	}
 
 	var req model.UpdateSquareRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Error("failed to bind json", "error", err)
+		log.Warn("failed to bind json", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid square update request", c))
 		return
 	}
@@ -269,7 +264,7 @@ func (h *contestHandler) GetContestsByUser(c *gin.Context) {
 
 	username := c.Param("username")
 	if username == "" {
-		log.Error("username not provided")
+		log.Warn("username not provided")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid username", c))
 		return
 	}
