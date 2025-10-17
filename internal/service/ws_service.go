@@ -28,12 +28,9 @@ func NewWebSocketService() WebSocketService {
 func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contestID uuid.UUID, conn *websocket.Conn) {
 	log := util.LoggerFromContext(ctx)
 
-	connectionID, ok := ctx.Value(model.ConnectionIDKey).(uuid.UUID)
-	if !ok {
-		log.Warn("failed to find connection id in context")
-		connectionID = uuid.New()
-		log = log.With("connection_id", connectionID)
-	}
+	connectionID := uuid.New()
+	log = log.With("connection_id", connectionID)
+	ctx = context.WithValue(ctx, model.ConnectionIDKey, connectionID)
 
 	sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID))
 
