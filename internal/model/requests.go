@@ -12,11 +12,11 @@ type UpdateSquareRequest struct {
 }
 
 type PaginatedContestResponse struct {
-	Contests   []Contest   `json:"contests"`
-	Page       int         `json:"page"`
-	Limit      int         `json:"limit"`
-	Total      int64       `json:"total"`
-	TotalPages int         `json:"totalPages"`
-	HasNext    bool        `json:"hasNext"`
-	HasPrev    bool        `json:"hasPrev"`
+	Contests    []Contest `json:"contests"`
+	Page        int       `json:"page"`
+	Limit       int       `json:"limit"`
+	Total       int64     `json:"total"`
+	TotalPages  int       `json:"totalPages"`
+	HasNext     bool      `json:"hasNext"`
+	HasPrevious bool      `json:"hasPrevious"`
 }
