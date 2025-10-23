@@ -87,13 +87,13 @@ func (h *contestHandler) GetAllContests(c *gin.Context) {
 
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
 	response := model.PaginatedContestResponse{
-		Contests:   contests,
-		Page:       page,
-		Limit:      limit,
-		Total:      total,
-		TotalPages: totalPages,
-		HasNext:    page < totalPages,
-		HasPrev:    page > 1,
+		Contests:    contests,
+		Page:        page,
+		Limit:       limit,
+		Total:       total,
+		TotalPages:  totalPages,
+		HasNext:     page < totalPages,
+		HasPrevious: page > 1,
 	}
 	c.JSON(http.StatusOK, response)
 }
@@ -327,13 +327,13 @@ func (h *contestHandler) GetContestsByUser(c *gin.Context) {
 
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
 	response := model.PaginatedContestResponse{
-		Contests:   contests,
-		Page:       page,
-		Limit:      limit,
-		Total:      total,
-		TotalPages: totalPages,
-		HasNext:    page < totalPages,
-		HasPrev:    page > 1,
+		Contests:    contests,
+		Page:        page,
+		Limit:       limit,
+		Total:       total,
+		TotalPages:  totalPages,
+		HasNext:     page < totalPages,
+		HasPrevious: page > 1,
 	}
 	c.JSON(http.StatusOK, response)
 }
