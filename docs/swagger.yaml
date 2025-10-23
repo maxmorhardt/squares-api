@@ -80,6 +80,25 @@ definitions:
         example: UP
         type: string
     type: object
+  model.PaginatedContestResponseSwagger:
+    properties:
+      contests:
+        items:
+          $ref: '#/definitions/model.ContestSwagger'
+        type: array
+      hasNext:
+        type: boolean
+      hasPrev:
+        type: boolean
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      totalPages:
+        type: integer
+    type: object
   model.Square:
     properties:
       col:
@@ -117,16 +136,32 @@ info:
 paths:
   /contests:
     get:
-      description: Returns all contests
+      description: Returns all contests with pagination (required)
+      parameters:
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        required: true
+        type: integer
+      - description: Items per page (max 25)
+        in: query
+        maximum: 25
+        minimum: 1
+        name: limit
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/model.ContestSwagger'
-            type: array
+            $ref: '#/definitions/model.PaginatedContestResponseSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
         "500":
           description: Internal Server Error
           schema:
@@ -309,22 +344,34 @@ paths:
       - contests
   /contests/user/{username}:
     get:
-      description: Returns all contests created by a specific user
+      description: Returns all contests created by a specific user with pagination
+        (required)
       parameters:
       - description: Username
         in: path
         name: username
         required: true
         type: string
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        required: true
+        type: integer
+      - description: Items per page (max 25)
+        in: query
+        maximum: 25
+        minimum: 1
+        name: limit
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/model.ContestSwagger'
-            type: array
+            $ref: '#/definitions/model.PaginatedContestResponseSwagger'
         "400":
           description: Bad Request
           schema:

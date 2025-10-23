@@ -12,24 +12,24 @@ import (
 )
 
 type ContestService interface {
-	GetAllContests(ctx context.Context) ([]model.Contest, error)
+	GetAllContestsPaginated(ctx context.Context, page, limit int) ([]model.Contest, int64, error)
 	CreateContest(ctx context.Context, req *model.CreateContestRequest) (*model.Contest, error)
 	GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error)
 	RandomizeLabels(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error)
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, req *model.UpdateSquareRequest) (*model.Square, error)
-	GetContestsByUser(ctx context.Context, username string) ([]model.Contest, error)
+	GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
 }
 
 type contestService struct {
-	repo              repository.ContestRepository
-	redisService      RedisService
-	authService       AuthService
+	repo         repository.ContestRepository
+	redisService RedisService
+	authService  AuthService
 }
 
 func NewContestService(
-	repo repository.ContestRepository, 
-	redisService RedisService, 
-	authService AuthService, 
+	repo repository.ContestRepository,
+	redisService RedisService,
+	authService AuthService,
 ) ContestService {
 	return &contestService{
 		repo:         repo,
@@ -38,21 +38,21 @@ func NewContestService(
 	}
 }
 
-func (s *contestService) GetAllContests(ctx context.Context) ([]model.Contest, error) {
+func (s *contestService) GetAllContestsPaginated(ctx context.Context, page, limit int) ([]model.Contest, int64, error) {
 	log := util.LoggerFromContext(ctx)
 
-	contests, err := s.repo.GetAll(ctx)
+	contests, total, err := s.repo.GetAllPaginated(ctx, page, limit)
 	if err != nil {
-		log.Error("failed to get all contests from repository", "error", err)
-		return nil, err
+		log.Error("failed to get paginated contests from repository", "error", err)
+		return nil, 0, err
 	}
 
-	return contests, nil
+	return contests, total, nil
 }
 
 func (s *contestService) CreateContest(ctx context.Context, req *model.CreateContestRequest) (*model.Contest, error) {
 	log := util.LoggerFromContext(ctx)
-	
+
 	xLabelsJSON, yLabelsJSON := initLabels()
 	contest := model.Contest{
 		Name:     req.Name,
@@ -80,10 +80,10 @@ func initLabels() ([]byte, []byte) {
 		xLabels[i] = -1
 		yLabels[i] = -1
 	}
-		
+
 	xLabelsJSON, _ := json.Marshal(xLabels)
 	yLabelsJSON, _ := json.Marshal(yLabels)
-
+	
 	return xLabelsJSON, yLabelsJSON
 }
 
@@ -157,15 +157,15 @@ func (s *contestService) UpdateSquare(ctx context.Context, squareID uuid.UUID, r
 	return updatedSquare, nil
 }
 
-func (c *contestService) GetContestsByUser(ctx context.Context, username string) ([]model.Contest, error) {
+func (c *contestService) GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {
 	log := util.LoggerFromContext(ctx)
 
-	contests, err := c.repo.GetAllByUser(ctx, username)
+	contests, total, err := c.repo.GetAllByUserPaginated(ctx, username, page, limit)
 	if err != nil {
-		log.Error("failed to get contests by user", "username", username, "error", err)
-		return nil, err
+		log.Error("failed to get paginated contests by user", "username", username, "error", err)
+		return nil, 0, err
 	}
 
-	log.Info("retrieved contests by username", "count", len(contests))
-	return contests, nil
+	log.Info("retrieved paginated contests by username", "count", len(contests))
+	return contests, total, nil
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -32,28 +33,69 @@ type contestHandler struct {
 
 func NewContestHandler(contestService service.ContestService, authService service.AuthService, validationService service.ValidationService) ContestHandler {
 	return &contestHandler{
-		contestService: contestService,
-		authService:    authService,
+		contestService:    contestService,
+		authService:       authService,
 		validationService: validationService,
 	}
 }
 
+func (h *contestHandler) extractPaginationParams(c *gin.Context) (int, int, error) {
+	var page, limit int
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		} else {
+			return 0, 0, errors.New("invalid page parameter")
+		}
+	}
+
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 25 {
+			limit = l
+		} else {
+			return 0, 0, fmt.Errorf("invalid limit parameter (max 25)")
+		}
+	}
+
+	return page, limit, nil
+}
+
 // @Summary Get all contests
-// @Description Returns all contests
+// @Description Returns all contests with pagination (required)
 // @Tags contests
 // @Produce json
-// @Success 200 {array} model.ContestSwagger
+// @Param page query int true "Page number" minimum(1)
+// @Param limit query int true "Items per page (max 25)" minimum(1) maximum(25)
+// @Success 200 {object} model.PaginatedContestResponseSwagger
+// @Failure 400 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests [get]
 func (h *contestHandler) GetAllContests(c *gin.Context) {
-	contests, err := h.contestService.GetAllContests(c.Request.Context())
+	page, limit, err := h.extractPaginationParams(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get all contests: %s", err), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		return
 	}
 
-	c.JSON(http.StatusOK, contests)
+	contests, total, err := h.contestService.GetAllContestsPaginated(c.Request.Context(), page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get paginated contests", c))
+		return
+	}
+
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	response := model.PaginatedContestResponse{
+		Contests:   contests,
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
+		HasNext:    page < totalPages,
+		HasPrev:    page > 1,
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 // @Summary Create a new Contest
@@ -73,7 +115,7 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 	var req model.CreateContestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Warn("failed to bind create contest json", "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, err.Error(), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		return
 	}
 
@@ -85,7 +127,7 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 
 	user := c.GetString(model.UserKey)
 	if err := h.validationService.ValidateNewContest(c.Request.Context(), &req, user); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, err.Error(), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		return
 	}
 
@@ -236,7 +278,7 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 
 	req.Value = strings.ToUpper(req.Value)
 	if err := h.validationService.ValidateSquareUpdate(c.Request.Context(), &req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, err.Error(), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		return
 	}
 
@@ -250,11 +292,13 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 }
 
 // @Summary Get all contests by username
-// @Description Returns all contests created by a specific user
+// @Description Returns all contests created by a specific user with pagination (required)
 // @Tags contests
 // @Produce json
 // @Param username path string true "Username"
-// @Success 200 {array} model.ContestSwagger
+// @Param page query int true "Page number" minimum(1)
+// @Param limit query int true "Items per page (max 25)" minimum(1) maximum(25)
+// @Success 200 {object} model.PaginatedContestResponseSwagger
 // @Failure 400 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
@@ -269,11 +313,27 @@ func (h *contestHandler) GetContestsByUser(c *gin.Context) {
 		return
 	}
 
-	contests, err := h.contestService.GetContestsByUser(c.Request.Context(), username)
+	page, limit, err := h.extractPaginationParams(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get contests for user %s", username), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		return
 	}
 
-	c.JSON(http.StatusOK, contests)
+	contests, total, err := h.contestService.GetContestsByUserPaginated(c.Request.Context(), username, page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get paginated contests for user %s", username), c))
+		return
+	}
+
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	response := model.PaginatedContestResponse{
+		Contests:   contests,
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
+		HasNext:    page < totalPages,
+		HasPrev:    page > 1,
+	}
+	c.JSON(http.StatusOK, response)
 }

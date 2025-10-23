@@ -10,3 +10,13 @@ type CreateContestRequest struct {
 type UpdateSquareRequest struct {
 	Value string `json:"value" example:"MRM" validate:"max=3" description:"Square value"`
 }
+
+type PaginatedContestResponse struct {
+	Contests   []Contest   `json:"contests"`
+	Page       int         `json:"page"`
+	Limit      int         `json:"limit"`
+	Total      int64       `json:"total"`
+	TotalPages int         `json:"totalPages"`
+	HasNext    bool        `json:"hasNext"`
+	HasPrev    bool        `json:"hasPrev"`
+}

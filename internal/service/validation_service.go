@@ -34,17 +34,17 @@ func (s *validationService) ValidateNewContest(ctx context.Context, req *model.C
 
 	if !isValidContestName(req.Name) {
 		log.Warn("invalid contest name", "name", req.Name)
-		return errors.New("Contest name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
+		return errors.New("contest name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
 	}
 
 	if !isValidTeamName(req.HomeTeam) {
 		log.Warn("invalid home team name", "home_team", req.HomeTeam)
-		return errors.New("Home team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
+		return errors.New("home team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
 	}
 
 	if !isValidTeamName(req.AwayTeam) {
 		log.Warn("invalid away team name", "away_team", req.AwayTeam)
-		return errors.New("Away team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
+		return errors.New("away team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
 	}
 
 	exists, err := s.contestRepo.ExistsByUserAndName(ctx, req.Owner, req.Name)
@@ -55,7 +55,7 @@ func (s *validationService) ValidateNewContest(ctx context.Context, req *model.C
 
 	if exists {
 		log.Warn("contest already exists", "owner", req.Owner, "name", req.Name)
-		return fmt.Errorf("Contest already exists with name %s for user %s", req.Name, req.Owner)
+		return fmt.Errorf("contest already exists with name %s for user %s", req.Name, req.Owner)
 	}
 
 	return nil
@@ -83,7 +83,7 @@ func (s *validationService) ValidateSquareUpdate(ctx context.Context, req *model
 
 	if !isValidSquareValue(req.Value) {
 		log.Warn("invalid square value", "value", req.Value)
-		return errors.New("Value must be 1-3 uppercase letters or numbers")
+		return errors.New("value must be 1-3 uppercase letters or numbers")
 	}
 
 	return nil

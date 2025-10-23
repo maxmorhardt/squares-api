@@ -14,7 +14,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all contests",
+                "description": "Returns all contests with pagination (required)",
                 "produces": [
                     "application/json"
                 ],
@@ -22,14 +22,36 @@
                     "contests"
                 ],
                 "summary": "Get all contests",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "maximum": 25,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Items per page (max 25)",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/model.ContestSwagger"
-                            }
+                            "$ref": "#/definitions/model.PaginatedContestResponseSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
                         }
                     },
                     "500": {
@@ -161,7 +183,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all contests created by a specific user",
+                "description": "Returns all contests created by a specific user with pagination (required)",
                 "produces": [
                     "application/json"
                 ],
@@ -176,16 +198,30 @@
                         "name": "username",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "maximum": 25,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Items per page (max 25)",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/model.ContestSwagger"
-                            }
+                            "$ref": "#/definitions/model.PaginatedContestResponseSwagger"
                         }
                     },
                     "400": {
@@ -545,6 +581,35 @@
                 "status": {
                     "type": "string",
                     "example": "UP"
+                }
+            }
+        },
+        "model.PaginatedContestResponseSwagger": {
+            "type": "object",
+            "properties": {
+                "contests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.ContestSwagger"
+                    }
+                },
+                "hasNext": {
+                    "type": "boolean"
+                },
+                "hasPrev": {
+                    "type": "boolean"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "totalPages": {
+                    "type": "integer"
                 }
             }
         },

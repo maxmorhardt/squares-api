@@ -11,13 +11,13 @@ import (
 )
 
 type ContestRepository interface {
-	GetAll(ctx context.Context) ([]model.Contest, error)
+	GetAllPaginated(ctx context.Context, page, limit int) ([]model.Contest, int64, error)
 	Create(ctx context.Context, contest *model.Contest) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Contest, error)
 	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
 	UpdateLabels(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, user string) (*model.Contest, error)
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (*model.Square, error)
-	GetAllByUser(ctx context.Context, username string) ([]model.Contest, error)
+	GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
 	ExistsByUserAndName(ctx context.Context, username, name string) (bool, error)
 }
 
@@ -31,13 +31,22 @@ func NewContestRepository() ContestRepository {
 	}
 }
 
-func (r *contestRepository) GetAll(ctx context.Context) ([]model.Contest, error) {
+func (r *contestRepository) GetAllPaginated(ctx context.Context, page, limit int) ([]model.Contest, int64, error) {
 	var contests []model.Contest
+	var total int64
+
+	if err := r.db.WithContext(ctx).Model(&model.Contest{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
 	err := r.db.WithContext(ctx).
 		Preload("Squares").
+		Offset(offset).
+		Limit(limit).
 		Find(&contests).Error
 
-	return contests, err
+	return contests, total, err
 }
 
 func (r *contestRepository) Create(ctx context.Context, contest *model.Contest) error {
@@ -134,14 +143,23 @@ func (r *contestRepository) UpdateSquare(ctx context.Context, squareID uuid.UUID
 	return updatedSquare, err
 }
 
-func (r *contestRepository) GetAllByUser(ctx context.Context, username string) ([]model.Contest, error) {
+func (r *contestRepository) GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {
 	var contests []model.Contest
+	var total int64
+
+	if err := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ?", username).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
 	err := r.db.WithContext(ctx).
 		Preload("Squares").
 		Where("created_by = ?", username).
+		Offset(offset).
+		Limit(limit).
 		Find(&contests).Error
 
-	return contests, err
+	return contests, total, err
 }
 
 func (r *contestRepository) ExistsByUserAndName(ctx context.Context, username, name string) (bool, error) {
