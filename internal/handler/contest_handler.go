@@ -111,7 +111,7 @@ func (h *contestHandler) GetAllContests(c *gin.Context) {
 // @Security BearerAuth
 // @Router /contests [put]
 func (h *contestHandler) CreateContest(c *gin.Context) {
-	log := util.LoggerFromContext(c)
+	log := util.LoggerFromGinContext(c)
 
 	var req model.CreateContestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -252,7 +252,7 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 // @Security BearerAuth
 // @Router /contests/{id}/randomize-labels [post]
 func (h *contestHandler) RandomizeLabels(c *gin.Context) {
-	log := util.LoggerFromContext(c)
+	log := util.LoggerFromGinContext(c)
 
 	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
@@ -296,7 +296,7 @@ func (h *contestHandler) RandomizeLabels(c *gin.Context) {
 // @Security BearerAuth
 // @Router /contests/square/{id} [patch]
 func (h *contestHandler) UpdateSquare(c *gin.Context) {
-	log := util.LoggerFromContext(c)
+	log := util.LoggerFromGinContext(c)
 
 	squareIDParam := c.Param("id")
 	if squareIDParam == "" {

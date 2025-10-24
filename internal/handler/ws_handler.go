@@ -24,7 +24,7 @@ type WebSocketHandler interface {
 }
 
 type websocketHandler struct {
-	websocketService service.WebSocketService
+	websocketService  service.WebSocketService
 	validationService service.ValidationService
 }
 
@@ -47,7 +47,7 @@ func NewWebSocketHandler(websocketService service.WebSocketService, validationSe
 // @Security BearerAuth
 // @Router /ws/contests/{contestId} [get]
 func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
-	log := util.LoggerFromContext(c)
+	log := util.LoggerFromGinContext(c)
 
 	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
@@ -86,6 +86,6 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Failed to upgrade connection", c))
 		return
 	}
-	
+
 	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contestID, conn)
 }

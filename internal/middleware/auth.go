@@ -33,7 +33,7 @@ func authMiddleware(c *gin.Context, claims *model.Claims, allowedGroups ...strin
 	util.SetGinContextValue(c, model.UserKey, claims.Username)
 	util.SetGinContextValue(c, model.ClaimsKey, claims)
 
-	log := util.LoggerFromContext(c)
+	log := util.LoggerFromGinContext(c)
 	log = log.With("user", claims.Username)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
@@ -47,7 +47,7 @@ func authMiddleware(c *gin.Context, claims *model.Claims, allowedGroups ...strin
 }
 
 func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
-	log := util.LoggerFromContext(c)
+	log := util.LoggerFromGinContext(c)
 
 	var token string
 	if isWebSocket {
@@ -94,7 +94,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 }
 
 func validateGroups(c *gin.Context, claims *model.Claims, allowedGroups ...string) {
-	log := util.LoggerFromContext(c)
+	log := util.LoggerFromGinContext(c)
 
 	allowedSet := make(map[string]struct{}, len(allowedGroups))
 	for _, group := range allowedGroups {

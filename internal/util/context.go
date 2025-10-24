@@ -36,13 +36,11 @@ func ClaimsFromContext(ctx context.Context) *model.Claims {
 	if claims, ok := ctx.Value(model.ClaimsKey).(*model.Claims); ok {
 		return claims
 	}
-	
+
 	return nil
 }
 
 func SetGinContextValue(c *gin.Context, key model.CTXKey, value any) {
 	c.Set(key, value)
-	c.Request = c.Request.WithContext(
-		context.WithValue(c.Request.Context(), key, value),
-	)
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), key, value))
 }
