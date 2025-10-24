@@ -7,6 +7,53 @@
         "version": "1.0.0"
     },
     "paths": {
+        "/api/contests/{id}": {
+            "delete": {
+                "description": "Deletes a contest by id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contests"
+                ],
+                "summary": "Delete contest",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Contest ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Contest deleted successfully"
+                    },
+                    "400": {
+                        "description": "Invalid contest id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Contest not found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/contests": {
             "get": {
                 "security": [
@@ -596,7 +643,7 @@
                 "hasNext": {
                     "type": "boolean"
                 },
-                "hasPrev": {
+                "hasPrevious": {
                     "type": "boolean"
                 },
                 "limit": {

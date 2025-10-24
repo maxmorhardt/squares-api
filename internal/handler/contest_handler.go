@@ -19,6 +19,7 @@ type ContestHandler interface {
 	GetAllContests(c *gin.Context)
 	CreateContest(c *gin.Context)
 	GetContestByID(c *gin.Context)
+	DeleteContest(c *gin.Context)
 	UpdateContest(c *gin.Context)
 	RandomizeLabels(c *gin.Context)
 	UpdateSquare(c *gin.Context)
@@ -179,6 +180,48 @@ func (h *contestHandler) GetContestByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, contest)
+}
+
+// @Summary Delete contest
+// @Description Deletes a contest by id
+// @Tags contests
+// @Accept json
+// @Produce json
+// @Param id path string true "Contest ID"
+// @Success 204 "Contest deleted successfully"
+// @Failure 400 {object} model.APIError "Invalid contest id"
+// @Failure 404 {object} model.APIError "Contest not found"
+// @Failure 500 {object} model.APIError "Internal server error"
+// @Router /api/contests/{id} [delete]
+func (h *contestHandler) DeleteContest(c *gin.Context) {
+	log := util.LoggerFromGinContext(c)
+
+	contestIDParam := c.Param("id")
+	if contestIDParam == "" {
+		log.Warn("contest id not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
+		return
+	}
+
+	contestID, err := uuid.Parse(contestIDParam)
+	if err != nil {
+		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid contest id: %s", contestIDParam), c))
+		return
+	}
+
+	err = h.contestService.DeleteContest(c.Request.Context(), contestID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to delete contest %s", contestID), c))
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 // @Summary Update contest

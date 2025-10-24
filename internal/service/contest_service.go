@@ -9,12 +9,14 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/util"
+	"gorm.io/gorm"
 )
 
 type ContestService interface {
 	GetAllContestsPaginated(ctx context.Context, page, limit int) ([]model.Contest, int64, error)
 	CreateContest(ctx context.Context, req *model.CreateContestRequest) (*model.Contest, error)
 	GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error)
+	DeleteContest(ctx context.Context, contestID uuid.UUID) error
 	RandomizeLabels(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error)
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, req *model.UpdateSquareRequest) (*model.Square, error)
 	GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
@@ -83,7 +85,7 @@ func initLabels() ([]byte, []byte) {
 
 	xLabelsJSON, _ := json.Marshal(xLabels)
 	yLabelsJSON, _ := json.Marshal(yLabels)
-	
+
 	return xLabelsJSON, yLabelsJSON
 }
 
@@ -120,6 +122,29 @@ func (s *contestService) RandomizeLabels(ctx context.Context, contestID uuid.UUI
 
 	log.Info("contest labels randomized successfully", "contest_id", contestID, "x_labels", xLabels, "y_labels", yLabels)
 	return updatedContest, nil
+}
+
+func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID) error {
+	log := util.LoggerFromContext(ctx)
+
+	exists, err := s.repo.ExistsByID(ctx, contestID)
+	if err != nil {
+		log.Error("failed to check if contest exists", "contest_id", contestID, "error", err)
+		return err
+	}
+
+	if !exists {
+		log.Error("contest not found", "contest_id", contestID)
+		return gorm.ErrRecordNotFound
+	}
+
+	if err := s.repo.Delete(ctx, contestID); err != nil {
+		log.Error("failed to delete contest from repository", "contest_id", contestID, "error", err)
+		return err
+	}
+
+	log.Info("deleted contest successfully", "contest_id", contestID)
+	return nil
 }
 
 func generateRandomizedLabels() []int8 {
