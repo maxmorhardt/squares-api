@@ -85,7 +85,7 @@ func (r *contestRepository) ExistsByID(ctx context.Context, id uuid.UUID) (bool,
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&model.Contest{}).
-		Where("id = ?", id).
+		Where("id = ? AND status != ?", id, model.ContestStatusDeleted).
 		Count(&count).Error
 
 	return count > 0, err
@@ -120,9 +120,11 @@ func (r *contestRepository) UpdateLabels(ctx context.Context, contestID uuid.UUI
 	return updatedContest, err
 }
 
-
 func (r *contestRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&model.Contest{}, "id = ?", id).Error
+	return r.db.WithContext(ctx).
+		Model(&model.Contest{}).
+		Where("id = ?", id).
+		Update("status", model.ContestStatusDeleted).Error
 }
 
 func (r *contestRepository) UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (*model.Square, error) {
@@ -153,14 +155,14 @@ func (r *contestRepository) GetAllByUserPaginated(ctx context.Context, username 
 	var contests []model.Contest
 	var total int64
 
-	if err := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ?", username).Count(&total).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ? AND status != ?", username, model.ContestStatusDeleted).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * limit
 	err := r.db.WithContext(ctx).
 		Preload("Squares").
-		Where("created_by = ?", username).
+		Where("created_by = ? AND status != ?", username, model.ContestStatusDeleted).
 		Offset(offset).
 		Limit(limit).
 		Find(&contests).Error
@@ -172,7 +174,7 @@ func (r *contestRepository) ExistsByUserAndName(ctx context.Context, username, n
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&model.Contest{}).
-		Where("created_by = ? AND name = ?", username, name).
+		Where("created_by = ? AND name = ? AND status != ?", username, name, model.ContestStatusDeleted).
 		Count(&count).Error
 
 	return count > 0, err

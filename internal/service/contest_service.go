@@ -63,7 +63,7 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 		HomeTeam: req.HomeTeam,
 		AwayTeam: req.AwayTeam,
 		Owner:    req.Owner,
-		Status:   "ACTIVE",
+		Status:   model.ContestStatusActive,
 	}
 
 	if err := s.repo.Create(ctx, &contest); err != nil {
