@@ -24,7 +24,7 @@ import (
 // @name Authorization
 func main() {
 	godotenv.Load()
-	
+
 	config.InitDB()
 	config.InitRedis()
 
@@ -47,11 +47,12 @@ func setupMiddleware(r *gin.Engine) {
 	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.PrometheusMiddleware)
 	r.Use(middleware.LoggerMiddleware)
+	r.Use(middleware.RateLimitMiddleware())
 }
 
 func setupRoutes(r *gin.Engine) {
 	contestRepo := repository.NewContestRepository()
-	
+
 	authService := service.NewAuthService()
 	redisService := service.NewRedisService()
 	validationService := service.NewValidationService(contestRepo)

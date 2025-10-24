@@ -7,12 +7,12 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
+	"github.com/redis/go-redis/v9"
 )
 
 type WebSocketService interface {
@@ -71,10 +71,10 @@ func (s *websocketService) handleIncomingMessages(conn *websocket.Conn) {
 
 // main event loop
 func (s *websocketService) handleOutgoingMessages(
-	ctx context.Context, 
-	conn *websocket.Conn, 
-	pingChecker *time.Ticker, 
-	jwtChecker *time.Ticker, 
+	ctx context.Context,
+	conn *websocket.Conn,
+	pingChecker *time.Ticker,
+	jwtChecker *time.Ticker,
 	contestID uuid.UUID,
 	connectionID uuid.UUID,
 	redisChannel <-chan *redis.Message,

@@ -41,24 +41,32 @@ func NewContestHandler(contestService service.ContestService, authService servic
 }
 
 func (h *contestHandler) extractPaginationParams(c *gin.Context) (int, int, error) {
+	pageError := errors.New("invalid page parameter")
+	limitError := errors.New("invalid limit parameter")
+
+	pageStr := c.Query("page")
+	if pageStr == "" {
+		return 0, 0, pageError
+	}
+
+	limitStr := c.Query("limit")
+	if limitStr == "" {
+		return 0, 0, limitError
+	}
+
 	var page, limit int
-
-	if pageStr := c.Query("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		} else {
-			return 0, 0, errors.New("invalid page parameter")
-		}
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	} else {
+		return 0, 0, pageError
 	}
-
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 25 {
-			limit = l
-		} else {
-			return 0, 0, fmt.Errorf("invalid limit parameter (max 25)")
-		}
+	
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 25 {
+		limit = l
+	} else {
+		return 0, 0, limitError
 	}
-
+	
 	return page, limit, nil
 }
 
