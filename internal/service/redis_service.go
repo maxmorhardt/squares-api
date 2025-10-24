@@ -10,9 +10,10 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/model"
 )
 
-type RedisService interface	{
+type RedisService interface {
 	PublishSquareUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, squareID uuid.UUID, value string) error
 	PublishLabelsUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, xLabels, yLabels []int8) error
+	PublishContestDeleted(ctx context.Context, contestID uuid.UUID, deletedBy string) error
 }
 
 type redisService struct{}
@@ -35,8 +36,13 @@ func (s *redisService) PublishLabelsUpdate(ctx context.Context, contestID uuid.U
 		XLabels: xLabels,
 		YLabels: yLabels,
 	})
-	
+
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
+}
+
+func (s *redisService) PublishContestDeleted(ctx context.Context, contestID uuid.UUID, deletedBy string) error {
+	deleteMessage := model.NewContestDeletedMessage(contestID, deletedBy)
+	return s.publishToContestChannel(ctx, contestID, deleteMessage)
 }
 
 func (s *redisService) publishToContestChannel(ctx context.Context, contestID uuid.UUID, message any) error {

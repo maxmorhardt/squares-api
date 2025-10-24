@@ -60,13 +60,13 @@ func (h *contestHandler) extractPaginationParams(c *gin.Context) (int, int, erro
 	} else {
 		return 0, 0, pageError
 	}
-	
+
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 25 {
 		limit = l
 	} else {
 		return 0, 0, limitError
 	}
-	
+
 	return page, limit, nil
 }
 
@@ -218,7 +218,8 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 		return
 	}
 
-	err = h.contestService.DeleteContest(c.Request.Context(), contestID)
+	user := c.GetString(model.UserKey)
+	err = h.contestService.DeleteContest(c.Request.Context(), contestID, user)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))

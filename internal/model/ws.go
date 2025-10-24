@@ -9,6 +9,7 @@ import (
 const (
 	SquareUpdateType     string = "square_update"
 	ContestUpdateType    string = "contest_update"
+	ContestDeletedType   string = "contest_deleted"
 	ConnectedType        string = "connected"
 	DisconnectType       string = "disconnected"
 	ContestChannelPrefix string = "contest"
@@ -73,5 +74,14 @@ func NewContestUpdateMessage(contestId uuid.UUID, updatedBy string, contestUpdat
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
 		Contest:   contestUpdate,
+	}
+}
+
+func NewContestDeletedMessage(contestId uuid.UUID, deletedBy string) *WSUpdate {
+	return &WSUpdate{
+		Type:      ContestDeletedType,
+		ContestID: contestId,
+		UpdatedBy: deletedBy,
+		Timestamp: time.Now(),
 	}
 }

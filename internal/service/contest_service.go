@@ -16,7 +16,7 @@ type ContestService interface {
 	GetAllContestsPaginated(ctx context.Context, page, limit int) ([]model.Contest, int64, error)
 	CreateContest(ctx context.Context, req *model.CreateContestRequest) (*model.Contest, error)
 	GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error)
-	DeleteContest(ctx context.Context, contestID uuid.UUID) error
+	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
 	RandomizeLabels(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error)
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, req *model.UpdateSquareRequest) (*model.Square, error)
 	GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
@@ -124,7 +124,7 @@ func (s *contestService) RandomizeLabels(ctx context.Context, contestID uuid.UUI
 	return updatedContest, nil
 }
 
-func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID) error {
+func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error {
 	log := util.LoggerFromContext(ctx)
 
 	exists, err := s.repo.ExistsByID(ctx, contestID)
@@ -142,6 +142,12 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID)
 		log.Error("failed to delete contest from repository", "contest_id", contestID, "error", err)
 		return err
 	}
+
+	go func() {
+		if err := s.redisService.PublishContestDeleted(context.Background(), contestID, user); err != nil {
+			log.Error("failed to publish contest deleted notification", "contest_id", contestID, "error", err)
+		}
+	}()
 
 	log.Info("deleted contest successfully", "contest_id", contestID)
 	return nil
