@@ -16,7 +16,7 @@ type ContestService interface {
 	GetAllContestsPaginated(ctx context.Context, page, limit int) ([]model.Contest, int64, error)
 	CreateContest(ctx context.Context, req *model.CreateContestRequest) (*model.Contest, error)
 	GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error)
-	UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
+	UpdateContest(ctx context.Context, contest *model.Contest, req *model.UpdateContestRequest, user string) (*model.Contest, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, req *model.UpdateSquareRequest) (*model.Square, error)
 	GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
@@ -102,20 +102,11 @@ func (s *contestService) GetContestByID(ctx context.Context, contestID uuid.UUID
 	return contest, nil
 }
 
-func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error) {
+func (s *contestService) UpdateContest(ctx context.Context, contest *model.Contest, req *model.UpdateContestRequest, user string) (*model.Contest, error) {
 	log := util.LoggerFromContext(ctx)
 
-	contest, err := s.repo.GetByID(ctx, contestID)
-	if err != nil {
-		log.Error("failed to get contest for update", "contest_id", contestID, "error", err)
-		return nil, err
-	}
-
-	// Track if we need to publish updates
 	needsUpdate := false
 	var contestUpdate *model.ContestWSUpdate = &model.ContestWSUpdate{}
-
-	// Update individual fields if provided
 	if req.Name != nil && *req.Name != contest.Name {
 		contest.Name = *req.Name
 		needsUpdate = true
@@ -133,41 +124,38 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 		needsUpdate = true
 	}
 
-	// Handle status transition if provided
 	if req.Status != nil && *req.Status != contest.Status {
 		if err := s.handleStatusTransition(ctx, contest, *req.Status, user); err != nil {
-			log.Error("failed to handle status transition", "contest_id", contestID, "from", contest.Status, "to", *req.Status, "error", err)
+			log.Error("failed to handle status transition", "contest_id", contest.ID, "from", contest.Status, "to", *req.Status, "error", err)
 			return nil, err
 		}
+
 		contest.Status = *req.Status
 		contestUpdate.Status = *req.Status
 		needsUpdate = true
 	}
 
-	// Save the updated contest
-	if needsUpdate {
-		contest.UpdatedBy = user
-		if err := s.repo.Update(ctx, contest); err != nil {
-			log.Error("failed to save updated contest", "contest_id", contestID, "error", err)
-			return nil, err
-		}
-
-		// Publish WebSocket update
-		go func() {
-			if err := s.redisService.PublishContestUpdate(context.Background(), contestID, user, contestUpdate); err != nil {
-				log.Error("failed to publish contest update", "contest_id", contestID, "error", err)
-			}
-		}()
-
-		log.Info("contest updated successfully", "contest_id", contestID, "user", user)
-	} else {
-		log.Info("no changes detected for contest update", "contest_id", contestID)
+	if !needsUpdate {
+		log.Info("no changes detected for contest update", "contest_id", contest.ID)
+		return contest, nil
 	}
 
+	contest.UpdatedBy = user
+	if err := s.repo.Update(ctx, contest); err != nil {
+		log.Error("failed to save updated contest", "contest_id", contest.ID, "error", err)
+		return nil, err
+	}
+
+	go func() {
+		if err := s.redisService.PublishContestUpdate(context.Background(), contest.ID, user, contestUpdate); err != nil {
+			log.Error("failed to publish contest update", "contest_id", contest.ID, "error", err)
+		}
+	}()
+
+	log.Info("contest updated successfully", "contest_id", contest.ID, "user", user)
 	return contest, nil
 }
 
-// handleStatusTransition manages the transition between contest statuses
 func (s *contestService) handleStatusTransition(ctx context.Context, contest *model.Contest, newStatus model.ContestStatus, user string) error {
 	log := util.LoggerFromContext(ctx)
 
@@ -192,7 +180,6 @@ func (s *contestService) handleStatusTransition(ctx context.Context, contest *mo
 	}
 }
 
-// transitionToLocked handles the transition from ACTIVE to LOCKED
 func (s *contestService) transitionToLocked(ctx context.Context, contest *model.Contest, user string) error {
 	log := util.LoggerFromContext(ctx)
 

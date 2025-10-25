@@ -364,6 +364,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Contest update data",
+                        "name": "contest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateContestRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -379,54 +388,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    }
-                }
-            }
-        },
-        "/contests/{id}/randomize-labels": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Randomizes the X and Y labels for a specific contest with numbers 0-9 (no repeats)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "contests"
-                ],
-                "summary": "Randomize contest labels",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Contest ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/model.ContestSwagger"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -544,6 +507,31 @@ const docTemplate = `{
                     "example": "2025-10-05T13:45:00Z"
                 }
             }
+        },
+        "model.ContestStatus": {
+            "type": "string",
+            "enum": [
+                "ACTIVE",
+                "LOCKED",
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4",
+                "FINISHED",
+                "CANCELLED",
+                "DELETED"
+            ],
+            "x-enum-varnames": [
+                "ContestStatusActive",
+                "ContestStatusLocked",
+                "ContestStatusQ1",
+                "ContestStatusQ2",
+                "ContestStatusQ3",
+                "ContestStatusQ4",
+                "ContestStatusFinished",
+                "ContestStatusCancelled",
+                "ContestStatusDeleted"
+            ]
         },
         "model.ContestSwagger": {
             "type": "object",
@@ -697,6 +685,35 @@ const docTemplate = `{
                 "value": {
                     "type": "string",
                     "example": "MRM"
+                }
+            }
+        },
+        "model.UpdateContestRequest": {
+            "type": "object",
+            "properties": {
+                "awayTeam": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "example": "Updated Away Team"
+                },
+                "homeTeam": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "example": "Updated Home Team"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "minLength": 1,
+                    "example": "Updated Contest Name"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.ContestStatus"
+                        }
+                    ],
+                    "example": "ACTIVE"
                 }
             }
         },

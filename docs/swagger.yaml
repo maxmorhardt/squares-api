@@ -14,6 +14,28 @@ definitions:
         example: "2025-10-05T13:45:00Z"
         type: string
     type: object
+  model.ContestStatus:
+    enum:
+    - ACTIVE
+    - LOCKED
+    - Q1
+    - Q2
+    - Q3
+    - Q4
+    - FINISHED
+    - CANCELLED
+    - DELETED
+    type: string
+    x-enum-varnames:
+    - ContestStatusActive
+    - ContestStatusLocked
+    - ContestStatusQ1
+    - ContestStatusQ2
+    - ContestStatusQ3
+    - ContestStatusQ4
+    - ContestStatusFinished
+    - ContestStatusCancelled
+    - ContestStatusDeleted
   model.ContestSwagger:
     properties:
       awayTeam:
@@ -120,6 +142,26 @@ definitions:
       value:
         example: MRM
         type: string
+    type: object
+  model.UpdateContestRequest:
+    properties:
+      awayTeam:
+        example: Updated Away Team
+        maxLength: 20
+        type: string
+      homeTeam:
+        example: Updated Home Team
+        maxLength: 20
+        type: string
+      name:
+        example: Updated Contest Name
+        maxLength: 20
+        minLength: 1
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/model.ContestStatus'
+        example: ACTIVE
     type: object
   model.UpdateSquareRequest:
     properties:
@@ -274,6 +316,12 @@ paths:
         name: id
         required: true
         type: string
+      - description: Contest update data
+        in: body
+        name: contest
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateContestRequest'
       produces:
       - application/json
       responses:
@@ -283,6 +331,10 @@ paths:
             $ref: '#/definitions/model.ContestSwagger'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/model.APIError'
         "404":
@@ -296,40 +348,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Update contest
-      tags:
-      - contests
-  /contests/{id}/randomize-labels:
-    post:
-      description: Randomizes the X and Y labels for a specific contest with numbers
-        0-9 (no repeats)
-      parameters:
-      - description: Contest ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.ContestSwagger'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.APIError'
-      security:
-      - BearerAuth: []
-      summary: Randomize contest labels
       tags:
       - contests
   /contests/square/{id}:

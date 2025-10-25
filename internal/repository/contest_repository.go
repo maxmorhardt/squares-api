@@ -17,6 +17,7 @@ type ContestRepository interface {
 	Update(ctx context.Context, contest *model.Contest) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (*model.Square, error)
+	SquareExistsByID(ctx context.Context, squareID uuid.UUID) (bool, error)
 	GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
 	ExistsByUserAndName(ctx context.Context, username, name string) (bool, error)
 }
@@ -123,6 +124,12 @@ func (r *contestRepository) UpdateSquare(ctx context.Context, squareID uuid.UUID
 	})
 
 	return updatedSquare, err
+}
+
+func (r *contestRepository) SquareExistsByID(ctx context.Context, squareID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Square{}).Where("id = ?", squareID).Count(&count).Error
+	return count > 0, err
 }
 
 func (r *contestRepository) GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {
