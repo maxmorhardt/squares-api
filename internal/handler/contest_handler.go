@@ -21,7 +21,6 @@ type ContestHandler interface {
 	GetContestByID(c *gin.Context)
 	DeleteContest(c *gin.Context)
 	UpdateContest(c *gin.Context)
-	RandomizeLabels(c *gin.Context)
 	UpdateSquare(c *gin.Context)
 	GetContestsByUser(c *gin.Context)
 }
@@ -90,7 +89,7 @@ func (h *contestHandler) GetAllContests(c *gin.Context) {
 
 	contests, total, err := h.contestService.GetAllContestsPaginated(c.Request.Context(), page, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get paginated contests", c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get Contests", c))
 		return
 	}
 
@@ -130,7 +129,7 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 
 	if !h.authService.IsDeclaredUser(c.Request.Context(), req.Owner) {
 		log.Warn("user not authorized to create contest", "user", c.GetString(model.UserKey))
-		c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, fmt.Sprintf("Not authorized to create contest for user %s", req.Owner), c))
+		c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, fmt.Sprintf("Not authorized to create Contest for user %s", req.Owner), c))
 		return
 	}
 
@@ -142,7 +141,7 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 
 	contest, err := h.contestService.CreateContest(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to create new contest", c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to create new Contest", c))
 		return
 	}
 
@@ -172,7 +171,7 @@ func (h *contestHandler) GetContestByID(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid contest id: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
 		return
 	}
 
@@ -183,7 +182,7 @@ func (h *contestHandler) GetContestByID(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get contest by id %s", contestID), c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get Contest by ID %s", contestID), c))
 		return
 	}
 
@@ -214,7 +213,7 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid contest id: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
 		return
 	}
 
@@ -226,7 +225,7 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to delete contest %s", contestID), c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to delete Contest %s", contestID), c))
 		return
 	}
 
@@ -239,28 +238,15 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Contest ID"
+// @Param contest body model.UpdateContestRequest true "Contest update data"
 // @Success 200 {object} model.ContestSwagger
 // @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id} [patch]
 func (h *contestHandler) UpdateContest(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, nil)
-}
-
-// @Summary Randomize contest labels
-// @Description Randomizes the X and Y labels for a specific contest with numbers 0-9 (no repeats)
-// @Tags contests
-// @Produce json
-// @Param id path string true "Contest ID"
-// @Success 200 {object} model.ContestSwagger
-// @Failure 400 {object} model.APIError
-// @Failure 404 {object} model.APIError
-// @Failure 500 {object} model.APIError
-// @Security BearerAuth
-// @Router /contests/{id}/randomize-labels [post]
-func (h *contestHandler) RandomizeLabels(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
 	contestIDParam := c.Param("id")
@@ -273,18 +259,26 @@ func (h *contestHandler) RandomizeLabels(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid contest id: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
 		return
 	}
 
-	updatedContest, err := h.contestService.RandomizeLabels(c.Request.Context(), contestID, c.GetString(model.UserKey))
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
-			return
-		}
+	var req model.UpdateContestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Warn("invalid request body", "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid request body", c))
+		return
+	}
 
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to update labels for contest: %s", contestID), c))
+	user := c.GetString(model.UserKey)
+	if err := h.validationService.ValidateContestUpdate(c.Request.Context(), contestID, &req, user); err != nil {
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		return
+	}
+
+	updatedContest, err := h.contestService.UpdateContest(c.Request.Context(), contestID, &req, user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to update Contest %s", contestID), c))
 		return
 	}
 
@@ -317,14 +311,14 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 	squareID, err := uuid.Parse(squareIDParam)
 	if err != nil {
 		log.Warn("invalid square id", "param", squareIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid square id: %s", squareIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Square ID: %s", squareIDParam), c))
 		return
 	}
 
 	var req model.UpdateSquareRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Warn("failed to bind json", "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid square update request", c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid Square update request", c))
 		return
 	}
 
@@ -336,7 +330,7 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 
 	updatedSquare, err := h.contestService.UpdateSquare(c.Request.Context(), squareID, &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to update square", c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to update Square", c))
 		return
 	}
 
@@ -373,12 +367,12 @@ func (h *contestHandler) GetContestsByUser(c *gin.Context) {
 
 	contests, total, err := h.contestService.GetContestsByUserPaginated(c.Request.Context(), username, page, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get paginated contests for user %s", username), c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get Contests for user %s", username), c))
 		return
 	}
 
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
-	response := model.PaginatedContestResponse{
+	response := model.PaginatedContestResponse {
 		Contests:    contests,
 		Page:        page,
 		Limit:       limit,

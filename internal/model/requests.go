@@ -11,6 +11,13 @@ type UpdateSquareRequest struct {
 	Value string `json:"value" example:"MRM" validate:"max=3" description:"Square value"`
 }
 
+type UpdateContestRequest struct {
+	Name     *string        `json:"name,omitempty" example:"Updated Contest Name" validate:"omitempty,max=20,min=1"`
+	HomeTeam *string        `json:"homeTeam,omitempty" example:"Updated Home Team" validate:"omitempty,max=20"`
+	AwayTeam *string        `json:"awayTeam,omitempty" example:"Updated Away Team" validate:"omitempty,max=20"`
+	Status   *ContestStatus `json:"status,omitempty" example:"ACTIVE" validate:"omitempty"`
+}
+
 type PaginatedContestResponse struct {
 	Contests    []Contest `json:"contests"`
 	Page        int       `json:"page"`

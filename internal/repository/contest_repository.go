@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/config"
@@ -15,7 +14,7 @@ type ContestRepository interface {
 	Create(ctx context.Context, contest *model.Contest) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Contest, error)
 	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
-	UpdateLabels(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, user string) (*model.Contest, error)
+	Update(ctx context.Context, contest *model.Contest) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (*model.Square, error)
 	GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
@@ -76,7 +75,7 @@ func (r *contestRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.C
 	var contest model.Contest
 	err := r.db.WithContext(ctx).
 		Preload("Squares").
-		First(&contest, "id = ?", id).Error
+		First(&contest, "id = ? AND status != ?", id, model.ContestStatusDeleted).Error
 
 	return &contest, err
 }
@@ -91,33 +90,8 @@ func (r *contestRepository) ExistsByID(ctx context.Context, id uuid.UUID) (bool,
 	return count > 0, err
 }
 
-func (r *contestRepository) UpdateLabels(ctx context.Context, contestID uuid.UUID, xLabels, yLabels []int8, user string) (*model.Contest, error) {
-	var updatedContest *model.Contest
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var contest model.Contest
-		if err := tx.Where("id = ?", contestID).First(&contest).Error; err != nil {
-			return err
-		}
-
-		xLabelsJSON, _ := json.Marshal(xLabels)
-		yLabelsJSON, _ := json.Marshal(yLabels)
-
-		contest.XLabels = xLabelsJSON
-		contest.YLabels = yLabelsJSON
-
-		if user != "" {
-			contest.UpdatedBy = user
-		}
-
-		if err := tx.Save(&contest).Error; err != nil {
-			return err
-		}
-
-		updatedContest = &contest
-		return nil
-	})
-
-	return updatedContest, err
+func (r *contestRepository) Update(ctx context.Context, contest *model.Contest) error {
+	return r.db.WithContext(ctx).Save(contest).Error
 }
 
 func (r *contestRepository) Delete(ctx context.Context, id uuid.UUID) error {

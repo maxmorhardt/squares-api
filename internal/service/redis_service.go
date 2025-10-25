@@ -12,8 +12,7 @@ import (
 
 type RedisService interface {
 	PublishSquareUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, squareID uuid.UUID, value string) error
-	PublishLabelsUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, xLabels, yLabels []int8) error
-	PublishContestDeleted(ctx context.Context, contestID uuid.UUID, deletedBy string) error
+	PublishContestUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, contestUpdate *model.ContestWSUpdate) error
 }
 
 type redisService struct{}
@@ -31,18 +30,9 @@ func (s *redisService) PublishSquareUpdate(ctx context.Context, contestID uuid.U
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
 }
 
-func (s *redisService) PublishLabelsUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, xLabels, yLabels []int8) error {
-	updateMessage := model.NewContestUpdateMessage(contestID, updatedBy, &model.ContestWSUpdate{
-		XLabels: xLabels,
-		YLabels: yLabels,
-	})
-
+func (s *redisService) PublishContestUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, contestUpdate *model.ContestWSUpdate) error {
+	updateMessage := model.NewContestUpdateMessage(contestID, updatedBy, contestUpdate)
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
-}
-
-func (s *redisService) PublishContestDeleted(ctx context.Context, contestID uuid.UUID, deletedBy string) error {
-	deleteMessage := model.NewContestDeletedMessage(contestID, deletedBy)
-	return s.publishToContestChannel(ctx, contestID, deleteMessage)
 }
 
 func (s *redisService) publishToContestChannel(ctx context.Context, contestID uuid.UUID, message any) error {

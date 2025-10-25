@@ -16,8 +16,8 @@ type ContestService interface {
 	GetAllContestsPaginated(ctx context.Context, page, limit int) ([]model.Contest, int64, error)
 	CreateContest(ctx context.Context, req *model.CreateContestRequest) (*model.Contest, error)
 	GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error)
+	UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
-	RandomizeLabels(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error)
 	UpdateSquare(ctx context.Context, squareID uuid.UUID, req *model.UpdateSquareRequest) (*model.Square, error)
 	GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
 }
@@ -102,26 +102,201 @@ func (s *contestService) GetContestByID(ctx context.Context, contestID uuid.UUID
 	return contest, nil
 }
 
-func (s *contestService) RandomizeLabels(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error) {
+func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error) {
 	log := util.LoggerFromContext(ctx)
 
-	xLabels := generateRandomizedLabels()
-	yLabels := generateRandomizedLabels()
-
-	updatedContest, err := s.repo.UpdateLabels(ctx, contestID, xLabels, yLabels, user)
+	contest, err := s.repo.GetByID(ctx, contestID)
 	if err != nil {
-		log.Error("failed to update contest labels", "contest_id", contestID, "error", err)
+		log.Error("failed to get contest for update", "contest_id", contestID, "error", err)
 		return nil, err
 	}
 
-	go func() {
-		if err := s.redisService.PublishLabelsUpdate(context.Background(), updatedContest.ID, user, xLabels, yLabels); err != nil {
-			log.Error("failed to publish contest update", "contestId", updatedContest.ID, "error", err)
-		}
-	}()
+	// Track if we need to publish updates
+	needsUpdate := false
+	var contestUpdate *model.ContestWSUpdate = &model.ContestWSUpdate{}
 
-	log.Info("contest labels randomized successfully", "contest_id", contestID, "x_labels", xLabels, "y_labels", yLabels)
-	return updatedContest, nil
+	// Update individual fields if provided
+	if req.Name != nil && *req.Name != contest.Name {
+		contest.Name = *req.Name
+		needsUpdate = true
+	}
+
+	if req.HomeTeam != nil && *req.HomeTeam != contest.HomeTeam {
+		contest.HomeTeam = *req.HomeTeam
+		contestUpdate.HomeTeam = *req.HomeTeam
+		needsUpdate = true
+	}
+
+	if req.AwayTeam != nil && *req.AwayTeam != contest.AwayTeam {
+		contest.AwayTeam = *req.AwayTeam
+		contestUpdate.AwayTeam = *req.AwayTeam
+		needsUpdate = true
+	}
+
+	// Handle status transition if provided
+	if req.Status != nil && *req.Status != contest.Status {
+		if err := s.handleStatusTransition(ctx, contest, *req.Status, user); err != nil {
+			log.Error("failed to handle status transition", "contest_id", contestID, "from", contest.Status, "to", *req.Status, "error", err)
+			return nil, err
+		}
+		contest.Status = *req.Status
+		contestUpdate.Status = *req.Status
+		needsUpdate = true
+	}
+
+	// Save the updated contest
+	if needsUpdate {
+		contest.UpdatedBy = user
+		if err := s.repo.Update(ctx, contest); err != nil {
+			log.Error("failed to save updated contest", "contest_id", contestID, "error", err)
+			return nil, err
+		}
+
+		// Publish WebSocket update
+		go func() {
+			if err := s.redisService.PublishContestUpdate(context.Background(), contestID, user, contestUpdate); err != nil {
+				log.Error("failed to publish contest update", "contest_id", contestID, "error", err)
+			}
+		}()
+
+		log.Info("contest updated successfully", "contest_id", contestID, "user", user)
+	} else {
+		log.Info("no changes detected for contest update", "contest_id", contestID)
+	}
+
+	return contest, nil
+}
+
+// handleStatusTransition manages the transition between contest statuses
+func (s *contestService) handleStatusTransition(ctx context.Context, contest *model.Contest, newStatus model.ContestStatus, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	switch newStatus {
+	case model.ContestStatusLocked:
+		return s.transitionToLocked(ctx, contest, user)
+	case model.ContestStatusQ1:
+		return s.transitionToQ1(ctx, contest, user)
+	case model.ContestStatusQ2:
+		return s.transitionToQ2(ctx, contest, user)
+	case model.ContestStatusQ3:
+		return s.transitionToQ3(ctx, contest, user)
+	case model.ContestStatusQ4:
+		return s.transitionToQ4(ctx, contest, user)
+	case model.ContestStatusFinished:
+		return s.transitionToFinished(ctx, contest, user)
+	case model.ContestStatusCancelled:
+		return s.transitionToCancelled(ctx, contest, user)
+	default:
+		log.Info("no special handling needed for status transition", "new_status", newStatus)
+		return nil
+	}
+}
+
+// transitionToLocked handles the transition from ACTIVE to LOCKED
+func (s *contestService) transitionToLocked(ctx context.Context, contest *model.Contest, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	// TODO: Implement locked transition logic
+	// - Generate random labels if not already set
+	// - Validate contest is ready to be locked
+	// - Send notifications about contest being locked
+
+	log.Info("transitionToLocked not fully implemented", "contest_id", contest.ID)
+	return nil
+}
+
+// transitionToQ1 handles the transition from LOCKED to Q1
+func (s *contestService) transitionToQ1(ctx context.Context, contest *model.Contest, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	// TODO: Implement Q1 transition logic
+	// - Initialize Q1 scoring
+	// - Send game start notifications
+	// - Set up Q1 timer if needed
+
+	log.Info("transitionToQ1 not fully implemented", "contest_id", contest.ID)
+	return nil
+}
+
+// transitionToQ2 handles the transition from Q1 to Q2
+func (s *contestService) transitionToQ2(ctx context.Context, contest *model.Contest, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	// TODO: Implement Q2 transition logic
+	// - Finalize Q1 scoring
+	// - Initialize Q2 scoring
+	// - Send quarter change notifications
+
+	log.Info("transitionToQ2 not fully implemented", "contest_id", contest.ID)
+	return nil
+}
+
+// transitionToQ3 handles the transition from Q2 to Q3
+func (s *contestService) transitionToQ3(ctx context.Context, contest *model.Contest, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	// TODO: Implement Q3 transition logic
+	// - Finalize Q2 scoring
+	// - Initialize Q3 scoring
+	// - Send quarter change notifications
+
+	log.Info("transitionToQ3 not fully implemented", "contest_id", contest.ID)
+	return nil
+}
+
+// transitionToQ4 handles the transition from Q3 to Q4
+func (s *contestService) transitionToQ4(ctx context.Context, contest *model.Contest, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	// TODO: Implement Q4 transition logic
+	// - Finalize Q3 scoring
+	// - Initialize Q4 scoring
+	// - Send quarter change notifications
+
+	log.Info("transitionToQ4 not fully implemented", "contest_id", contest.ID)
+	return nil
+}
+
+// transitionToFinished handles the transition from Q4 to FINISHED
+func (s *contestService) transitionToFinished(ctx context.Context, contest *model.Contest, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	// TODO: Implement finished transition logic
+	// - Finalize all scoring
+	// - Calculate winners
+	// - Send completion notifications
+	// - Archive contest data
+
+	log.Info("transitionToFinished not fully implemented", "contest_id", contest.ID)
+	return nil
+}
+
+// transitionToCancelled handles the transition to CANCELLED from any state
+func (s *contestService) transitionToCancelled(ctx context.Context, contest *model.Contest, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	// TODO: Implement cancelled transition logic
+	// - Stop any active timers
+	// - Send cancellation notifications
+	// - Handle refunds if applicable
+	// - Clean up resources
+
+	log.Info("transitionToCancelled not fully implemented", "contest_id", contest.ID)
+	return nil
+}
+
+func generateRandomizedLabels() []int8 {
+	labels := make([]int8, 10)
+	for i := range int8(10) {
+		labels[i] = i
+	}
+
+	for i := len(labels) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		labels[i], labels[j] = labels[j], labels[i]
+	}
+
+	return labels
 }
 
 func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error {
@@ -144,27 +319,16 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 	}
 
 	go func() {
-		if err := s.redisService.PublishContestDeleted(context.Background(), contestID, user); err != nil {
-			log.Error("failed to publish contest deleted notification", "contest_id", contestID, "error", err)
+		contestUpdate := &model.ContestWSUpdate{
+			Status: model.ContestStatusDeleted,
+		}
+		if err := s.redisService.PublishContestUpdate(context.Background(), contestID, user, contestUpdate); err != nil {
+			log.Error("failed to publish contest update", "contest_id", contestID, "error", err)
 		}
 	}()
 
 	log.Info("deleted contest successfully", "contest_id", contestID)
 	return nil
-}
-
-func generateRandomizedLabels() []int8 {
-	labels := make([]int8, 10)
-	for i := range int8(10) {
-		labels[i] = i
-	}
-
-	for i := len(labels) - 1; i > 0; i-- {
-		j := rand.Intn(i + 1)
-		labels[i], labels[j] = labels[j], labels[i]
-	}
-
-	return labels
 }
 
 func (s *contestService) UpdateSquare(ctx context.Context, squareID uuid.UUID, req *model.UpdateSquareRequest) (*model.Square, error) {

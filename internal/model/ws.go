@@ -9,7 +9,6 @@ import (
 const (
 	SquareUpdateType     string = "square_update"
 	ContestUpdateType    string = "contest_update"
-	ContestDeletedType   string = "contest_deleted"
 	ConnectedType        string = "connected"
 	DisconnectType       string = "disconnected"
 	ContestChannelPrefix string = "contest"
@@ -31,10 +30,11 @@ type SquareWSUpdate struct {
 }
 
 type ContestWSUpdate struct {
-	HomeTeam string `json:"homeTeam,omitempty"`
-	AwayTeam string `json:"awayTeam,omitempty"`
-	XLabels  []int8 `json:"xLabels,omitempty"`
-	YLabels  []int8 `json:"yLabels,omitempty"`
+	HomeTeam string        `json:"homeTeam,omitempty"`
+	AwayTeam string        `json:"awayTeam,omitempty"`
+	XLabels  []int8        `json:"xLabels,omitempty"`
+	YLabels  []int8        `json:"yLabels,omitempty"`
+	Status   ContestStatus `json:"status,omitempty"`
 }
 
 func NewConnectedMessage(contestId uuid.UUID, connectionID uuid.UUID) *WSUpdate {
@@ -74,14 +74,5 @@ func NewContestUpdateMessage(contestId uuid.UUID, updatedBy string, contestUpdat
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
 		Contest:   contestUpdate,
-	}
-}
-
-func NewContestDeletedMessage(contestId uuid.UUID, deletedBy string) *WSUpdate {
-	return &WSUpdate{
-		Type:      ContestDeletedType,
-		ContestID: contestId,
-		UpdatedBy: deletedBy,
-		Timestamp: time.Now(),
 	}
 }
