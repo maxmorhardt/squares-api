@@ -32,6 +32,7 @@ type ContestHandler interface {
 	DeleteContest(c *gin.Context)
 	UpdateContest(c *gin.Context)
 	UpdateSquare(c *gin.Context)
+	ClearSquare(c *gin.Context)
 	GetContestsByUser(c *gin.Context)
 }
 
@@ -138,10 +139,9 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 	if err := h.validationService.ValidateNewContest(c.Request.Context(), &req, user); err != nil {
 		if errors.Is(err, service.ErrDatabaseUnavailable) {
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
-			return
+		} else {
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		}
-
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		return
 	}
 
@@ -185,10 +185,9 @@ func (h *contestHandler) GetContestByID(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, contestNotFound, c))
-			return
+		} else {
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get Contest by ID: %s", contestID), c))
 		}
-
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get Contest by ID: %s", contestID), c))
 		return
 	}
 
@@ -224,14 +223,12 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 	}
 
 	user := c.GetString(model.UserKey)
-	err = h.contestService.DeleteContest(c.Request.Context(), contestID, user)
-	if err != nil {
+	if err = h.contestService.DeleteContest(c.Request.Context(), contestID, user); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, contestNotFound, c))
-			return
+		} else {
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to delete Contest %s", contestID), c))
 		}
-
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to delete Contest %s", contestID), c))
 		return
 	}
 
@@ -279,7 +276,15 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 	user := c.GetString(model.UserKey)
 	contest, err := h.validationService.ValidateContestUpdate(c.Request.Context(), contestID, &req, user)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, contestNotFound, c))
+		} else if errors.Is(err, service.ErrUnauthorizedContestEdit) {
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		} else if errors.Is(err, service.ErrDatabaseUnavailable) {
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
+		} else {
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		}
 		return
 	}
 
@@ -301,6 +306,7 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 // @Param square body model.UpdateSquareRequest true "Square"
 // @Success 200 {object} model.Square
 // @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
@@ -329,29 +335,82 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 		return
 	}
 
+	user := c.GetString(model.UserKey)
 	req.Value = strings.ToUpper(req.Value)
-	if err := h.validationService.ValidateSquareUpdate(c.Request.Context(), squareID, &req); err != nil {
+	square, err := h.validationService.ValidateSquareUpdate(c.Request.Context(), squareID, &req, user)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Square not found", c))
-			return
-		}
-
-		if errors.Is(err, service.ErrDatabaseUnavailable) {
+		} else if errors.Is(err, service.ErrUnauthorizedSquareEdit) {
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		} else if errors.Is(err, service.ErrDatabaseUnavailable) {
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
-			return
+		} else {
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		}
-		
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		return
 	}
 
-	updatedSquare, err := h.contestService.UpdateSquare(c.Request.Context(), squareID, &req)
+	updatedSquare, err := h.contestService.UpdateSquare(c.Request.Context(), square, &req, user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to update Square", c))
 		return
 	}
 
 	c.JSON(http.StatusOK, updatedSquare)
+}
+
+// @Summary Clear square value and owner
+// @Description Clears a square's value and owner, making it available for anyone to claim
+// @Tags squares
+// @Accept json
+// @Produce json
+// @Param id path string true "Square ID"
+// @Success 200 {object} model.Square
+// @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
+// @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
+// @Router /api/square/{id}/clear [post]
+func (h *contestHandler) ClearSquare(c *gin.Context) {
+	log := util.LoggerFromGinContext(c)
+
+	squareIDParam := c.Param("id")
+	if squareIDParam == "" {
+		log.Warn("square id not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Square ID is required", c))
+		return
+	}
+
+	squareID, err := uuid.Parse(squareIDParam)
+	if err != nil {
+		log.Warn("invalid square id", "param", squareIDParam, "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Square ID: %s", squareIDParam), c))
+		return
+	}
+
+	user := c.GetString(model.UserKey)
+	square, err := h.validationService.ValidateSquareClear(c.Request.Context(), squareID, user)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Square not found", c))
+		} else if errors.Is(err, service.ErrUnauthorizedSquareEdit) {
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		} else if errors.Is(err, service.ErrDatabaseUnavailable) {
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
+		} else {
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		}
+		return
+	}
+
+	clearedSquare, err := h.contestService.ClearSquare(c.Request.Context(), square, user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to clear Square", c))
+		return
+	}
+
+	c.JSON(http.StatusOK, clearedSquare)
 }
 
 // @Summary Get all contests by username

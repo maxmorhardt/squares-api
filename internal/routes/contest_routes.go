@@ -14,5 +14,6 @@ func RegisterContestRoutes(rg *gin.RouterGroup, h handler.ContestHandler) {
 	rg.PATCH(":id", middleware.AuthMiddleware(), h.UpdateContest)
 	rg.DELETE("/:id", middleware.AuthMiddleware(), h.DeleteContest)
 	rg.PATCH("/square/:id", middleware.AuthMiddleware(), h.UpdateSquare)
+	rg.POST("/square/:id/clear", middleware.AuthMiddleware(), h.ClearSquare)
 	rg.GET("/user/:username", middleware.AuthMiddleware(), h.GetContestsByUser)
 }

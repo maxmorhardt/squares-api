@@ -8,8 +8,11 @@ type CreateContestRequest struct {
 }
 
 type UpdateSquareRequest struct {
-	Value string `json:"value" example:"MRM" validate:"max=3" description:"Square value"`
+	Value string `json:"value" binding:"required" example:"MRM" validate:"required,max=3,min=1" description:"Square value (required)"`
+	Owner string `json:"owner" binding:"required" example:"username" validate:"required" description:"Square owner (required)"`
 }
+
+type ClearSquareRequest struct {}
 
 type UpdateContestRequest struct {
 	Name     *string        `json:"name,omitempty" example:"Updated Contest Name" validate:"omitempty,max=20,min=1"`

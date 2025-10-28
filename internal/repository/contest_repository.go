@@ -16,8 +16,9 @@ type ContestRepository interface {
 	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
 	Update(ctx context.Context, contest *model.Contest) error
 	Delete(ctx context.Context, id uuid.UUID) error
-	UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (*model.Square, error)
-	SquareExistsByID(ctx context.Context, squareID uuid.UUID) (bool, error)
+	UpdateSquare(ctx context.Context, square *model.Square, value, owner string) (*model.Square, error)
+	ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error)
+	GetSquareByID(ctx context.Context, squareID uuid.UUID) (*model.Square, error)
 	GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
 	ExistsByUserAndName(ctx context.Context, username, name string) (bool, error)
 }
@@ -102,34 +103,46 @@ func (r *contestRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		Update("status", model.ContestStatusDeleted).Error
 }
 
-func (r *contestRepository) UpdateSquare(ctx context.Context, squareID uuid.UUID, value, user string) (*model.Square, error) {
+func (r *contestRepository) UpdateSquare(ctx context.Context, square *model.Square, value, owner string) (*model.Square, error) {
 	var updatedSquare *model.Square
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var square model.Square
-		if err := tx.Where("id = ?", squareID).First(&square).Error; err != nil {
-			return err
-		}
-
 		square.Value = value
-		if user != "" {
-			square.Owner = user
+		if owner != "" {
+			square.Owner = owner
 		}
 
-		if err := tx.Save(&square).Error; err != nil {
+		if err := tx.Save(square).Error; err != nil {
 			return err
 		}
 
-		updatedSquare = &square
+		updatedSquare = square
 		return nil
 	})
 
 	return updatedSquare, err
 }
 
-func (r *contestRepository) SquareExistsByID(ctx context.Context, squareID uuid.UUID) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).Model(&model.Square{}).Where("id = ?", squareID).Count(&count).Error
-	return count > 0, err
+func (r *contestRepository) ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error) {
+	var clearedSquare *model.Square
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		square.Value = ""
+		square.Owner = ""
+
+		if err := tx.Save(square).Error; err != nil {
+			return err
+		}
+
+		clearedSquare = square
+		return nil
+	})
+
+	return clearedSquare, err
+}
+
+func (r *contestRepository) GetSquareByID(ctx context.Context, squareID uuid.UUID) (*model.Square, error) {
+	var square model.Square
+	err := r.db.WithContext(ctx).Where("id = ?", squareID).First(&square).Error
+	return &square, err
 }
 
 func (r *contestRepository) GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {

@@ -18,7 +18,8 @@ type ContestService interface {
 	GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error)
 	UpdateContest(ctx context.Context, contest *model.Contest, req *model.UpdateContestRequest, user string) (*model.Contest, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
-	UpdateSquare(ctx context.Context, squareID uuid.UUID, req *model.UpdateSquareRequest) (*model.Square, error)
+	UpdateSquare(ctx context.Context, square *model.Square, req *model.UpdateSquareRequest, user string) (*model.Square, error)
+	ClearSquare(ctx context.Context, square *model.Square, user string) (*model.Square, error)
 	GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
 }
 
@@ -318,14 +319,12 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 	return nil
 }
 
-func (s *contestService) UpdateSquare(ctx context.Context, squareID uuid.UUID, req *model.UpdateSquareRequest) (*model.Square, error) {
+func (s *contestService) UpdateSquare(ctx context.Context, square *model.Square, req *model.UpdateSquareRequest, user string) (*model.Square, error) {
 	log := util.LoggerFromContext(ctx)
 
-	user := ctx.Value(model.UserKey).(string)
-
-	updatedSquare, err := s.repo.UpdateSquare(ctx, squareID, req.Value, user)
+	updatedSquare, err := s.repo.UpdateSquare(ctx, square, req.Value, req.Owner)
 	if err != nil {
-		log.Error("failed to update square", "square_id", squareID, "value", req.Value, "error", err)
+		log.Error("failed to update square", "square_id", square.ID, "value", req.Value, "owner", req.Owner, "error", err)
 		return nil, err
 	}
 
@@ -335,8 +334,27 @@ func (s *contestService) UpdateSquare(ctx context.Context, squareID uuid.UUID, r
 		}
 	}()
 
-	log.Info("square updated successfully", "square_id", squareID, "value", req.Value)
+	log.Info("square updated successfully", "square_id", square.ID, "value", req.Value, "owner", req.Owner)
 	return updatedSquare, nil
+}
+
+func (s *contestService) ClearSquare(ctx context.Context, square *model.Square, user string) (*model.Square, error) {
+	log := util.LoggerFromContext(ctx)
+
+	clearedSquare, err := s.repo.ClearSquare(ctx, square)
+	if err != nil {
+		log.Error("failed to clear square", "square_id", square.ID, "error", err)
+		return nil, err
+	}
+
+	go func() {
+		if err := s.redisService.PublishSquareUpdate(context.Background(), clearedSquare.ContestID, user, clearedSquare.ID, ""); err != nil {
+			log.Error("failed to publish square clear", "contestId", clearedSquare.ContestID, "squareId", clearedSquare.ID, "error", err)
+		}
+	}()
+
+	log.Info("square cleared successfully", "square_id", square.ID)
+	return clearedSquare, nil
 }
 
 func (c *contestService) GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {

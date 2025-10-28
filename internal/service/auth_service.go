@@ -12,7 +12,7 @@ type AuthService interface{
 	IsDeclaredUser(ctx context.Context, user string) bool
 	IsInGroup(ctx context.Context, group string) bool
 	IsAdmin(ctx context.Context) bool
-	IsContestOwner(ctx context.Context, contestOwner, user string) bool
+	IsOwner(ctx context.Context, owner, user string) bool
 }
 
 type authService struct{}
@@ -43,10 +43,10 @@ func (s *authService) IsAdmin(ctx context.Context) bool {
 	return s.IsInGroup(ctx, model.SquaresAdminGroup)
 }
 
-func (s *authService) IsContestOwner(ctx context.Context, contestOwner, user string) bool {
+func (s *authService) IsOwner(ctx context.Context, owner, user string) bool {
 	if s.IsAdmin(ctx) {
 		return true
 	}
 
-	return contestOwner == user
+	return owner == user
 }
