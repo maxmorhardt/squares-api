@@ -20,7 +20,6 @@ var (
 	errInvalidContestName      = errors.New("contest name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
 	errInvalidHomeTeamName     = errors.New("home team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
 	errInvalidAwayTeamName     = errors.New("away team name must be 1-20 characters and contain only letters, numbers, spaces, hyphens, and underscores")
-	errContestNotFound         = errors.New("contest not found")
 	errInvalidContestStatus    = errors.New("invalid contest status")
 	errInvalidSquareValue      = errors.New("value must be 1-3 uppercase letters or numbers")
 )
@@ -63,7 +62,7 @@ func (s *validationService) ValidateNewContest(ctx context.Context, req *model.C
 		return errInvalidAwayTeamName
 	}
 
-	if !s.authService.IsOwner(ctx, req.Owner, user) {
+	if req.Owner != user {
 		log.Warn("user not authorized to create contest", "user", user, "owner", req.Owner)
 		return fmt.Errorf("user %s is not authorized to create contest for %s", user, req.Owner)
 	}
@@ -113,7 +112,7 @@ func (s *validationService) ValidateContestUpdate(ctx context.Context, contestID
 		return nil, ErrDatabaseUnavailable
 	}
 
-	if !s.authService.IsOwner(ctx, contest.Owner, user) {
+	if contest.Owner != user {
 		log.Warn("user is not authorized to update contest", "contest_id", contestID, "owner", contest.Owner, "user", user)
 		return nil, ErrUnauthorizedContestEdit
 	}
@@ -178,10 +177,12 @@ func (s *validationService) ValidateSquareUpdate(ctx context.Context, squareID u
 		return nil, ErrDatabaseUnavailable
 	}
 
-	isDeclaredUser := s.authService.IsDeclaredUser(ctx, req.Owner)
-	isOwner := s.authService.IsOwner(ctx, square.Owner, req.Owner)
+	if req.Owner != user {
+		log.Warn("user not authorized to update square", "square_id", squareID, "requested_owner", req.Owner, "user", user)
+		return nil, ErrUnauthorizedSquareEdit
+	}
 
-	if !isDeclaredUser || !isOwner {
+	if square.Owner != "" && square.Owner != user {
 		log.Warn("user not authorized to update square", "square_id", squareID, "owner", square.Owner, "user", user, "requested_owner", req.Owner)
 		return nil, ErrUnauthorizedSquareEdit
 	}
@@ -214,10 +215,12 @@ func (s *validationService) ValidateSquareClear(ctx context.Context, squareID uu
 		return nil, ErrDatabaseUnavailable
 	}
 
-	isContestOwner := s.authService.IsOwner(ctx, contest.Owner, user)
-	isSquareOwner := s.authService.IsOwner(ctx, square.Owner, user)
+	isContestOwner := contest.Owner == user
+	isSquareOwner := square.Owner == user
+	isAdmin := s.authService.IsAdmin(ctx)
 
-	if !isContestOwner || !isSquareOwner {
+	// Allow clearing if the requester is the contest owner, the square owner, or an admin
+	if !(isContestOwner || isSquareOwner || isAdmin) {
 		log.Warn("user not authorized to clear square", "square_id", squareID, "square_owner", square.Owner, "contest_owner", contest.Owner, "user", user)
 		return nil, ErrUnauthorizedSquareEdit
 	}
