@@ -16,7 +16,7 @@ import (
 const rateLimitExceededMessage = "Rate limit exceeded. Please slow down your requests"
 
 func RateLimitMiddleware() gin.HandlerFunc {
-	rate, err := limiter.NewRateFromFormatted("50-M")
+	rate, err := limiter.NewRateFromFormatted("150-M")
 	if err != nil {
 		slog.Error("failed to create rate limit", "error", err.Error())
 		panic(err)
