@@ -477,7 +477,7 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 	}
 
 	// record quarter result
-	result, err := h.contestService.RecordQuarterResult(c.Request.Context(), contestID, req.Quarter, req.HomeTeamScore, req.AwayTeamScore, user)
+	result, err := h.contestService.RecordQuarterResult(c.Request.Context(), contestID, req.HomeTeamScore, req.AwayTeamScore, user)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Warn("contest not found", "contest_id", contestID)
@@ -522,7 +522,7 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
 	// parse contest id from path
-	contestIDParam := c.Param("contestId")
+	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
 		log.Warn("contest id not provided")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
@@ -621,7 +621,7 @@ func (h *contestHandler) ClearSquare(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
 	// parse contest id from path
-	contestIDParam := c.Param("contestId")
+	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
 		log.Warn("contest id not provided")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))

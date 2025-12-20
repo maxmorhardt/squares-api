@@ -21,7 +21,7 @@ type ContestService interface {
 	CreateContest(ctx context.Context, req *model.CreateContestRequest, user string) (*model.Contest, error)
 	UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
 	StartContest(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error)
-	RecordQuarterResult(ctx context.Context, contestID uuid.UUID, quarter, homeScore, awayScore int, user string) (*model.QuarterResult, error)
+	RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
 
 	UpdateSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error)
@@ -300,20 +300,35 @@ func generateRandomizedLabels() []int8 {
 	return labels
 }
 
-func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid.UUID, quarter, homeScore, awayScore int, user string) (*model.QuarterResult, error) {
+func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error) {
 	log := util.LoggerFromContext(ctx)
 
-	// validate quarter number
-	if quarter < 1 || quarter > 4 {
-		log.Error("invalid quarter number", "quarter", quarter)
-		return nil, gorm.ErrInvalidData
-	}
-
-	// get the contest to access labels
+	// get the contest to access labels and status
 	contest, err := s.repo.GetByID(ctx, contestID)
 	if err != nil {
 		log.Error("failed to get contest", "contest_id", contestID, "error", err)
 		return nil, err
+	}
+
+	// determine quarter and next status from current contest status
+	var quarter int
+	var nextStatus model.ContestStatus
+	switch contest.Status {
+	case model.ContestStatusQ1:
+		quarter = 1
+		nextStatus = model.ContestStatusQ2
+	case model.ContestStatusQ2:
+		quarter = 2
+		nextStatus = model.ContestStatusQ3
+	case model.ContestStatusQ3:
+		quarter = 3
+		nextStatus = model.ContestStatusQ4
+	case model.ContestStatusQ4:
+		quarter = 4
+		nextStatus = model.ContestStatusFinished
+	default:
+		log.Error("invalid contest status for recording quarter result", "status", contest.Status)
+		return nil, errors.New("contest must be in Q1, Q2, Q3, or Q4 status to record quarter result")
 	}
 
 	// parse labels
@@ -364,30 +379,17 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 	}
 
 	// transition contest status and publish update
-	if err := s.transitionContestAfterQuarter(ctx, contest, quarter, result, user); err != nil {
+	if err := s.transitionContestAfterQuarter(ctx, contest, nextStatus, result, user); err != nil {
 		log.Error("failed to transition contest after quarter", "contest_id", contestID, "quarter", quarter, "error", err)
 		return nil, err
 	}
 
-	log.Info("quarter result recorded and status transitioned", "contest_id", contestID, "quarter", quarter, "winner", winner, "new_status", contest.Status)
+	log.Info("quarter result recorded and status transitioned", "contest_id", contestID, "quarter", quarter, "winner", winner, "new_status", nextStatus)
 	return result, nil
 }
 
-func (s *contestService) transitionContestAfterQuarter(ctx context.Context, contest *model.Contest, quarter int, result *model.QuarterResult, user string) error {
+func (s *contestService) transitionContestAfterQuarter(ctx context.Context, contest *model.Contest, newStatus model.ContestStatus, result *model.QuarterResult, user string) error {
 	log := util.LoggerFromContext(ctx)
-
-	// determine new status based on quarter
-	var newStatus model.ContestStatus
-	switch quarter {
-	case 1:
-		newStatus = model.ContestStatusQ2
-	case 2:
-		newStatus = model.ContestStatusQ3
-	case 3:
-		newStatus = model.ContestStatusQ4
-	case 4:
-		newStatus = model.ContestStatusFinished
-	}
 
 	// update contest status
 	contest.Status = newStatus
@@ -399,7 +401,7 @@ func (s *contestService) transitionContestAfterQuarter(ctx context.Context, cont
 	// publish quarter result to websocket clients
 	go func() {
 		quarterResultUpdate := &model.QuarterResultWSUpdate{
-			Quarter:         quarter,
+			Quarter:         result.Quarter,
 			HomeTeamScore:   result.HomeTeamScore,
 			AwayTeamScore:   result.AwayTeamScore,
 			WinnerRow:       result.WinnerRow,
@@ -411,11 +413,11 @@ func (s *contestService) transitionContestAfterQuarter(ctx context.Context, cont
 		}
 
 		if err := s.redisService.PublishQuarterResult(context.Background(), contest.ID, user, quarterResultUpdate); err != nil {
-			log.Error("failed to publish quarter result", "contest_id", contest.ID, "quarter", quarter, "error", err)
+			log.Error("failed to publish quarter result", "contest_id", contest.ID, "quarter", result.Quarter, "error", err)
 		}
 	}()
 
-	log.Info("contest transitioned after quarter", "contest_id", contest.ID, "quarter", quarter, "new_status", newStatus)
+	log.Info("contest transitioned after quarter", "contest_id", contest.ID, "quarter", result.Quarter, "new_status", newStatus)
 	return nil
 }
 

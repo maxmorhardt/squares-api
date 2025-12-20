@@ -21,7 +21,6 @@ type UpdateContestRequest struct {
 }
 
 type RecordQuarterResultRequest struct {
-	Quarter       int `json:"quarter" binding:"required,min=1,max=4" example:"1" description:"Quarter number (1-4)"`
 	HomeTeamScore int `json:"homeTeamScore" binding:"required,min=0" example:"14" description:"Home team score"`
 	AwayTeamScore int `json:"awayTeamScore" binding:"required,min=0" example:"7" description:"Away team score"`
 }

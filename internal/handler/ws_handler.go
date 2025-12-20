@@ -73,15 +73,22 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	responseHeader := http.Header{}
 	responseHeader.Set("Sec-WebSocket-Protocol", token)
 
-	// validate contest exists
-	exists, err := h.contestRepo.ExistsByID(c.Request.Context(), contestID)
-	if err != nil || !exists {
-		if errors.Is(err, gorm.ErrRecordNotFound) || !exists {
+	// validate contest exists and check status
+	contest, err := h.contestRepo.GetByID(c.Request.Context(), contestID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
 			return
 		}
 		log.Warn("failed to validate websocket request", "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Invalid Contest ID", c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
+		return
+	}
+
+	// reject connection for finished or deleted contests
+	if contest.Status == model.ContestStatusFinished || contest.Status == model.ContestStatusDeleted {
+		log.Warn("websocket connection rejected for contest status", "status", contest.Status)
+		c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusBadRequest, "Cannot connect to contest in FINISHED or DELETED state", c))
 		return
 	}
 
