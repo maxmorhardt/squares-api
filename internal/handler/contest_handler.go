@@ -508,7 +508,8 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 // @Tags contests
 // @Accept json
 // @Produce json
-// @Param id path string true "Square ID"
+// @Param id path string true "Contest ID"
+// @Param squareId path string true "Square ID"
 // @Param square body model.UpdateSquareRequest true "Square"
 // @Success 200 {object} model.Square
 // @Failure 400 {object} model.APIError
@@ -516,7 +517,7 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /contests/square/{id} [patch]
+// @Router /contests/{id}/squares/{squareId} [patch]
 func (h *contestHandler) UpdateSquare(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
@@ -604,16 +605,18 @@ func isValidSquareValue(val string) bool {
 
 // @Summary Clear square value and owner
 // @Description Clears a square's value and owner, making it available for anyone to claim
-// @Tags squares
+// @Tags contests
 // @Accept json
 // @Produce json
-// @Param id path string true "Square ID"
+// @Param id path string true "Contest ID"
+// @Param squareId path string true "Square ID"
 // @Success 200 {object} model.Square
 // @Failure 400 {object} model.APIError
 // @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
-// @Router /api/square/{id}/clear [post]
+// @Security BearerAuth
+// @Router /contests/{id}/squares/{squareId}/clear [post]
 func (h *contestHandler) ClearSquare(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
