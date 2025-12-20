@@ -13,6 +13,7 @@ import (
 type RedisService interface {
 	PublishSquareUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, squareID uuid.UUID, value string) error
 	PublishContestUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, contestUpdate *model.ContestWSUpdate) error
+	PublishQuarterResult(ctx context.Context, contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResultWSUpdate) error
 }
 
 type redisService struct{}
@@ -32,6 +33,11 @@ func (s *redisService) PublishSquareUpdate(ctx context.Context, contestID uuid.U
 
 func (s *redisService) PublishContestUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, contestUpdate *model.ContestWSUpdate) error {
 	updateMessage := model.NewContestUpdateMessage(contestID, updatedBy, contestUpdate)
+	return s.publishToContestChannel(ctx, contestID, updateMessage)
+}
+
+func (s *redisService) PublishQuarterResult(ctx context.Context, contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResultWSUpdate) error {
+	updateMessage := model.NewQuarterResultUpdateMessage(contestID, updatedBy, quarterResult)
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
 }
 

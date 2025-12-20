@@ -15,9 +15,9 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/contests/{id}": {
-            "delete": {
-                "description": "Deletes a contest by id",
+        "/api/square/{id}/clear": {
+            "post": {
+                "description": "Clears a square's value and owner, making it available for anyone to claim",
                 "consumes": [
                     "application/json"
                 ],
@@ -25,74 +25,15 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "contests"
+                    "squares"
                 ],
-                "summary": "Delete contest",
+                "summary": "Clear square value and owner",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Contest ID",
+                        "description": "Square ID",
                         "name": "id",
                         "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Contest deleted successfully"
-                    },
-                    "400": {
-                        "description": "Invalid contest id",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "404": {
-                        "description": "Contest not found",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    }
-                }
-            }
-        },
-        "/contests": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns all contests with pagination (required)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "contests"
-                ],
-                "summary": "Get all contests",
-                "parameters": [
-                    {
-                        "minimum": 1,
-                        "type": "integer",
-                        "description": "Page number",
-                        "name": "page",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "maximum": 25,
-                        "minimum": 1,
-                        "type": "integer",
-                        "description": "Items per page (max 25)",
-                        "name": "limit",
-                        "in": "query",
                         "required": true
                     }
                 ],
@@ -100,11 +41,23 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.PaginatedContestResponseSwagger"
+                            "$ref": "#/definitions/model.Square"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -116,7 +69,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
+            }
+        },
+        "/contests": {
             "put": {
                 "security": [
                     {
@@ -212,6 +167,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -340,6 +301,57 @@ const docTemplate = `{
                     }
                 }
             },
+            "delete": {
+                "description": "Deletes a contest by id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contests"
+                ],
+                "summary": "Delete contest",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Contest ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Contest deleted successfully"
+                    },
+                    "400": {
+                        "description": "Invalid contest id",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - user is not the owner",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Contest not found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "security": [
                     {
@@ -390,6 +402,125 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/contests/{id}/quarter-result": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Records the score and winner for a specific quarter",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contests"
+                ],
+                "summary": "Record quarter result",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Contest ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Quarter result data",
+                        "name": "quarterResult",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.RecordQuarterResultRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.QuarterResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/contests/{id}/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Starts the contest, transitioning from ACTIVE to Q1 and randomizing labels",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contests"
+                ],
+                "summary": "Start contest",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Contest ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.ContestSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -508,37 +639,12 @@ const docTemplate = `{
                 }
             }
         },
-        "model.ContestStatus": {
-            "type": "string",
-            "enum": [
-                "ACTIVE",
-                "LOCKED",
-                "Q1",
-                "Q2",
-                "Q3",
-                "Q4",
-                "FINISHED",
-                "CANCELLED",
-                "DELETED"
-            ],
-            "x-enum-varnames": [
-                "ContestStatusActive",
-                "ContestStatusLocked",
-                "ContestStatusQ1",
-                "ContestStatusQ2",
-                "ContestStatusQ3",
-                "ContestStatusQ4",
-                "ContestStatusFinished",
-                "ContestStatusCancelled",
-                "ContestStatusDeleted"
-            ]
-        },
         "model.ContestSwagger": {
             "type": "object",
             "properties": {
                 "awayTeam": {
                     "type": "string",
-                    "example": "Away Team"
+                    "example": "49ers"
                 },
                 "createdAt": {
                     "type": "string"
@@ -548,17 +654,23 @@ const docTemplate = `{
                 },
                 "homeTeam": {
                     "type": "string",
-                    "example": "Home Team"
+                    "example": "Chiefs"
                 },
                 "id": {
                     "type": "string"
                 },
                 "name": {
                     "type": "string",
-                    "example": "My Contest"
+                    "example": "Super Bowl 2025"
                 },
                 "owner": {
                     "type": "string"
+                },
+                "quarterResults": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.QuarterResult"
+                    }
                 },
                 "squares": {
                     "type": "array",
@@ -568,6 +680,15 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string",
+                    "enum": [
+                        "ACTIVE",
+                        "Q1",
+                        "Q2",
+                        "Q3",
+                        "Q4",
+                        "FINISHED",
+                        "DELETED"
+                    ],
                     "example": "ACTIVE"
                 },
                 "updatedAt": {
@@ -656,6 +777,84 @@ const docTemplate = `{
                 }
             }
         },
+        "model.QuarterResult": {
+            "type": "object",
+            "properties": {
+                "awayTeamScore": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "contestId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "createdBy": {
+                    "type": "string"
+                },
+                "homeTeamScore": {
+                    "type": "integer",
+                    "example": 14
+                },
+                "id": {
+                    "type": "string"
+                },
+                "quarter": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "updatedBy": {
+                    "type": "string"
+                },
+                "winner": {
+                    "type": "string"
+                },
+                "winnerCol": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "winnerFirstName": {
+                    "type": "string"
+                },
+                "winnerLastName": {
+                    "type": "string"
+                },
+                "winnerRow": {
+                    "type": "integer",
+                    "example": 4
+                }
+            }
+        },
+        "model.RecordQuarterResultRequest": {
+            "type": "object",
+            "required": [
+                "awayTeamScore",
+                "homeTeamScore",
+                "quarter"
+            ],
+            "properties": {
+                "awayTeamScore": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 7
+                },
+                "homeTeamScore": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 14
+                },
+                "quarter": {
+                    "type": "integer",
+                    "maximum": 4,
+                    "minimum": 1,
+                    "example": 1
+                }
+            }
+        },
         "model.Square": {
             "type": "object",
             "properties": {
@@ -673,6 +872,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner": {
+                    "type": "string"
+                },
+                "ownerFirstName": {
+                    "type": "string"
+                },
+                "ownerLastName": {
                     "type": "string"
                 },
                 "row": {
@@ -706,23 +911,24 @@ const docTemplate = `{
                     "maxLength": 20,
                     "minLength": 1,
                     "example": "Updated Contest Name"
-                },
-                "status": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/model.ContestStatus"
-                        }
-                    ],
-                    "example": "ACTIVE"
                 }
             }
         },
         "model.UpdateSquareRequest": {
             "type": "object",
+            "required": [
+                "owner",
+                "value"
+            ],
             "properties": {
+                "owner": {
+                    "type": "string",
+                    "example": "username"
+                },
                 "value": {
                     "type": "string",
                     "maxLength": 3,
+                    "minLength": 1,
                     "example": "MRM"
                 }
             }

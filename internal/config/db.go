@@ -14,8 +14,9 @@ import (
 var DB *gorm.DB
 
 const (
-	maxOpenConns int = 25
-	maxIdleConns int = 5
+	maxOpenConns    int           = 25
+	maxIdleConns    int           = 5
+	maxConnLifetime time.Duration = time.Hour
 )
 
 func InitDB() {
@@ -39,6 +40,7 @@ func InitDB() {
 
 	db.AutoMigrate(&model.Contest{})
 	db.AutoMigrate(&model.Square{})
+	db.AutoMigrate(&model.QuarterResult{})
 
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -48,9 +50,9 @@ func InitDB() {
 
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetMaxIdleConns(maxIdleConns)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetConnMaxLifetime(maxConnLifetime)
 
-	slog.Info("database connection configured", "max_open_conns", maxOpenConns, "max_idle_conns", maxIdleConns)
+	slog.Info("database connection configured", "max_open_conns", maxOpenConns, "max_idle_conns", maxIdleConns, "max_conn_lifetime", maxConnLifetime)
 
 	DB = db
 }

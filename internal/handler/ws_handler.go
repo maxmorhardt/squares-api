@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/maxmorhardt/squares-api/internal/model"
+	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/service"
 	"github.com/maxmorhardt/squares-api/internal/util"
 	"gorm.io/gorm"
@@ -24,14 +25,14 @@ type WebSocketHandler interface {
 }
 
 type websocketHandler struct {
-	websocketService  service.WebSocketService
-	validationService service.ValidationService
+	websocketService service.WebSocketService
+	contestRepo      repository.ContestRepository
 }
 
-func NewWebSocketHandler(websocketService service.WebSocketService, validationService service.ValidationService) WebSocketHandler {
+func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo repository.ContestRepository) WebSocketHandler {
 	return &websocketHandler{
-		websocketService:  websocketService,
-		validationService: validationService,
+		websocketService: websocketService,
+		contestRepo:      contestRepo,
 	}
 }
 
@@ -41,7 +42,6 @@ func NewWebSocketHandler(websocketService service.WebSocketService, validationSe
 // @Param contestId path string true "Contest ID to listen for updates" format(uuid)
 // @Success 101 {string} string "WebSocket connection upgraded"
 // @Failure 400 {object} model.APIError
-// @Failure 401 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
@@ -49,6 +49,7 @@ func NewWebSocketHandler(websocketService service.WebSocketService, validationSe
 func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
+	// parse contest id from path
 	contestIDParam := c.Param("id")
 	if contestIDParam == "" {
 		log.Warn("contest id is missing")
@@ -63,29 +64,34 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 		return
 	}
 
+	// add contest id to logger context
 	log = log.With("contest_id", contestID)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
+	// extract websocket protocol token from headers
 	token := c.Request.Header.Get("Sec-WebSocket-Protocol")
 	responseHeader := http.Header{}
 	responseHeader.Set("Sec-WebSocket-Protocol", token)
 
-	if err := h.validationService.ValidateWSRequest(c.Request.Context(), contestID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	// validate contest exists
+	exists, err := h.contestRepo.ExistsByID(c.Request.Context(), contestID)
+	if err != nil || !exists {
+		if errors.Is(err, gorm.ErrRecordNotFound) || !exists {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
 			return
 		}
-
 		log.Warn("failed to validate websocket request", "error", err)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Invalid Contest ID", c))
 		return
 	}
 
+	// upgrade http connection to websocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, responseHeader)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Failed to upgrade connection", c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to upgrade connection", c))
 		return
 	}
 
+	// handle websocket connection lifecycle
 	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contestID, conn)
 }

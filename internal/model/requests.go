@@ -12,13 +12,18 @@ type UpdateSquareRequest struct {
 	Owner string `json:"owner" binding:"required" example:"username" validate:"required" description:"Square owner (required)"`
 }
 
-type ClearSquareRequest struct {}
+type ClearSquareRequest struct{}
 
 type UpdateContestRequest struct {
-	Name     *string        `json:"name,omitempty" example:"Updated Contest Name" validate:"omitempty,max=20,min=1"`
-	HomeTeam *string        `json:"homeTeam,omitempty" example:"Updated Home Team" validate:"omitempty,max=20"`
-	AwayTeam *string        `json:"awayTeam,omitempty" example:"Updated Away Team" validate:"omitempty,max=20"`
-	Status   *ContestStatus `json:"status,omitempty" example:"ACTIVE" validate:"omitempty"`
+	Name     *string `json:"name,omitempty" example:"Updated Contest Name" validate:"omitempty,max=20,min=1"`
+	HomeTeam *string `json:"homeTeam,omitempty" example:"Updated Home Team" validate:"omitempty,max=20"`
+	AwayTeam *string `json:"awayTeam,omitempty" example:"Updated Away Team" validate:"omitempty,max=20"`
+}
+
+type RecordQuarterResultRequest struct {
+	Quarter       int `json:"quarter" binding:"required,min=1,max=4" example:"1" description:"Quarter number (1-4)"`
+	HomeTeamScore int `json:"homeTeamScore" binding:"required,min=0" example:"14" description:"Home team score"`
+	AwayTeamScore int `json:"awayTeamScore" binding:"required,min=0" example:"7" description:"Away team score"`
 }
 
 type PaginatedContestResponse struct {

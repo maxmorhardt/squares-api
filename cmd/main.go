@@ -55,12 +55,11 @@ func setupRoutes(r *gin.Engine) {
 
 	authService := service.NewAuthService()
 	redisService := service.NewRedisService()
-	validationService := service.NewValidationService(contestRepo, authService)
 	contestService := service.NewContestService(contestRepo, redisService, authService)
 	wsService := service.NewWebSocketService()
 
-	contestHandler := handler.NewContestHandler(contestService, authService, validationService)
-	wsHandler := handler.NewWebSocketHandler(wsService, validationService)
+	contestHandler := handler.NewContestHandler(contestService, authService)
+	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo)
 
 	routes.RegisterRootRoutes(r.Group(""))
 	routes.RegisterContestRoutes(r.Group("/contests"), contestHandler)

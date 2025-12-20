@@ -8,10 +8,9 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
-type AuthService interface{
+type AuthService interface {
 	IsDeclaredUser(ctx context.Context, user string) bool
 	IsInGroup(ctx context.Context, group string) bool
-	IsAdmin(ctx context.Context) bool
 }
 
 type authService struct{}
@@ -32,8 +31,4 @@ func (s *authService) IsInGroup(ctx context.Context, group string) bool {
 	}
 
 	return slices.Contains(claims.Groups, group)
-}
-
-func (s *authService) IsAdmin(ctx context.Context) bool {
-	return s.IsInGroup(ctx, model.SquaresAdminGroup)
 }

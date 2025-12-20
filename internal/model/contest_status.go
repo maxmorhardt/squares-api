@@ -5,15 +5,13 @@ import "slices"
 type ContestStatus string
 
 const (
-	ContestStatusActive    ContestStatus = "ACTIVE"
-	ContestStatusLocked    ContestStatus = "LOCKED"
-	ContestStatusQ1        ContestStatus = "Q1"
-	ContestStatusQ2        ContestStatus = "Q2"
-	ContestStatusQ3        ContestStatus = "Q3"
-	ContestStatusQ4        ContestStatus = "Q4"
-	ContestStatusFinished  ContestStatus = "FINISHED"
-	ContestStatusCancelled ContestStatus = "CANCELLED"
-	ContestStatusDeleted   ContestStatus = "DELETED"
+	ContestStatusActive   ContestStatus = "ACTIVE"
+	ContestStatusQ1       ContestStatus = "Q1"
+	ContestStatusQ2       ContestStatus = "Q2"
+	ContestStatusQ3       ContestStatus = "Q3"
+	ContestStatusQ4       ContestStatus = "Q4"
+	ContestStatusFinished ContestStatus = "FINISHED"
+	ContestStatusDeleted  ContestStatus = "DELETED"
 )
 
 func (cs ContestStatus) String() string {
@@ -22,9 +20,9 @@ func (cs ContestStatus) String() string {
 
 func (cs ContestStatus) IsValid() bool {
 	switch cs {
-	case ContestStatusActive, ContestStatusLocked,
+	case ContestStatusActive,
 		ContestStatusQ1, ContestStatusQ2, ContestStatusQ3, ContestStatusQ4,
-		ContestStatusFinished, ContestStatusCancelled, ContestStatusDeleted:
+		ContestStatusFinished, ContestStatusDeleted:
 		return true
 	}
 	return false
@@ -36,15 +34,13 @@ func (cs ContestStatus) CanTransitionTo(target ContestStatus) bool {
 	}
 
 	validTransitions := map[ContestStatus][]ContestStatus{
-		ContestStatusActive:    {ContestStatusLocked, ContestStatusCancelled},
-		ContestStatusLocked:    {ContestStatusQ1, ContestStatusCancelled},
-		ContestStatusQ1:        {ContestStatusQ2, ContestStatusCancelled},
-		ContestStatusQ2:        {ContestStatusQ3, ContestStatusCancelled},
-		ContestStatusQ3:        {ContestStatusQ4, ContestStatusCancelled},
-		ContestStatusQ4:        {ContestStatusFinished, ContestStatusCancelled},
-		ContestStatusFinished:  {},
-		ContestStatusCancelled: {},
-		ContestStatusDeleted:   {},
+		ContestStatusActive:   {ContestStatusQ1},
+		ContestStatusQ1:       {ContestStatusQ2},
+		ContestStatusQ2:       {ContestStatusQ3},
+		ContestStatusQ3:       {ContestStatusQ4},
+		ContestStatusQ4:       {ContestStatusFinished},
+		ContestStatusFinished: {},
+		ContestStatusDeleted:  {},
 	}
 
 	allowedTargets, exists := validTransitions[cs]
