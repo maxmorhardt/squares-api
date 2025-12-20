@@ -76,7 +76,10 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 // ignore incoming messages
 func (s *websocketService) handleIncomingMessages(conn *websocket.Conn) {
 	for {
-		conn.ReadMessage()
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
 	}
 }
 
