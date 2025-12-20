@@ -14,6 +14,7 @@ type RedisService interface {
 	PublishSquareUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, squareID uuid.UUID, value string) error
 	PublishContestUpdate(ctx context.Context, contestID uuid.UUID, updatedBy string, contestUpdate *model.ContestWSUpdate) error
 	PublishQuarterResult(ctx context.Context, contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResultWSUpdate) error
+	PublishContestDeleted(ctx context.Context, contestID uuid.UUID, updatedBy string) error
 }
 
 type redisService struct{}
@@ -38,6 +39,11 @@ func (s *redisService) PublishContestUpdate(ctx context.Context, contestID uuid.
 
 func (s *redisService) PublishQuarterResult(ctx context.Context, contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResultWSUpdate) error {
 	updateMessage := model.NewQuarterResultUpdateMessage(contestID, updatedBy, quarterResult)
+	return s.publishToContestChannel(ctx, contestID, updateMessage)
+}
+
+func (s *redisService) PublishContestDeleted(ctx context.Context, contestID uuid.UUID, updatedBy string) error {
+	updateMessage := model.NewContestDeletedMessage(contestID, updatedBy)
 	return s.publishToContestChannel(ctx, contestID, updateMessage)
 }
 

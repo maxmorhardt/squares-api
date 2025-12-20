@@ -474,11 +474,8 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 	}
 
 	go func() {
-		contestUpdate := &model.ContestWSUpdate{
-			Status: model.ContestStatusDeleted,
-		}
-		if err := s.redisService.PublishContestUpdate(context.Background(), contestID, user, contestUpdate); err != nil {
-			log.Error("failed to publish contest update", "contest_id", contestID, "error", err)
+		if err := s.redisService.PublishContestDeleted(context.Background(), contestID, user); err != nil {
+			log.Error("failed to publish contest deleted", "contest_id", contestID, "error", err)
 		}
 	}()
 
