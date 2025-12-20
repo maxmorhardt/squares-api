@@ -19,16 +19,19 @@ func init() {
 }
 
 func LoggerMiddleware(c *gin.Context) {
+	// extract or generate request id
 	requestID := c.GetHeader("X-Request-ID")
 	if requestID == "" {
 		requestID = uuid.New().String()
 	}
 
+	// create logger with request metadata
 	log := slog.Default().With(
 		"request_id", requestID,
 		"client_ip", c.ClientIP(),
 	)
 
+	// store request id and logger in context
 	util.SetGinContextValue(c, model.RequestIDKey, requestID)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 

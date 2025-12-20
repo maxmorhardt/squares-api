@@ -14,6 +14,56 @@ definitions:
         example: "2025-10-05T13:45:00Z"
         type: string
     type: object
+  model.ContactRequest:
+    properties:
+      email:
+        example: john@example.com
+        maxLength: 255
+        type: string
+      message:
+        example: I have a question...
+        maxLength: 2000
+        minLength: 1
+        type: string
+      name:
+        example: John Doe
+        maxLength: 100
+        minLength: 1
+        type: string
+      subject:
+        example: Question about features
+        maxLength: 200
+        minLength: 1
+        type: string
+    required:
+    - email
+    - message
+    - name
+    - subject
+    type: object
+  model.ContactSubmission:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      ipAddress:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      response:
+        type: string
+      status:
+        type: string
+      subject:
+        type: string
+      updatedAt:
+        type: string
+    type: object
   model.ContestSwagger:
     properties:
       awayTeam:
@@ -157,15 +207,9 @@ definitions:
         example: 14
         minimum: 0
         type: integer
-      quarter:
-        example: 1
-        maximum: 4
-        minimum: 1
-        type: integer
     required:
     - awayTeamScore
     - homeTeamScore
-    - quarter
     type: object
   model.Square:
     properties:
@@ -175,6 +219,8 @@ definitions:
       contestId:
         type: string
       createdAt:
+        type: string
+      createdBy:
         type: string
       id:
         type: string
@@ -189,8 +235,25 @@ definitions:
         type: integer
       updatedAt:
         type: string
+      updatedBy:
+        type: string
       value:
         example: MRM
+        type: string
+    type: object
+  model.UpdateContactSubmissionRequest:
+    properties:
+      response:
+        example: Thank you for contacting us...
+        maxLength: 2000
+        minLength: 1
+        type: string
+      status:
+        enum:
+        - pending
+        - responded
+        - resolved
+        example: responded
         type: string
     type: object
   model.UpdateContestRequest:
@@ -229,25 +292,59 @@ info:
   title: Squares API
   version: 1.0.0
 paths:
-  /api/square/{id}/clear:
+  /contact:
     post:
       consumes:
       - application/json
-      description: Clears a square's value and owner, making it available for anyone
-        to claim
+      description: Submit a contact form message
       parameters:
-      - description: Square ID
+      - description: Contact form data
+        in: body
+        name: contact
+        required: true
+        schema:
+          $ref: '#/definitions/model.ContactRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Contact form submitted successfully
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/model.APIError'
+      summary: Submit a contact form
+      tags:
+      - contact
+  /contact/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Update the status and/or response of a contact submission. Requires
+        squares-admins group.
+      parameters:
+      - description: Contact Submission ID
         in: path
         name: id
         required: true
         type: string
+      - description: Update data
+        in: body
+        name: update
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateContactSubmissionRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.Square'
+            $ref: '#/definitions/model.ContactSubmission'
         "400":
           description: Bad Request
           schema:
@@ -264,9 +361,11 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
-      summary: Clear square value and owner
+      security:
+      - BearerAuth: []
+      summary: Update a contact submission
       tags:
-      - squares
+      - contact
   /contests:
     put:
       consumes:
@@ -449,51 +548,20 @@ paths:
       summary: Record quarter result
       tags:
       - contests
-  /contests/{id}/start:
-    post:
+  /contests/{id}/squares/{squareId}:
+    patch:
       consumes:
       - application/json
-      description: Starts the contest, transitioning from ACTIVE to Q1 and randomizing
-        labels
+      description: Updates the value of a specific square in a contest
       parameters:
       - description: Contest ID
         in: path
         name: id
         required: true
         type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.ContestSwagger'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.APIError'
-      security:
-      - BearerAuth: []
-      summary: Start contest
-      tags:
-      - contests
-  /contests/square/{id}:
-    patch:
-      consumes:
-      - application/json
-      description: Updates the value of a specific square in a contest
-      parameters:
       - description: Square ID
         in: path
-        name: id
+        name: squareId
         required: true
         type: string
       - description: Square
@@ -528,6 +596,87 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a single square in a contest
+      tags:
+      - contests
+  /contests/{id}/squares/{squareId}/clear:
+    post:
+      consumes:
+      - application/json
+      description: Clears a square's value and owner, making it available for anyone
+        to claim
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Square ID
+        in: path
+        name: squareId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Square'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Clear square value and owner
+      tags:
+      - contests
+  /contests/{id}/start:
+    post:
+      consumes:
+      - application/json
+      description: Starts the contest, transitioning from ACTIVE to Q1 and randomizing
+        labels
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ContestSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Start contest
       tags:
       - contests
   /contests/user/{username}:
@@ -604,10 +753,6 @@ paths:
             type: string
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "401":
-          description: Unauthorized
           schema:
             $ref: '#/definitions/model.APIError'
         "404":

@@ -52,16 +52,19 @@ func setupMiddleware(r *gin.Engine) {
 
 func setupRoutes(r *gin.Engine) {
 	contestRepo := repository.NewContestRepository()
+	contactRepo := repository.NewContactRepository()
 
 	authService := service.NewAuthService()
 	redisService := service.NewRedisService()
 	contestService := service.NewContestService(contestRepo, redisService, authService)
 	wsService := service.NewWebSocketService()
+	contactService := service.NewContactService(contactRepo)
 
 	contestHandler := handler.NewContestHandler(contestService, authService)
 	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo)
+	contactHandler := handler.NewContactHandler(contactService)
 
-	routes.RegisterRootRoutes(r.Group(""))
+	routes.RegisterRootRoutes(r.Group(""), contactHandler)
 	routes.RegisterContestRoutes(r.Group("/contests"), contestHandler)
 	routes.RegisterWebSocketRoutes(r.Group("/ws"), wsHandler)
 }

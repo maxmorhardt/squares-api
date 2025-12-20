@@ -41,6 +41,7 @@ func InitDB() {
 	db.AutoMigrate(&model.Contest{})
 	db.AutoMigrate(&model.Square{})
 	db.AutoMigrate(&model.QuarterResult{})
+	db.AutoMigrate(&model.ContactSubmission{})
 
 	sqlDB, err := db.DB()
 	if err != nil {
