@@ -27,6 +27,7 @@ func main() {
 
 	config.InitDB()
 	config.InitRedis()
+	config.InitJWT()
 
 	initGin().Run(":8080")
 }
