@@ -6,66 +6,71 @@ image:
   pullPolicy: Always
   revisionHistoryLimit: 2
   env:
-  - name: DB_HOST
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: db-host
-  - name: DB_PORT
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: db-port
-  - name: DB_USER
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: db-user
-  - name: DB_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: db-password
-  - name: DB_NAME
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: db-name
-  - name: DB_SSL_MODE
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: db-ssl-mode
-  - name: REDIS_HOST
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: redis-host
-  - name: SMTP_HOST
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: smtp-host
-  - name: SMTP_PORT
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: smtp-port
-  - name: SMTP_USER
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: smtp-user
-  - name: SMTP_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: smtp-password
-  - name: SUPPORT_EMAIL
-    valueFrom:
-      secretKeyRef:
-        name: squares-api-env
-        key: support-email
+    - name: DB_HOST
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: db-host
+    - name: DB_PORT
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: db-port
+    - name: DB_USER
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: db-user
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: db-password
+    - name: DB_NAME
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: db-name
+    - name: DB_SSL_MODE
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: db-ssl-mode
+    - name: REDIS_HOST
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: redis-host
+    - name: SMTP_HOST
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: smtp-host
+    - name: SMTP_PORT
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: smtp-port
+    - name: SMTP_USER
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: smtp-user
+    - name: SMTP_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: smtp-password
+    - name: SUPPORT_EMAIL
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: support-email
+    - name: JWT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: squares-api-env
+          key: jwt-secret
   readinessProbe:
     path: /health
     initialDelaySeconds: 30
@@ -99,7 +104,7 @@ ingress:
     - secretName: squares-api.maxstash.io-tls
       hosts:
         - squares-api.maxstash.io
-  
+
 resources:
   limits:
     cpu: 1
