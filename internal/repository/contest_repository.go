@@ -13,12 +13,17 @@ type ContestRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Contest, error)
 	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
 	GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
+	GetAllParticipatingContestsPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
 	ExistsByUserAndName(ctx context.Context, username, name string) (bool, error)
 
 	Create(ctx context.Context, contest *model.Contest) error
 	Update(ctx context.Context, contest *model.Contest) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error
+
+	AddParticipant(ctx context.Context, contestID uuid.UUID, username string, squareLimit int) error
+	GetParticipant(ctx context.Context, contestID uuid.UUID, username string) (*model.ContestParticipant, error)
+	GetUserSquareCount(ctx context.Context, contestID uuid.UUID, username string) (int, error)
 
 	GetSquareByID(ctx context.Context, squareID uuid.UUID) (*model.Square, error)
 	UpdateSquare(ctx context.Context, square *model.Square, value, owner, firstName, lastName string) (*model.Square, error)
@@ -43,7 +48,9 @@ func (r *contestRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.C
 	var contest model.Contest
 	err := r.db.WithContext(ctx).
 		Preload("Squares").
-		Preload("QuarterResults").
+		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
+			return db.Order("quarter ASC")
+		}).
 		First(&contest, "id = ? AND status != ?", id, model.ContestStatusDeleted).Error
 
 	return &contest, err
@@ -72,8 +79,11 @@ func (r *contestRepository) GetAllByUserPaginated(ctx context.Context, username 
 	offset := (page - 1) * limit
 	err := r.db.WithContext(ctx).
 		Preload("Squares").
-		Preload("QuarterResults").
+		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
+			return db.Order("quarter ASC")
+		}).
 		Where("created_by = ? AND status != ?", username, model.ContestStatusDeleted).
+		Order("updated_at DESC").
 		Offset(offset).
 		Limit(limit).
 		Find(&contests).Error
@@ -184,4 +194,82 @@ func (r *contestRepository) ClearSquare(ctx context.Context, square *model.Squar
 	})
 
 	return clearedSquare, err
+}
+
+// ====================
+// Participant Management
+// ====================
+
+func (r *contestRepository) AddParticipant(ctx context.Context, contestID uuid.UUID, username string, squareLimit int) error {
+	// check if already a participant
+	participant, err := r.GetParticipant(ctx, contestID, username)
+	if err == nil && participant != nil {
+		// already a participant, update square limit if it's higher
+		if squareLimit > participant.SquareLimit {
+			participant.SquareLimit = squareLimit
+			return r.db.WithContext(ctx).Save(participant).Error
+		}
+		return nil // already a participant with same or higher limit
+	}
+
+	// create new participant
+	newParticipant := &model.ContestParticipant{
+		ContestID:   contestID,
+		Username:    username,
+		SquareLimit: squareLimit,
+	}
+
+	return r.db.WithContext(ctx).Create(newParticipant).Error
+}
+
+func (r *contestRepository) GetParticipant(ctx context.Context, contestID uuid.UUID, username string) (*model.ContestParticipant, error) {
+	var participant model.ContestParticipant
+	err := r.db.WithContext(ctx).
+		Where("contest_id = ? AND username = ?", contestID, username).
+		First(&participant).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &participant, nil
+}
+
+func (r *contestRepository) GetUserSquareCount(ctx context.Context, contestID uuid.UUID, username string) (int, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Square{}).
+		Where("contest_id = ? AND owner = ?", contestID, username).
+		Count(&count).Error
+
+	return int(count), err
+}
+
+func (r *contestRepository) GetAllParticipatingContestsPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {
+	var contests []model.Contest
+	var total int64
+
+	// get total count of contests user is participating in
+	if err := r.db.WithContext(ctx).
+		Model(&model.Contest{}).
+		Joins("JOIN contest_participants ON contest_participants.contest_id = contests.id").
+		Where("contest_participants.username = ? AND contests.status != ?", username, model.ContestStatusDeleted).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// calculate offset and fetch paginated contests
+	offset := (page - 1) * limit
+	err := r.db.WithContext(ctx).
+		Preload("Squares").
+		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
+			return db.Order("quarter ASC")
+		}).
+		Joins("JOIN contest_participants ON contest_participants.contest_id = contests.id").
+		Where("contest_participants.username = ? AND contests.status != ?", username, model.ContestStatusDeleted).
+		Order("contests.updated_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&contests).Error
+
+	return contests, total, err
 }

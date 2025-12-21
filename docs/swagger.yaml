@@ -136,6 +136,21 @@ definitions:
     - name
     - owner
     type: object
+  model.GenerateInviteLinkRequest:
+    properties:
+      squareLimit:
+        example: 5
+        minimum: 0
+        type: integer
+    type: object
+  model.GenerateInviteLinkResponse:
+    properties:
+      expiresAt:
+        type: integer
+      token:
+        example: eyJhbGc...
+        type: string
+    type: object
   model.Health:
     properties:
       status:
@@ -197,7 +212,7 @@ definitions:
         example: 4
         type: integer
     type: object
-  model.RecordQuarterResultRequest:
+  model.QuarterResultRequest:
     properties:
       awayTeamScore:
         example: 7
@@ -207,9 +222,14 @@ definitions:
         example: 14
         minimum: 0
         type: integer
+    type: object
+  model.RedeemInviteRequest:
+    properties:
+      token:
+        example: eyJhbGc...
+        type: string
     required:
-    - awayTeamScore
-    - homeTeamScore
+    - token
     type: object
   model.Square:
     properties:
@@ -507,6 +527,95 @@ paths:
       summary: Update contest
       tags:
       - contests
+  /contests/{id}/invite:
+    post:
+      consumes:
+      - application/json
+      description: Generates a shareable invite link with a specified square limit
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invite link parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.GenerateInviteLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.GenerateInviteLinkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Generate invite link
+      tags:
+      - contests
+  /contests/{id}/invite/redeem:
+    post:
+      consumes:
+      - application/json
+      description: Redeems an invite token from a shareable link and adds the user
+        as a participant
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invite token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.RedeemInviteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Redeem invite token
+      tags:
+      - contests
   /contests/{id}/quarter-result:
     post:
       consumes:
@@ -523,7 +632,7 @@ paths:
         name: quarterResult
         required: true
         schema:
-          $ref: '#/definitions/model.RecordQuarterResultRequest'
+          $ref: '#/definitions/model.QuarterResultRequest'
       produces:
       - application/json
       responses:
@@ -677,6 +786,41 @@ paths:
       security:
       - BearerAuth: []
       summary: Start contest
+      tags:
+      - contests
+  /contests/participating:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a paginated list of contests the authenticated user is
+        participating in
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Page size (default: 10)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PaginatedContestResponseSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get participating contests
       tags:
       - contests
   /contests/user/{username}:

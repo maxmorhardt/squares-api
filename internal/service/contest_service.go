@@ -17,12 +17,16 @@ import (
 type ContestService interface {
 	GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error)
 	GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
+	GetParticipatingContestsPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
 
 	CreateContest(ctx context.Context, req *model.CreateContestRequest, user string) (*model.Contest, error)
 	UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
 	StartContest(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error)
 	RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
+
+	GenerateInviteLink(ctx context.Context, contestID uuid.UUID, squareLimit int, user string) (string, error)
+	AddParticipant(ctx context.Context, contestID uuid.UUID, username string, squareLimit int) error
 
 	UpdateSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error)
 	ClearSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, user string) (*model.Square, error)
@@ -75,6 +79,20 @@ func (s *contestService) GetContestsByUserPaginated(ctx context.Context, usernam
 	}
 
 	log.Info("retrieved paginated contests by username", "count", len(contests))
+	return contests, total, nil
+}
+
+func (s *contestService) GetParticipatingContestsPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {
+	log := util.LoggerFromContext(ctx)
+
+	// get paginated contests user is participating in
+	contests, total, err := s.repo.GetAllParticipatingContestsPaginated(ctx, username, page, limit)
+	if err != nil {
+		log.Error("failed to get participating contests", "username", username, "error", err)
+		return nil, 0, err
+	}
+
+	log.Info("retrieved participating contests", "username", username, "count", len(contests))
 	return contests, total, nil
 }
 
@@ -228,14 +246,6 @@ func (s *contestService) StartContest(ctx context.Context, contestID uuid.UUID, 
 		return nil, err
 	}
 
-	// update contest status
-	contest.Status = model.ContestStatusQ1
-	contest.UpdatedBy = user
-	if err := s.repo.Update(ctx, contest); err != nil {
-		log.Error("failed to update contest status", "contest_id", contestID, "error", err)
-		return nil, err
-	}
-
 	log.Info("contest started successfully", "contest_id", contestID, "user", user)
 	return contest, nil
 }
@@ -261,8 +271,10 @@ func (s *contestService) transitionToQ1(ctx context.Context, contest *model.Cont
 
 	contest.XLabels = xLabelsJSON
 	contest.YLabels = yLabelsJSON
+	contest.Status = model.ContestStatusQ1
+	contest.UpdatedBy = user
 
-	// save contest with randomized labels
+	// save contest with randomized labels and updated status
 	if err := s.repo.Update(ctx, contest); err != nil {
 		log.Error("failed to save contest with randomized labels", "contest_id", contest.ID, "error", err)
 		return err
@@ -531,6 +543,31 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 
+	// check if user is participant and enforce square limit
+	participant, err := s.repo.GetParticipant(ctx, contestID, user)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Error("failed to get participant", "contest_id", contestID, "username", user, "error", err)
+		return nil, err
+	}
+
+	// if user is a participant with a square limit, enforce it
+	if participant != nil && participant.SquareLimit > 0 {
+		// count how many squares user currently owns (excluding this one if they already own it)
+		currentCount, err := s.repo.GetUserSquareCount(ctx, contestID, user)
+		if err != nil {
+			log.Error("failed to get user square count", "contest_id", contestID, "username", user, "error", err)
+			return nil, err
+		}
+
+		// if this square isn't already owned by user, we're adding a new one
+		if square.Owner != user {
+			if currentCount >= participant.SquareLimit {
+				log.Warn("user has reached square limit", "contest_id", contestID, "username", user, "limit", participant.SquareLimit, "current", currentCount)
+				return nil, errs.ErrSquareLimitReached
+			}
+		}
+	}
+
 	// get claims for first and last name
 	claims := util.ClaimsFromContext(ctx)
 	if claims == nil {
@@ -609,4 +646,59 @@ func (s *contestService) ClearSquare(ctx context.Context, contestID uuid.UUID, s
 
 	log.Info("square cleared successfully", "square_id", square.ID)
 	return clearedSquare, nil
+}
+
+// ====================
+// Participant Management
+// ====================
+
+func (s *contestService) GenerateInviteLink(ctx context.Context, contestID uuid.UUID, squareLimit int, user string) (string, error) {
+	log := util.LoggerFromContext(ctx)
+
+	// verify contest exists and user is owner
+	contest, err := s.repo.GetByID(ctx, contestID)
+	if err != nil {
+		log.Error("failed to get contest", "contest_id", contestID, "error", err)
+		return "", err
+	}
+
+	if contest.Owner != user {
+		log.Warn("user is not contest owner", "contest_id", contestID, "owner", contest.Owner, "user", user)
+		return "", errs.ErrUnauthorizedContestEdit
+	}
+
+	// generate JWT token with contest ID and square limit
+	token, err := s.authService.GenerateInviteToken(contestID, squareLimit)
+	if err != nil {
+		log.Error("failed to generate invite token", "contest_id", contestID, "error", err)
+		return "", err
+	}
+
+	log.Info("generated invite link", "contest_id", contestID, "square_limit", squareLimit)
+	return token, nil
+}
+
+func (s *contestService) AddParticipant(ctx context.Context, contestID uuid.UUID, username string, squareLimit int) error {
+	log := util.LoggerFromContext(ctx)
+
+	// verify contest exists
+	exists, err := s.repo.ExistsByID(ctx, contestID)
+	if err != nil {
+		log.Error("failed to check contest existence", "contest_id", contestID, "error", err)
+		return err
+	}
+
+	if !exists {
+		log.Warn("contest not found", "contest_id", contestID)
+		return gorm.ErrRecordNotFound
+	}
+
+	// add participant with square limit
+	if err := s.repo.AddParticipant(ctx, contestID, username, squareLimit); err != nil {
+		log.Error("failed to add participant", "contest_id", contestID, "username", username, "error", err)
+		return err
+	}
+
+	log.Info("participant added to contest", "contest_id", contestID, "username", username, "square_limit", squareLimit)
+	return nil
 }

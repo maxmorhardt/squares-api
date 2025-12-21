@@ -20,9 +20,9 @@ type UpdateContestRequest struct {
 	AwayTeam *string `json:"awayTeam,omitempty" example:"Updated Away Team" validate:"omitempty,max=20"`
 }
 
-type RecordQuarterResultRequest struct {
-	HomeTeamScore int `json:"homeTeamScore" binding:"required,min=0" example:"14" description:"Home team score"`
-	AwayTeamScore int `json:"awayTeamScore" binding:"required,min=0" example:"7" description:"Away team score"`
+type QuarterResultRequest struct {
+	HomeTeamScore int `json:"homeTeamScore" binding:"min=0" example:"14" description:"Home team score"`
+	AwayTeamScore int `json:"awayTeamScore" binding:"min=0" example:"7" description:"Away team score"`
 }
 
 type PaginatedContestResponse struct {
