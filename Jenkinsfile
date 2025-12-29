@@ -76,14 +76,14 @@ pipeline {
 						echo "Scanning for secrets..."
 						
 						# check for common secret patterns
-						if git grep -E '(password|secret|key|token)\s*=\s*["\x27][^"\x27]{8,}["\x27]' || \
+						if git grep -E '(password|secret|key|token)[[:space:]]*=[[:space:]]*["\047][^"\047]{8,}["\047]' || \
 						   git grep -E 'AKIA[0-9A-Z]{16}' || \
-						   git grep -E '-----BEGIN (RSA |DSA )?PRIVATE KEY-----'; then
-							echo "⚠️  Potential secrets detected in code"
+						   git grep -E -- '-----BEGIN (RSA |DSA )?PRIVATE KEY-----'; then
+							echo "WARNING: Potential secrets detected in code"
 							exit 1
 						fi
 						
-						echo "✓ No secrets detected"
+						echo "No secrets detected"
 					'''
 				}
 			}
