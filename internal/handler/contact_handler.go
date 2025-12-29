@@ -49,6 +49,12 @@ func (h *contactHandler) SubmitContact(c *gin.Context) {
 		return
 	}
 
+	// sanitize inputs to prevent email injection
+	req.Name = util.SanitizeInput(req.Name)
+	req.Email = util.SanitizeInput(req.Email)
+	req.Subject = util.SanitizeInput(req.Subject)
+	req.Message = util.SanitizeInput(req.Message)
+
 	// get client ip address
 	ipAddress := c.ClientIP()
 
@@ -65,7 +71,7 @@ func (h *contactHandler) SubmitContact(c *gin.Context) {
 }
 
 // @Summary Update a contact submission
-// @Description Update the status and/or response of a contact submission. Requires squares-admins group.
+// @Description Update the status and/or response of a contact submission
 // @Tags contact
 // @Accept json
 // @Produce json
@@ -102,6 +108,12 @@ func (h *contactHandler) UpdateContactSubmission(c *gin.Context) {
 		log.Warn("failed to bind update request json", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
+	}
+
+	// sanitize response field if present
+	if req.Response != nil {
+		sanitized := util.SanitizeInput(*req.Response)
+		req.Response = &sanitized
 	}
 
 	// update submission via service

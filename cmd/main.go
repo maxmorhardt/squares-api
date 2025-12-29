@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -28,6 +30,7 @@ func main() {
 	config.InitDB()
 	config.InitRedis()
 	config.InitJWT()
+	config.InitSMTP()
 
 	initGin().Run(":8080")
 }
@@ -35,20 +38,39 @@ func main() {
 func initGin() *gin.Engine {
 	r := gin.New()
 
-	setupMiddleware(r)
-	setupRoutes(r)
+	metricsEnabled := os.Getenv("METRICS_ENABLED") == "true"
 
-	go http.ListenAndServe(":2112", promhttp.Handler())
+	setupMiddleware(r, metricsEnabled)
+	setupRoutes(r)
+	setupMetricsServer(metricsEnabled)
 
 	return r
 }
 
-func setupMiddleware(r *gin.Engine) {
+func setupMetricsServer(metricsEnabled bool) {
+	if !metricsEnabled {
+		slog.Info("metrics disabled")
+		return
+	}
+
+	slog.Info("starting metrics server on :2112")
+	go func() {
+		if err := http.ListenAndServe(":2112", promhttp.Handler()); err != nil {
+			slog.Error("metrics server failed", "error", err)
+		}
+	}()
+}
+
+func setupMiddleware(r *gin.Engine, metricsEnabled bool) {
 	r.Use(gin.Recovery())
+	r.Use(middleware.RequestSizeLimitMiddleware())
 	r.Use(middleware.CORSMiddleware())
-	r.Use(middleware.PrometheusMiddleware)
 	r.Use(middleware.LoggerMiddleware)
 	r.Use(middleware.RateLimitMiddleware())
+	
+	if metricsEnabled {
+		r.Use(middleware.PrometheusMiddleware)
+	}
 }
 
 func setupRoutes(r *gin.Engine) {

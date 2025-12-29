@@ -9,10 +9,10 @@ var jwtSecret string
 
 func InitJWT() {
 	jwtSecret = os.Getenv("JWT_SECRET")
-	slog.Info("initialized JWT secret")
+	
 	if jwtSecret == "" {
-		slog.Warn("JWT_SECRET not set, using default (NOT FOR PRODUCTION)")
-		jwtSecret = "default-dev-secret-change-in-production"
+		slog.Error("JWT_SECRET not set")
+		panic("JWT_SECRET environment variable is required")
 	}
 }
 

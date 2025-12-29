@@ -10,8 +10,8 @@ import (
 // @Description Returns UP if service is running
 // @Tags health
 // @Produce json
-// @Success 200 {object} model.Health
+// @Success 200 {object} model.HealthResponse
 // @Router /health [get]
 func HealthCheck(c *gin.Context) {
-  c.JSON(200, &model.Health{ Status: "UP" })
+  c.JSON(200, &model.HealthResponse{ Status: "UP" })
 }

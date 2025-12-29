@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/smtp"
-	"os"
 
 	"github.com/google/uuid"
+	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -61,16 +61,9 @@ func (s *contactService) SubmitContact(ctx context.Context, req *model.ContactRe
 }
 
 func (s *contactService) sendEmailNotification(req *model.ContactRequest) error {
-	// get smtp configuration from environment
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := os.Getenv("SMTP_PORT")
-	smtpUser := os.Getenv("SMTP_USER")
-	smtpPass := os.Getenv("SMTP_PASSWORD")
-	supportEmail := os.Getenv("SUPPORT_EMAIL")
-
 	// construct email message
-	from := smtpUser
-	to := []string{supportEmail}
+	from := config.SMTPUser
+	to := []string{config.SupportEmail}
 	subject := fmt.Sprintf("Contact Form: %s", req.Subject)
 	body := fmt.Sprintf(
 		"New contact form submission:\n\n"+
@@ -92,15 +85,15 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 			"\r\n"+
 			"%s",
 		from,
-		supportEmail,
+		config.SupportEmail,
 		subject,
 		req.Email,
 		body,
 	)
 
 	// send email via smtp
-	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
-	addr := fmt.Sprintf("%s:%s", smtpHost, smtpPort)
+	auth := smtp.PlainAuth("", config.SMTPUser, config.SMTPPassword, config.SMTPHost)
+	addr := fmt.Sprintf("%s:%s", config.SMTPHost, config.SMTPPort)
 
 	return smtp.SendMail(addr, auth, from, to, []byte(message))
 }

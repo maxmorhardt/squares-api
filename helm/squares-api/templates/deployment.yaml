@@ -14,10 +14,35 @@ spec:
       labels:
         {{- include "app.labels" . | nindent 8 }}
     spec:
+      securityContext:
+        runAsNonRoot: {{ .Values.image.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.image.securityContext.runAsUser }}
+        fsGroup: {{ .Values.image.securityContext.fsGroup }}
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if .Values.affinity.podAntiAffinity.enabled }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: {{ .Values.affinity.podAntiAffinity.weight }}
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    {{- include "app.selectorLabels" . | nindent 20 }}
+                topologyKey: {{ .Values.affinity.podAntiAffinity.topologyKey }}
+      {{- end }}
       containers:
         - name: {{ include "app.fullname" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: {{ .Values.image.securityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.image.securityContext.readOnlyRootFilesystem }}
+            runAsNonRoot: {{ .Values.image.securityContext.runAsNonRoot }}
+            runAsUser: {{ .Values.image.securityContext.runAsUser }}
+            capabilities:
+              drop:
+                - ALL
           {{- with .Values.image.env }}
           env:
             {{- toYaml . | nindent 12 }}
@@ -26,8 +51,24 @@ spec:
             - name: {{ .Values.service.name }}
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          {{- if .Values.image.volumes }}
+          volumeMounts:
+            {{- range .Values.image.volumes }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          startupProbe:
+            httpGet:
+              port: {{ .Values.service.targetPort }}
+              path: {{ .Values.image.startupProbe.path }}
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.image.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.image.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.image.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.image.startupProbe.failureThreshold }}
           readinessProbe:
             httpGet:
               port: {{ .Values.service.targetPort }}
@@ -48,3 +89,12 @@ spec:
             timeoutSeconds: {{ .Values.image.livenessProbe.timeoutSeconds }}
             failureThreshold: {{ .Values.image.livenessProbe.failureThreshold }}
             successThreshold: {{ .Values.image.livenessProbe.successThreshold }}
+      {{- if .Values.image.volumes }}
+      volumes:
+        {{- range .Values.image.volumes }}
+        - name: {{ .name }}
+          {{- if eq .volumeType "emptyDir" }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+      {{- end }}

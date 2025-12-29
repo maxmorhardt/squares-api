@@ -1,5 +1,10 @@
 package model
 
+import (
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
+
 const (
 	SquaresAdminGroup string = "/Squares_Admin"
 )
@@ -14,4 +19,10 @@ type Claims struct {
 	Expire    int64    `json:"exp"`
 	IssuedAt  int64    `json:"iat"`
 	Subject   string   `json:"sub"`
+}
+
+type InviteTokenClaims struct {
+	ContestID   uuid.UUID `json:"contestId"`
+	SquareLimit int       `json:"squareLimit"`
+	jwt.RegisteredClaims
 }

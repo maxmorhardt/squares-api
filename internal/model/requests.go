@@ -12,7 +12,7 @@ type UpdateSquareRequest struct {
 	Owner string `json:"owner" binding:"required" example:"username" validate:"required" description:"Square owner (required)"`
 }
 
-type ClearSquareRequest struct{}
+type ClearSquareRequest struct {}
 
 type UpdateContestRequest struct {
 	Name     *string `json:"name,omitempty" example:"Updated Contest Name" validate:"omitempty,max=20,min=1"`
@@ -25,12 +25,18 @@ type QuarterResultRequest struct {
 	AwayTeamScore int `json:"awayTeamScore" binding:"min=0" example:"7" description:"Away team score"`
 }
 
-type PaginatedContestResponse struct {
-	Contests    []Contest `json:"contests"`
-	Page        int       `json:"page"`
-	Limit       int       `json:"limit"`
-	Total       int64     `json:"total"`
-	TotalPages  int       `json:"totalPages"`
-	HasNext     bool      `json:"hasNext"`
-	HasPrevious bool      `json:"hasPrevious"`
+type ContactRequest struct {
+	Name    string `json:"name" binding:"required,min=1,max=100" example:"John Doe" description:"Name of the person contacting"`
+	Email   string `json:"email" binding:"required,email,max=255" example:"john@example.com" description:"Email address for response"`
+	Subject string `json:"subject" binding:"required,min=1,max=200" example:"Question about features" description:"Subject of the contact message"`
+	Message string `json:"message" binding:"required,min=1,max=2000" example:"I have a question..." description:"Message content"`
+}
+
+type UpdateContactSubmissionRequest struct {
+	Status   *string `json:"status" binding:"omitempty,oneof=pending responded resolved" example:"responded" description:"Status of the contact submission"`
+	Response *string `json:"response" binding:"omitempty,min=1,max=2000" example:"Thank you for contacting us..." description:"Admin response to the contact submission"`
+}
+
+type GenerateInviteLinkRequest struct {
+	SquareLimit int `json:"squareLimit" binding:"min=0" example:"5" description:"Maximum squares user can claim (0 = unlimited)"`
 }

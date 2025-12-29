@@ -11,9 +11,11 @@ spec:
       targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
       name: {{ .Values.service.name }}
+    {{- if .Values.metrics.enabled }}
     - port: {{ .Values.metrics.service.port }}
       targetPort: {{ .Values.metrics.service.targetPort }}
       protocol: TCP
       name: {{ .Values.metrics.service.name }}
+    {{- end }}
   selector:
     {{- include "app.selectorLabels" . | nindent 4 }}

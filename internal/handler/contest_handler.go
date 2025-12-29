@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -79,7 +78,7 @@ func (h *contestHandler) GetContestByID(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID format", c))
 		return
 	}
 
@@ -157,7 +156,7 @@ func (h *contestHandler) GetContestsByUser(c *gin.Context) {
 	// get paginated contests from service
 	contests, total, err := h.contestService.GetContestsByUserPaginated(c.Request.Context(), username, page, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to get Contests for user %s", username), c))
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to retrieve contests", c))
 		return
 	}
 
@@ -292,6 +291,12 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 		return
 	}
 
+	// sanitize inputs
+	req.Name = util.SanitizeInput(req.Name)
+	req.HomeTeam = util.SanitizeInput(req.HomeTeam)
+	req.AwayTeam = util.SanitizeInput(req.AwayTeam)
+	req.Owner = util.SanitizeInput(req.Owner)
+
 	// get authenticated user
 	user := c.GetString(model.UserKey)
 
@@ -316,7 +321,7 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 
 	if req.Owner != user {
 		log.Warn("user not authorized to create contest", "user", user, "owner", req.Owner)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("User %s is not authorized to create contest for %s", user, req.Owner), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "User not authorized to create contest for specified owner", c))
 		return
 	}
 
@@ -384,7 +389,7 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID format", c))
 		return
 	}
 
@@ -394,6 +399,20 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 		log.Warn("invalid request body", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
+	}
+
+	// sanitize inputs
+	if req.Name != nil {
+		sanitized := util.SanitizeInput(*req.Name)
+		req.Name = &sanitized
+	}
+	if req.HomeTeam != nil {
+		sanitized := util.SanitizeInput(*req.HomeTeam)
+		req.HomeTeam = &sanitized
+	}
+	if req.AwayTeam != nil {
+		sanitized := util.SanitizeInput(*req.AwayTeam)
+		req.AwayTeam = &sanitized
 	}
 
 	// get authenticated user
@@ -462,7 +481,7 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID format", c))
 		return
 	}
 
@@ -474,7 +493,7 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 		} else if errors.Is(err, errs.ErrUnauthorizedContestDelete) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		} else {
-			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, fmt.Sprintf("Failed to delete Contest %s", contestID), c))
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to delete contest", c))
 		}
 		return
 	}
@@ -508,7 +527,7 @@ func (h *contestHandler) StartContest(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID format", c))
 		return
 	}
 
@@ -696,7 +715,7 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID format", c))
 		return
 	}
 
@@ -711,7 +730,7 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 	squareID, err := uuid.Parse(squareIDParam)
 	if err != nil {
 		log.Warn("invalid square id", "param", squareIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Square ID: %s", squareIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid square ID format", c))
 		return
 	}
 
@@ -723,9 +742,12 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 		return
 	}
 
-	// get authenticated user and normalize value
+	// sanitize and normalize inputs
+	req.Value = strings.ToUpper(util.SanitizeInput(req.Value))
+	req.Owner = util.SanitizeInput(req.Owner)
+
+	// get authenticated user
 	user := c.GetString(model.UserKey)
-	req.Value = strings.ToUpper(req.Value)
 
 	// validate input
 	if !isValidSquareValue(req.Value) {
@@ -797,7 +819,7 @@ func (h *contestHandler) ClearSquare(c *gin.Context) {
 	contestID, err := uuid.Parse(contestIDParam)
 	if err != nil {
 		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Contest ID: %s", contestIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID format", c))
 		return
 	}
 
@@ -812,7 +834,7 @@ func (h *contestHandler) ClearSquare(c *gin.Context) {
 	squareID, err := uuid.Parse(squareIDParam)
 	if err != nil {
 		log.Warn("invalid square id", "param", squareIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, fmt.Sprintf("Invalid Square ID: %s", squareIDParam), c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid square ID format", c))
 		return
 	}
 

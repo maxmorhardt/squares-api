@@ -17,15 +17,10 @@ func CORSMiddleware() gin.HandlerFunc {
 
 			return false
 		},
-		// allowed http methods
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		// allowed request headers
 		AllowHeaders: []string{"Origin", "Content-Type", "Authorization", "Cache-Control"},
-		// headers exposed to client
 		ExposeHeaders: []string{"Content-Length", "Content-Type"},
-		// allow credentials (cookies, auth headers)
 		AllowCredentials: true,
-		// cache preflight requests for 12 hours
 		MaxAge: 12 * time.Hour,
 	})
 }

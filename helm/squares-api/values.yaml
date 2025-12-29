@@ -5,6 +5,16 @@ image:
   tag: '0.0.1'
   pullPolicy: Always
   revisionHistoryLimit: 2
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+  volumes:
+    - name: tmp
+      mountPath: /tmp
+      volumeType: emptyDir
   env:
     - name: DB_HOST
       valueFrom:
@@ -71,6 +81,14 @@ image:
         secretKeyRef:
           name: squares-api-env
           key: jwt-secret
+    - name: METRICS_ENABLED
+      value: '{{ .Values.metrics.enabled }}'
+  startupProbe:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
   readinessProbe:
     path: /health
     initialDelaySeconds: 30
@@ -95,6 +113,11 @@ service:
 ingress:
   enabled: true
   className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: '1m'
+    nginx.ingress.kubernetes.io/client-body-buffer-size: '1m'
+    nginx.ingress.kubernetes.io/limit-rps: '20'
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: '5'
   hosts:
     - host: squares-api.maxstash.io
       paths:
@@ -113,19 +136,47 @@ resources:
     cpu: 100m
     memory: 64Mi
 
+affinity:
+  podAntiAffinity:
+    enabled: true
+    weight: 100
+    topologyKey: kubernetes.io/hostname
+
 hpa:
   enabled: true
-  minReplicas: 1
-  maxReplicas: 3
+  minReplicas: 2
+  maxReplicas: 4
   targetCPU: 90
   targetRAM: 90
 
 pdb:
+  enabled: true
   minAvailable: 1
 
 metrics:
+  enabled: true
   service:
     type: ClusterIP
     port: 2112
     targetPort: 2112
     name: metrics
+
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx
+  egress:
+    dns:
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+    postgresql:
+      port: 5432
+    redis:
+      port: 6379
+    https:
+      ports:
+        - 443
+        - 587
+        - 25

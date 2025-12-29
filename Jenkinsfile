@@ -11,12 +11,12 @@ pipeline {
 		string(name: 'HELM_VERSION', defaultValue: params.HELM_VERSION ?: '0.0.1', description: 'Helm chart version', trim: true)
 	}
 
-
 	environment {
 		GITHUB_URL = 'https://github.com/maxmorhardt/squares-api'
 
 		DOCKER_REGISTRY = 'docker.io'
 		DOCKER_REGISTRY_FULL = "oci://${env.DOCKER_REGISTRY}"
+		DOCKER = credentials('docker')
 
 		APP_NAME = "squares-api"
 		CHART_NAME = "$APP_NAME-chart"
@@ -25,42 +25,103 @@ pipeline {
 	}
 
 	stages {
-		stage('Setup') {
+		stage('Validate') {
 			steps {
 				script {
-					withCredentials([file(credentialsId: 'kube-config', variable: 'KUBE_CONFIG')]) {
-						checkout scmGit(
-							branches: [[
-								name: "$BRANCH_NAME"
-							]],
-							userRemoteConfigs: [[
-								credentialsId: 'github',
-								url: "$GITHUB_URL"
-							]]
-						)
-
-						sh 'mkdir -p $WORKSPACE/.kube && cp $KUBE_CONFIG $WORKSPACE/.kube/config'
-						sh 'ls -lah'
-
+					sh """
 						echo "APP_NAME: $APP_NAME"
 						echo "NAMESPACE: $NAMESPACE"
 						echo "BRANCH: $BRANCH_NAME"
 						echo "DOCKER_VERSION: $DOCKER_VERSION"
 						echo "HELM_VERSION: $HELM_VERSION"
-					}
+
+						echo "Validating parameters..."
+						
+						# validate version formats
+						echo "$DOCKER_VERSION" | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+\$' || (echo "Invalid DOCKER_VERSION format" && exit 1)
+						echo "$HELM_VERSION" | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+\$' || (echo "Invalid HELM_VERSION format" && exit 1)
+						
+						# validate namespace (alphanumeric, hyphens only)
+						echo "$NAMESPACE" | grep -E '^[a-z0-9-]+\$' || (echo "Invalid NAMESPACE format" && exit 1)
+						
+						# validate registry
+						echo "$DOCKER_REGISTRY" | grep -E '^[a-z0-9.-]+\$' || (echo "Invalid DOCKER_REGISTRY format" && exit 1)
+					"""
 				}
 			}
 		}
 
-		stage('Go CI') {
+		stage('Setup') {
+			steps {
+				script {
+					checkout scmGit(
+						branches: [[
+							name: "$BRANCH_NAME"
+						]],
+						userRemoteConfigs: [[
+							credentialsId: 'github',
+							url: "$GITHUB_URL"
+						]]
+					)
+
+					sh "ls -lah"
+				}
+			}
+		}
+
+		stage('Secret Scan') {
+			steps {
+				script {
+					sh '''
+						echo "Scanning for secrets..."
+						
+						# check for common secret patterns
+						if git grep -E '(password|secret|key|token)\s*=\s*["\x27][^"\x27]{8,}["\x27]' || \
+						   git grep -E 'AKIA[0-9A-Z]{16}' || \
+						   git grep -E '-----BEGIN (RSA |DSA )?PRIVATE KEY-----'; then
+							echo "⚠️  Potential secrets detected in code"
+							exit 1
+						fi
+						
+						echo "✓ No secrets detected"
+					'''
+				}
+			}
+		}
+
+		stage('Test') {
 			steps {
 				script {
 					sh """
 						go mod download
+						go test ./... -v -race -coverprofile=coverage.out
+						go tool cover -html=coverage.out -o coverage.html
+						go vet ./...
+					"""
+				}
+			}
 
+			post {
+				always {
+					publishHTML([
+						allowMissing: false,
+						alwaysLinkToLastBuild: true,
+						keepAll: true,
+						reportDir: '.',
+						reportFiles: 'coverage.html',
+						reportName: 'Go Coverage Report'
+					])
+				}
+			}
+		}
+
+		stage('Build') {
+			steps {
+				script {
+					sh """
 						CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -ldflags="-s -w" -o squares-api ./cmd/main.go
 
-						ls -lah
+						ls -lah squares-api
 					"""
 				}
 			}
@@ -70,12 +131,34 @@ pipeline {
 			steps {
 				container('dind') {
 					script {
-						withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-							sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+						sh "echo \$DOCKER_PSW | docker login -u \$DOCKER_USR --password-stdin 2>/dev/null"
 
-							sh 'docker buildx build --platform linux/arm64/v8 . --tag $DOCKER_USERNAME/$APP_NAME:$DOCKER_VERSION --tag $DOCKER_USERNAME/$APP_NAME:latest'
-							sh 'docker push $DOCKER_USERNAME/$APP_NAME --all-tags'
-						}
+						sh """
+							docker buildx build --push \
+								--platform linux/arm64/v8 \
+								--tag \$DOCKER_USR/\$APP_NAME:\$DOCKER_VERSION \
+								--tag \$DOCKER_USR/\$APP_NAME:latest \
+								.
+						"""
+					}
+				}
+			}
+		}
+
+		stage('Image Scan') {
+			steps {
+				container('dind') {
+					script {
+						sh """
+							echo "Scanning image for vulnerabilities..."
+							
+							docker run --rm \
+								-v /var/run/docker.sock:/var/run/docker.sock \
+								aquasec/trivy:latest image \
+								--severity HIGH,CRITICAL \
+								--exit-code 1 \
+								\$DOCKER_USR/\$APP_NAME:\$DOCKER_VERSION
+						"""
 					}
 				}
 			}
@@ -84,16 +167,15 @@ pipeline {
 		stage('Helm CI') {
 			steps {
 				script {
-					withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-						sh '''
-							cd helm
+					sh '''
+						cd helm
 
-							echo "$DOCKER_PASSWORD" | helm registry login $DOCKER_REGISTRY --username $DOCKER_USERNAME --password-stdin
+						echo "$DOCKER_PSW" | helm registry login $DOCKER_REGISTRY \
+							--username $DOCKER_USR --password-stdin 2>/dev/null
 
-							helm package $APP_NAME --app-version=$DOCKER_VERSION --version=$HELM_VERSION
-							helm push ./$CHART_NAME-${HELM_VERSION}.tgz $DOCKER_REGISTRY_FULL/$DOCKER_USERNAME
-						'''
-					}
+						helm package $APP_NAME --app-version=$DOCKER_VERSION --version=$HELM_VERSION
+						helm push ./$CHART_NAME-${HELM_VERSION}.tgz $DOCKER_REGISTRY_FULL/$DOCKER_USR
+					'''
 				}
 			}
 		}
@@ -101,21 +183,35 @@ pipeline {
 		stage('CD') {
 			steps {
 				script {
-					withCredentials([
-						usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+					withCredentials([file(credentialsId: 'kube-config', variable: 'KUBECONFIG')]) {
 						sh """							
-							helm upgrade $APP_NAME $DOCKER_REGISTRY_FULL/$DOCKER_USERNAME/$CHART_NAME \
+							helm upgrade $APP_NAME $DOCKER_REGISTRY_FULL/$DOCKER_USR/$CHART_NAME \
 								--version $HELM_VERSION \
 								--install \
 								--atomic \
+								--timeout 5m \
 								--debug \
 								--history-max=3 \
 								--namespace $NAMESPACE \
-								--set image.tag=$DOCKER_VERSION \
+								--set image.tag=$DOCKER_VERSION
 						"""
 					}
 				}
 			}
+		}
+	}
+
+	post {
+		always {
+			cleanWs()
+		}
+
+		success {
+			echo "✅ Deployment successful: $APP_NAME:$DOCKER_VERSION"
+		}
+
+		failure {
+			echo "❌ Deployment failed"
 		}
 	}
 }
