@@ -6,6 +6,11 @@ pipeline {
 		}
 	}
 
+	options {
+		timeout(time: 45, unit: 'MINUTES')
+		buildDiscarder(logRotator(numToKeepStr: '5'))
+	}
+
 	parameters {
 		string(name: 'DOCKER_VERSION', defaultValue: params.DOCKER_VERSION ?: '0.0.1', description: 'Docker image version', trim: true)
 		string(name: 'HELM_VERSION', defaultValue: params.HELM_VERSION ?: '0.0.1', description: 'Helm chart version', trim: true)
@@ -74,6 +79,9 @@ pipeline {
 				script {
 					sh '''
 						echo "Scanning for secrets..."
+						
+						# fix git ownership for workspace
+						git config --global --add safe.directory "$PWD"
 						
 						# check for common secret patterns
 						if git grep -E '(password|secret|key|token)[[:space:]]*=[[:space:]]*["\047][^"\047]{8,}["\047]' || \
@@ -204,14 +212,6 @@ pipeline {
 	post {
 		always {
 			cleanWs()
-		}
-
-		success {
-			echo "✅ Deployment successful: $APP_NAME:$DOCKER_VERSION"
-		}
-
-		failure {
-			echo "❌ Deployment failed"
 		}
 	}
 }
