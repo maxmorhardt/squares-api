@@ -60,19 +60,19 @@ pipeline {
 		// 		}
 		// 	}
 
-			post {
-				always {
-					publishHTML([
-						allowMissing: false,
-						alwaysLinkToLastBuild: true,
-						keepAll: true,
-						reportDir: '.',
-						reportFiles: 'coverage.html',
-						reportName: 'Go Coverage Report'
-					])
-				}
-			}
-		}
+		// 	post {
+		// 		always {
+		// 			publishHTML([
+		// 				allowMissing: false,
+		// 				alwaysLinkToLastBuild: true,
+		// 				keepAll: true,
+		// 				reportDir: '.',
+		// 				reportFiles: 'coverage.html',
+		// 				reportName: 'Go Coverage Report'
+		// 			])
+		// 		}
+		// 	}
+		// }
 
 		stage('Build') {
 			steps {
