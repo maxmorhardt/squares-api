@@ -6,6 +6,8 @@ LABEL io.maxstash.image.vendor="Max Morhardt"
 LABEL io.maxstash.image.licenses="MIT"
 
 ENV GIN_MODE release
+ENV GOCACHE=/tmp/go-cache
+ENV GOMODCACHE=/tmp/go-mod-cache
 
 WORKDIR /app
 

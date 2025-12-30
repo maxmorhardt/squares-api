@@ -19,4 +19,5 @@ func init() {
 	}
 
 	OIDCVerifier = provider.Verifier(&oidc.Config{SkipClientIDCheck: true})
+	slog.Info("OIDC configuration initialized")
 }
