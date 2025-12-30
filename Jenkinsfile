@@ -90,7 +90,7 @@ pipeline {
 			steps {
 				container('dind') {
 					script {
-						sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+						sh 'echo $DOCKER_PSW | docker login -u $DOCKER_USR --password-stdin'
 
 						sh """
 							docker buildx build --push \
