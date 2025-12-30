@@ -81,8 +81,6 @@ image:
         secretKeyRef:
           name: squares-api-env
           key: jwt-secret
-    - name: METRICS_ENABLED
-      value: {{ .Values.metrics.enabled }}
   startupProbe:
     path: /health
     initialDelaySeconds: 5

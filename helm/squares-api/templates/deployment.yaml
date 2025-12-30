@@ -46,6 +46,8 @@ spec:
           {{- with .Values.image.env }}
           env:
             {{- toYaml . | nindent 12 }}
+            - name: METRICS_ENABLED
+              value: {{ .Values.metrics.enabled | quote }}
           {{- end }}
           ports:
             - name: {{ .Values.service.name }}
