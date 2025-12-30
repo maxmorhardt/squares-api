@@ -159,22 +159,3 @@ metrics:
     targetPort: 2112
     name: metrics
 
-networkPolicy:
-  enabled: true
-  ingressNamespace: ingress-nginx
-  egress:
-    dns:
-      ports:
-        - protocol: TCP
-          port: 53
-        - protocol: UDP
-          port: 53
-    postgresql:
-      port: 5432
-    redis:
-      port: 6379
-    https:
-      ports:
-        - 443
-        - 587
-        - 25
