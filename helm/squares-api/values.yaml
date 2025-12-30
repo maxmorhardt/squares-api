@@ -122,7 +122,7 @@ ingress:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: squares-api.maxstash.io-tls
+    - secretName: maxstash.io-tls
       hosts:
         - squares-api.maxstash.io
 
