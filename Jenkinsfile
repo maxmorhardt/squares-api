@@ -90,13 +90,13 @@ pipeline {
 			steps {
 				container('dind') {
 					script {
-						sh "echo \$DOCKER_PSW | docker login -u \$DOCKER_USR --password-stdin 2>/dev/null"
+						sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
 
 						sh """
 							docker buildx build --push \
 								--platform linux/arm64/v8 \
-								--tag \$DOCKER_USR/\$APP_NAME:\$DOCKER_VERSION \
-								--tag \$DOCKER_USR/\$APP_NAME:latest \
+								--tag ${DOCKER_USR}/${APP_NAME}:$DOCKER_VERSION \
+								--tag ${DOCKER_USR}/${APP_NAME}:latest \
 								.
 						"""
 					}
@@ -116,7 +116,7 @@ pipeline {
 								aquasec/trivy:latest image \
 								--severity HIGH,CRITICAL \
 								--exit-code 1 \
-								\$DOCKER_USR/\$APP_NAME:\$DOCKER_VERSION
+								${DOCKER_USR}/${APP_NAME}:$DOCKER_VERSION
 						"""
 					}
 				}
