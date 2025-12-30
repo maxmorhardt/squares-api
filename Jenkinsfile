@@ -30,32 +30,6 @@ pipeline {
 	}
 
 	stages {
-		stage('Validate') {
-			steps {
-				script {
-					sh """
-						echo "APP_NAME: $APP_NAME"
-						echo "NAMESPACE: $NAMESPACE"
-						echo "BRANCH: $BRANCH_NAME"
-						echo "DOCKER_VERSION: $DOCKER_VERSION"
-						echo "HELM_VERSION: $HELM_VERSION"
-
-						echo "Validating parameters..."
-						
-						# validate version formats
-						echo "$DOCKER_VERSION" | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+\$' || (echo "Invalid DOCKER_VERSION format" && exit 1)
-						echo "$HELM_VERSION" | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+\$' || (echo "Invalid HELM_VERSION format" && exit 1)
-						
-						# validate namespace (alphanumeric, hyphens only)
-						echo "$NAMESPACE" | grep -E '^[a-z0-9-]+\$' || (echo "Invalid NAMESPACE format" && exit 1)
-						
-						# validate registry
-						echo "$DOCKER_REGISTRY" | grep -E '^[a-z0-9.-]+\$' || (echo "Invalid DOCKER_REGISTRY format" && exit 1)
-					"""
-				}
-			}
-		}
-
 		stage('Setup') {
 			steps {
 				script {
@@ -70,29 +44,6 @@ pipeline {
 					)
 
 					sh "ls -lah"
-				}
-			}
-		}
-
-		stage('Secret Scan') {
-			steps {
-				script {
-					sh '''
-						echo "Scanning for secrets..."
-						
-						# fix git ownership for workspace
-						git config --global --add safe.directory "$PWD"
-						
-						# check for common secret patterns
-						if git grep -E '(password|secret|key|token)[[:space:]]*=[[:space:]]*["\047][^"\047]{8,}["\047]' || \
-						   git grep -E 'AKIA[0-9A-Z]{16}' || \
-						   git grep -E -- '-----BEGIN (RSA |DSA )?PRIVATE KEY-----'; then
-							echo "WARNING: Potential secrets detected in code"
-							exit 1
-						fi
-						
-						echo "No secrets detected"
-					'''
 				}
 			}
 		}

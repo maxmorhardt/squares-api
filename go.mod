@@ -1,6 +1,6 @@
 module github.com/maxmorhardt/squares-api
 
-go 1.24.2
+go 1.25.5
 
 require (
 	github.com/coreos/go-oidc/v3 v3.17.0
