@@ -143,13 +143,14 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 		return err
 	}
 
-	// send message to client
+	// set write deadline and send message to client
+	conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 	if err := conn.WriteMessage(websocket.TextMessage, jsonData); err != nil {
-		log.Error("failed to write websocket message", "error", err)
+		log.Error("failed to write websocket message", "error", err, "type", data.Type)
 		return err
 	}
 
-	log.Info("sending websocket message", "type", data.Type, "updated_by", data.UpdatedBy)
+	log.Info("sent websocket message", "message", string(jsonData))
 	return nil
 }
 

@@ -67,6 +67,7 @@ func setupMiddleware(r *gin.Engine, metricsEnabled bool) {
 	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.LoggerMiddleware)
 	r.Use(middleware.RateLimitMiddleware())
+	r.Use(middleware.DebugMiddleware)
 	
 	if metricsEnabled {
 		r.Use(middleware.PrometheusMiddleware)

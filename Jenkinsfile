@@ -14,6 +14,7 @@ pipeline {
 	parameters {
 		string(name: 'DOCKER_VERSION', defaultValue: params.DOCKER_VERSION ?: '0.0.1', description: 'Docker image version', trim: true)
 		string(name: 'HELM_VERSION', defaultValue: params.HELM_VERSION ?: '0.0.1', description: 'Helm chart version', trim: true)
+		booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip running tests')
 	}
 
 	environment {
@@ -49,6 +50,11 @@ pipeline {
 		}
 
 		stage('Test') {
+			when {
+				expression {
+					SKIP_TESTS == "false"
+				}
+			}
 			steps {
 				script {
 					sh """
@@ -125,16 +131,16 @@ pipeline {
 
 		stage('Helm CI') {
 			steps {
-				script {
-					sh '''
-						cd helm
+				dir('helm') {
+					script {
+						sh '''
+							echo "$DOCKER_PSW" | helm registry login $DOCKER_REGISTRY \
+								--username $DOCKER_USR --password-stdin 2>/dev/null
 
-						echo "$DOCKER_PSW" | helm registry login $DOCKER_REGISTRY \
-							--username $DOCKER_USR --password-stdin 2>/dev/null
-
-						helm package $APP_NAME --app-version=$DOCKER_VERSION --version=$HELM_VERSION
-						helm push ./$CHART_NAME-${HELM_VERSION}.tgz $DOCKER_REGISTRY_FULL/$DOCKER_USR
-					'''
+							helm package $APP_NAME --app-version=$DOCKER_VERSION --version=$HELM_VERSION
+							helm push ./$CHART_NAME-${HELM_VERSION}.tgz $DOCKER_REGISTRY_FULL/$DOCKER_USR
+						'''
+					}
 				}
 			}
 		}
