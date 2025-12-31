@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	defaultRateLimit = "150-M"
-	contactRateLimit = "3-D"
+	defaultRateLimit = "500-M"
+	contactRateLimit = "10-D"
 )
 
 const (

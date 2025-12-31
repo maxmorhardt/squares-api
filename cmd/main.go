@@ -17,6 +17,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+func init() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
+	slog.SetDefault(logger)
+}
+
 // @title           Squares API
 // @version         1.0.0
 // @description     API for squares.maxstash.io
@@ -67,8 +75,7 @@ func setupMiddleware(r *gin.Engine, metricsEnabled bool) {
 	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.LoggerMiddleware)
 	r.Use(middleware.RateLimitMiddleware())
-	r.Use(middleware.DebugMiddleware)
-	
+
 	if metricsEnabled {
 		r.Use(middleware.PrometheusMiddleware)
 	}

@@ -13,6 +13,8 @@ var (
 	SupportEmail string
 )
 
+const errorMessage = "incomplete smtp configuration in environment variables"
+
 func InitSMTP() {
 	SMTPHost = os.Getenv("SMTP_HOST")
 	SMTPPort = os.Getenv("SMTP_PORT")
@@ -21,7 +23,7 @@ func InitSMTP() {
 	SupportEmail = os.Getenv("SUPPORT_EMAIL")
 
 	if SMTPHost == "" || SMTPPort == "" || SMTPUser == "" || SMTPPassword == "" || SupportEmail == "" {
-		slog.Error("Incomplete SMTP configuration in environment variables")
-		panic("Incomplete SMTP configuration in environment variables")
+		slog.Error(errorMessage)
+		panic(errorMessage)
 	}
 }

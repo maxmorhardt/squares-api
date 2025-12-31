@@ -15,7 +15,7 @@ func InitJWT() {
 		panic("JWT_SECRET environment variable is required")
 	}
 
-	slog.Info("JWT configuration initialized")
+	slog.Info("jwt configuration initialized")
 }
 
 func GetJWTSecret() string {

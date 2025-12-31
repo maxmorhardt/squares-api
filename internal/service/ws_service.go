@@ -150,7 +150,15 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 		return err
 	}
 
-	log.Info("sent websocket message", "message", string(jsonData))
+	log.Info("sent websocket message",
+		"ws_type", data.Type,
+		"ws_contest_id", data.ContestID,
+		"ws_updated_by", data.UpdatedBy,
+		"ws_timestamp", data.Timestamp,
+		"ws_square", data.Square,
+		"ws_contest", data.Contest,
+		"ws_quarter_result", data.QuarterResult,
+	)
 	return nil
 }
 
