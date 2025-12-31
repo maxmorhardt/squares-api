@@ -15,6 +15,12 @@ image:
     - name: tmp
       mountPath: /tmp
       volumeType: emptyDir
+    - name: home
+      mountPath: /home/squares
+      volumeType: emptyDir
+    - name: log
+      mountPath: /var/log
+      volumeType: emptyDir
   env:
     - name: DB_HOST
       valueFrom:
