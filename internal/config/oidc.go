@@ -9,7 +9,7 @@ import (
 
 var OIDCVerifier *oidc.IDTokenVerifier
 
-const authProvider = "https://auth.maxstash.io/realms/maxstash"
+const authProvider = "https://login.maxstash.io/application/o/squares/"
 
 func init() {
 	provider, err := oidc.NewProvider(context.Background(), authProvider)

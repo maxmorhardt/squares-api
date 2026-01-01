@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	SquaresAdminGroup string = "/Squares_Admin"
+	SquaresAdminGroup string = "squares-admin"
 )
 
 type Claims struct {

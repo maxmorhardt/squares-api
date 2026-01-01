@@ -27,7 +27,7 @@ pipeline {
 		APP_NAME = "squares-api"
 		CHART_NAME = "$APP_NAME-chart"
 		ENV_SECRET_NAME = "$APP_NAME-env"
-		NAMESPACE = "maxstash-apps"
+		NAMESPACE = "squares"
 	}
 
 	stages {

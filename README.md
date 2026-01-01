@@ -47,7 +47,7 @@ This application requires the following services to be deployed:
 
 ## Development
 1. Set up environment variables (see `config/` directory)
-2. Start required services (PostgreSQL, Redis `kubectl port-forward svc/redis-master 6379:6379 -n maxstash-global`, OIDC provider)
+2. Start required services (PostgreSQL, Redis `kubectl port-forward svc/redis-master 6379:6379 -n db`, OIDC provider)
 3. Run `go run cmd/main.go`
 
 ## Deployment
