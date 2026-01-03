@@ -1,0 +1,23 @@
+name: Squares API CI
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  go-ci:
+    uses: maxmorhardt/workflows/.github/workflows/ci-go.yml@main
+    with:
+      repository: maxmorhardt/squares-api
+      build_path: './cmd/main.go'
+      binary_name: squares-api
+
+  docker-ci:
+    uses: maxmorhardt/workflows/.github/workflows/ci-docker.yml@main
+    needs: go-ci
+    with:
+      repository: maxmorhardt/squares-api
+      app_name: squares-api
+      app_version: ${{ github.ref_name }}
+    secrets: inherit
