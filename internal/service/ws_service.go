@@ -51,7 +51,9 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	pubsub := config.RedisClient.Subscribe(ctx, contestChannel)
 	defer func() {
 		log.Info("closing redis subscription")
-		pubsub.Close()
+		if err := pubsub.Close(); err != nil {
+			log.Error("failed to close redis subscription", "error", err)
+		}
 	}()
 	redisChannel := pubsub.Channel()
 
