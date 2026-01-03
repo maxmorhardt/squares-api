@@ -38,11 +38,26 @@ func InitDB() {
 		panic(err)
 	}
 
-	db.AutoMigrate(&model.Contest{})
-	db.AutoMigrate(&model.Square{})
-	db.AutoMigrate(&model.QuarterResult{})
-	db.AutoMigrate(&model.ContactSubmission{})
-	db.AutoMigrate(&model.ContestParticipant{})
+	if err := db.AutoMigrate(&model.Contest{}); err != nil {
+		slog.Error("failed to migrate Contest", "error", err)
+		panic(err)
+	}
+	if err := db.AutoMigrate(&model.Square{}); err != nil {
+		slog.Error("failed to migrate Square", "error", err)
+		panic(err)
+	}
+	if err := db.AutoMigrate(&model.QuarterResult{}); err != nil {
+		slog.Error("failed to migrate QuarterResult", "error", err)
+		panic(err)
+	}
+	if err := db.AutoMigrate(&model.ContactSubmission{}); err != nil {
+		slog.Error("failed to migrate ContactSubmission", "error", err)
+		panic(err)
+	}
+	if err := db.AutoMigrate(&model.ContestParticipant{}); err != nil {
+		slog.Error("failed to migrate ContestParticipant", "error", err)
+		panic(err)
+	}
 
 	sqlDB, err := db.DB()
 	if err != nil {

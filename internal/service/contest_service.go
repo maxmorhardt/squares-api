@@ -184,7 +184,7 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 
 	// check for changes and build update
 	needsUpdate := false
-	var contestUpdate *model.ContestWSUpdate = &model.ContestWSUpdate{}
+	contestUpdate := &model.ContestWSUpdate{}
 	if req.Name != nil && *req.Name != contest.Name {
 		contest.Name = *req.Name
 		needsUpdate = true
@@ -627,7 +627,7 @@ func (s *contestService) ClearSquare(ctx context.Context, contestID uuid.UUID, s
 	// check authorization - allow if user is contest owner or square owner
 	isContestOwner := contest.Owner == user
 	isSquareOwner := square.Owner == user
-	if !(isContestOwner || isSquareOwner) {
+	if !isContestOwner && !isSquareOwner {
 		log.Warn("user not authorized to clear square", "square_id", squareID, "square_owner", square.Owner, "contest_owner", contest.Owner, "user", user)
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}

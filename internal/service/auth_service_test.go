@@ -17,7 +17,7 @@ var (
 )
 
 func setup(_ *testing.T) {
-	os.Setenv("JWT_SECRET", "test-secret-key-for-unit-tests")
+	_ = os.Setenv("JWT_SECRET", "test-secret-key-for-unit-tests")
 	config.InitJWT()
 	service = NewAuthService()
 }

@@ -41,7 +41,9 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	ctx = context.WithValue(ctx, model.ConnectionIDKey, connectionID)
 
 	// send initial connected message
-	sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID))
+	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID)); err != nil {
+		log.Error("failed to send connected message", "error", err)
+	}
 
 	// subscribe to redis channel for contest updates
 	log.Info("subscribing to redis channel")
@@ -58,9 +60,9 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	defer pingChecker.Stop()
 
 	// set read deadline and pong handler
-	conn.SetReadDeadline(time.Now().Add(pongTimeout))
+	_ = conn.SetReadDeadline(time.Now().Add(pongTimeout))
 	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(pongTimeout))
+		_ = conn.SetReadDeadline(time.Now().Add(pongTimeout))
 		return nil
 	})
 
@@ -109,10 +111,10 @@ func (s *websocketService) handleOutgoingMessages(
 
 		// send periodic ping to keep connection alive
 		case <-pingChecker.C:
-			conn.SetWriteDeadline(time.Now().Add(writeDeadline))
+			_ = conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				log.Warn("failed to send ping", "error", err)
-				conn.Close()
+				_ = conn.Close()
 				return
 			}
 
@@ -123,10 +125,9 @@ func (s *websocketService) handleOutgoingMessages(
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
 					log.Error("failed to send disconnected message", "error", err)
 				}
-				conn.Close()
+				_ = conn.Close()
 				return
 			}
-
 		// handle client disconnection
 		case <-ctx.Done():
 			log.Info("websocket client disconnected")
@@ -144,7 +145,7 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 	}
 
 	// set write deadline and send message to client
-	conn.SetWriteDeadline(time.Now().Add(writeDeadline))
+	_ = conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 	if err := conn.WriteMessage(websocket.TextMessage, jsonData); err != nil {
 		log.Error("failed to write websocket message", "error", err, "type", data.Type)
 		return err

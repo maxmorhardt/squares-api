@@ -33,14 +33,17 @@ func init() {
 // @in header
 // @name Authorization
 func main() {
-	godotenv.Load()
+	_ = godotenv.Load()
 
 	config.InitDB()
 	config.InitRedis()
 	config.InitJWT()
 	config.InitSMTP()
 
-	initGin().Run(":8080")
+	if err := initGin().Run(":8080"); err != nil {
+		slog.Error("failed to start server", "error", err)
+		panic(err)
+	}
 }
 
 func initGin() *gin.Engine {

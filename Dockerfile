@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 alpine:latest
+FROM alpine:latest
 
 LABEL io.maxstash.image.source="https://github.com/maxmorhardt/squares-api"
 LABEL io.maxstash.image.description="Squares API - Game squares management with real-time updates"
