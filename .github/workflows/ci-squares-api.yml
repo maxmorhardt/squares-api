@@ -20,4 +20,5 @@ jobs:
       repository: maxmorhardt/squares-api
       app_name: squares-api
       app_version: ${{ github.ref_name }}
+      artifact_name: squares-api
     secrets: inherit
