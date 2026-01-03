@@ -5,7 +5,7 @@ LABEL io.maxstash.image.description="Squares API - Game squares management with 
 LABEL io.maxstash.image.vendor="Max Morhardt"
 LABEL io.maxstash.image.licenses="MIT"
 
-ENV GIN_MODE release
+ENV GIN_MODE="release"
 
 WORKDIR /app
 
