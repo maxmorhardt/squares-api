@@ -5,6 +5,10 @@ on:
     tags:
       - '*'
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   go-ci:
     uses: maxmorhardt/workflows/.github/workflows/ci-go.yml@main
