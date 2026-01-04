@@ -35,6 +35,7 @@ func init() {
 func main() {
 	_ = godotenv.Load()
 
+	config.InitOIDC()
 	config.InitDB()
 	config.InitRedis()
 	config.InitJWT()

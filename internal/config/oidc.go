@@ -11,7 +11,7 @@ var OIDCVerifier *oidc.IDTokenVerifier
 
 const authProvider = "https://login.maxstash.io/application/o/squares/"
 
-func init() {
+func InitOIDC() {
 	provider, err := oidc.NewProvider(context.Background(), authProvider)
 	if err != nil {
 		slog.Error("failed to create oidc provider", "error", err)
