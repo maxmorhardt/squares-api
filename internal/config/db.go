@@ -9,67 +9,106 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/plugin/dbresolver"
 )
 
 var DB *gorm.DB
 
 const (
-	maxOpenConns    int           = 25
+	maxOpenConns    int           = 20
 	maxIdleConns    int           = 5
 	maxConnLifetime time.Duration = time.Hour
 )
 
 func InitDB() {
-	host := os.Getenv("DB_HOST")
-	port := os.Getenv("DB_PORT")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
-	sslmode := os.Getenv("DB_SSL_MODE")
+	setupPrimary()
+	setupReadReplica()
+}
 
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		host, port, user, password, dbname, sslmode,
+func setupPrimary() {
+	dsn := formatDSN(
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_SSL_MODE"),
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
+		slog.Error("failed to connect to primary database", "error", err)
 		panic(err)
 	}
 
-	if err := db.AutoMigrate(&model.Contest{}); err != nil {
-		slog.Error("failed to migrate Contest", "error", err)
-		panic(err)
-	}
-	if err := db.AutoMigrate(&model.Square{}); err != nil {
-		slog.Error("failed to migrate Square", "error", err)
-		panic(err)
-	}
-	if err := db.AutoMigrate(&model.QuarterResult{}); err != nil {
-		slog.Error("failed to migrate QuarterResult", "error", err)
-		panic(err)
-	}
-	if err := db.AutoMigrate(&model.ContactSubmission{}); err != nil {
-		slog.Error("failed to migrate ContactSubmission", "error", err)
-		panic(err)
-	}
-	if err := db.AutoMigrate(&model.ContestParticipant{}); err != nil {
-		slog.Error("failed to migrate ContestParticipant", "error", err)
-		panic(err)
+	// auto-migrate models
+	models := []any{
+		&model.Contest{},
+		&model.Square{},
+		&model.QuarterResult{},
+		&model.ContactSubmission{},
+		&model.ContestParticipant{},
 	}
 
-	sqlDB, err := db.DB()
-	if err != nil {
-		slog.Error("failed to get database instance", "error", err)
-		panic(err)
+	for _, m := range models {
+		if err := db.AutoMigrate(m); err != nil {
+			slog.Error("failed to migrate model", "error", err)
+			panic(err)
+		}
 	}
 
+	// configure connection pool
+	sqlDB, _ := db.DB()
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(maxConnLifetime)
 
-	slog.Info("database connection configured", "max_open_conns", maxOpenConns, "max_idle_conns", maxIdleConns, "max_conn_lifetime", maxConnLifetime)
-
 	DB = db
+	slog.Info("primary database configured")
+}
+
+func setupReadReplica() {
+	readHost := os.Getenv("DB_READ_HOST")
+	if readHost == "" {
+		slog.Info("no read replica configured")
+		return
+	}
+
+	// build read replica dsn
+	dsn := formatDSN(
+		readHost,
+		os.Getenv("DB_READ_PORT"),
+		os.Getenv("DB_READ_USER"),
+		os.Getenv("DB_READ_PASSWORD"),
+		os.Getenv("DB_READ_NAME"),
+		os.Getenv("DB_READ_SSL_MODE"),
+	)
+
+	// register read replica with dbresolver
+	resolver := dbresolver.Register(dbresolver.Config{
+		Replicas:          []gorm.Dialector{postgres.Open(dsn)},
+		Policy:            dbresolver.RandomPolicy{},
+		TraceResolverMode: true,
+	})
+
+	// configure replica connection pool
+	resolver.SetConnMaxIdleTime(maxConnLifetime)
+	resolver.SetConnMaxLifetime(maxConnLifetime)
+	resolver.SetMaxIdleConns(maxIdleConns)
+	resolver.SetMaxOpenConns(maxOpenConns)
+
+	err := DB.Use(resolver)
+	if err != nil {
+		slog.Warn("failed to register read replica", "error", err)
+		return
+	}
+
+	slog.Info("read replica configured")
+}
+
+func formatDSN(host, port, user, password, dbname, sslmode string) string {
+	return fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		host, port, user, password, dbname, sslmode,
+	)
 }
