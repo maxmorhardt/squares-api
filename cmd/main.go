@@ -23,6 +23,8 @@ func init() {
 	}))
 
 	slog.SetDefault(logger)
+
+	logger.Info("initialized logger")
 }
 
 // @title           Squares API
