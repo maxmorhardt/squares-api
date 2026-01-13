@@ -70,9 +70,9 @@ func setupMetricsServer(metricsEnabled bool) {
 		return
 	}
 
-	slog.Info("starting metrics server on :2112")
+	slog.Info("starting metrics server on :9090")
 	go func() {
-		if err := http.ListenAndServe(":2112", promhttp.Handler()); err != nil {
+		if err := http.ListenAndServe(":9090", promhttp.Handler()); err != nil {
 			slog.Error("metrics server failed", "error", err)
 		}
 	}()
