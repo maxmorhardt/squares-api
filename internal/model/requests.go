@@ -8,11 +8,11 @@ type CreateContestRequest struct {
 }
 
 type UpdateSquareRequest struct {
-	Value string `json:"value" binding:"required" example:"MRM" validate:"required,max=3,min=1" description:"Square value (required)"`
+	Value string `json:"value" binding:"required,min=1,max=3,uppercase,alphanum" example:"MRM" validate:"required,max=3,min=1" description:"Square value (required)"`
 	Owner string `json:"owner" binding:"required" example:"username" validate:"required" description:"Square owner (required)"`
 }
 
-type ClearSquareRequest struct {}
+type ClearSquareRequest struct{}
 
 type UpdateContestRequest struct {
 	Name     *string `json:"name,omitempty" example:"Updated Contest Name" validate:"omitempty,max=20,min=1"`
@@ -35,8 +35,4 @@ type ContactRequest struct {
 type UpdateContactSubmissionRequest struct {
 	Status   *string `json:"status" binding:"omitempty,oneof=pending responded resolved" example:"responded" description:"Status of the contact submission"`
 	Response *string `json:"response" binding:"omitempty,min=1,max=2000" example:"Thank you for contacting us..." description:"Admin response to the contact submission"`
-}
-
-type GenerateInviteLinkRequest struct {
-	SquareLimit int `json:"squareLimit" binding:"min=0" example:"5" description:"Maximum squares user can claim (0 = unlimited)"`
 }

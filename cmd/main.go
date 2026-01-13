@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	_ "github.com/maxmorhardt/squares-api/docs"
 	"github.com/maxmorhardt/squares-api/internal/config"
@@ -14,6 +16,7 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/routes"
 	"github.com/maxmorhardt/squares-api/internal/service"
+	"github.com/maxmorhardt/squares-api/internal/validators"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -57,6 +60,7 @@ func initGin() *gin.Engine {
 	setupMiddleware(r, metricsEnabled)
 	setupRoutes(r)
 	setupMetricsServer(metricsEnabled)
+	setupValidators()
 
 	return r
 }
@@ -104,4 +108,10 @@ func setupRoutes(r *gin.Engine) {
 	routes.RegisterRootRoutes(r.Group(""), contactHandler)
 	routes.RegisterContestRoutes(r.Group("/contests"), contestHandler)
 	routes.RegisterWebSocketRoutes(r.Group("/ws"), wsHandler)
+}
+
+func setupValidators() {
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		_ = v.RegisterValidation("contestname", validators.ValidateContestName)
+	}
 }

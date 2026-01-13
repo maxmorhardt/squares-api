@@ -25,6 +25,7 @@ func (cs ContestStatus) IsValid() bool {
 		ContestStatusFinished, ContestStatusDeleted:
 		return true
 	}
+	
 	return false
 }
 

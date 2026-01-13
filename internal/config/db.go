@@ -47,7 +47,6 @@ func setupPrimary() {
 		&model.Square{},
 		&model.QuarterResult{},
 		&model.ContactSubmission{},
-		&model.ContestParticipant{},
 	}
 
 	for _, m := range models {

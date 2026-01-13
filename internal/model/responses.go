@@ -13,8 +13,3 @@ type PaginatedContestResponse struct {
 	HasNext     bool      `json:"hasNext"`
 	HasPrevious bool      `json:"hasPrevious"`
 }
-
-type GenerateInviteLinkResponse struct {
-	Token     string `json:"token" example:"eyJhbGc..." description:"Invite token to append to contest URL"`
-	ExpiresAt int64  `json:"expiresAt,omitempty" description:"Unix timestamp when token expires (if set)"`
-}

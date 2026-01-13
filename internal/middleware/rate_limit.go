@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	defaultRateLimit = "500-M"
+	defaultRateLimit = "20-S"
 	contactRateLimit = "10-D"
 )
 
 const (
 	rateLimitExceededMessage        = "Rate limit exceeded. Please slow down your requests"
-	contactRateLimitExceededMessage = "You have reached the maximum number of contact form submissions for today. Please try again tomorrow."
+	contactRateLimitExceededMessage = "You have reached the maximum number of contact form submissions for today. Please try again tomorrow"
 )
 
 func RateLimitMiddleware() gin.HandlerFunc {
