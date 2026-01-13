@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,7 +15,6 @@ var (
 
 func setup(_ *testing.T) {
 	_ = os.Setenv("JWT_SECRET", "test-secret-key-for-unit-tests")
-	config.InitJWT()
 	service = NewAuthService()
 }
 

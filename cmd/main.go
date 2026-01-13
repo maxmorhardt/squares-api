@@ -43,7 +43,6 @@ func main() {
 	config.InitOIDC()
 	config.InitDB()
 	config.InitRedis()
-	config.InitJWT()
 	config.InitSMTP()
 
 	if err := initGin().Run(":8080"); err != nil {
