@@ -436,17 +436,16 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Warn("contest not found", "contest_id", contestID)
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-			return
-		}
-
-		if errors.Is(err, gorm.ErrInvalidData) {
+		} else if errors.Is(err, gorm.ErrInvalidData) {
 			log.Warn("invalid quarter data", "error", err)
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid quarter data", c))
-			return
+		} else if errors.Is(err, errs.ErrQuarterResultAlreadyExists) {
+			log.Warn("quarter results already exists for given quarter")
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrQuarterResultAlreadyExists), c))
+		} else {
+			log.Error("failed to record quarter result", "error", err)
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to record quarter result", c))
 		}
-
-		log.Error("failed to record quarter result", "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to record quarter result", c))
 		return
 	}
 
@@ -528,8 +527,6 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 		} else if errors.Is(err, errs.ErrSquareNotEditable) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		} else if errors.Is(err, errs.ErrUnauthorizedSquareEdit) {
-			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		} else if errors.Is(err, errs.ErrSquareLimitReached) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		} else if errors.Is(err, errs.ErrClaimsNotFound) {
 			c.JSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, util.CapitalizeFirstLetter(err), c))

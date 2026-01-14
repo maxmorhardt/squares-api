@@ -32,6 +32,14 @@ func ContactRateLimitMiddleware() gin.HandlerFunc {
 }
 
 func createRateLimiter(rateLimit string, errorMessage string) gin.HandlerFunc {
+	// if redis isnt available continue
+	if !config.IsRedisAvailable || config.RedisClient == nil {
+		slog.Warn("redis not available, skipping rate limiting")
+		return func(c *gin.Context) { 
+			c.Next() 
+		}
+	}
+
 	// create rate limit
 	rate, err := limiter.NewRateFromFormatted(rateLimit)
 	if err != nil {
@@ -46,25 +54,21 @@ func createRateLimiter(rateLimit string, errorMessage string) gin.HandlerFunc {
 	})
 
 	if err != nil {
-		slog.Error("failed to create redis store for rate limiter", "error", err.Error())
-		panic(err)
+		slog.Warn("failed to create redis store for rate limiter, skipping rate limiting", "error", err.Error())
+		return func(c *gin.Context) { 
+			c.Next() 
+		}
 	}
 
 	// return middleware with error and limit reached handlers
 	return mgin.NewMiddleware(
 		limiter.New(store, rate),
-		// handle redis or store errors
+		// allow requests through if redis or any error occurs
+		// still have nginx rate limiting
 		mgin.WithErrorHandler(func(c *gin.Context, err error) {
 			log := util.LoggerFromGinContext(c)
-
-			log.Warn("rate limit error", "error", err)
-			c.JSON(http.StatusTooManyRequests, model.NewAPIError(
-				http.StatusTooManyRequests,
-				errorMessage,
-				c,
-			))
-
-			c.Abort()
+			log.Warn("rate limit error, allowing request through", "error", err)
+			c.Next()
 		}),
 		// handle when rate limit is exceeded
 		mgin.WithLimitReachedHandler(func(c *gin.Context) {

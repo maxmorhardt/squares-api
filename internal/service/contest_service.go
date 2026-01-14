@@ -321,8 +321,16 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 		quarter = 4
 		nextStatus = model.ContestStatusFinished
 	default:
-		log.Error("invalid contest status for recording quarter result", "status", contest.Status)
+		log.Warn("invalid contest status for recording quarter result", "status", contest.Status)
 		return nil, errors.New("contest must be in Q1, Q2, Q3, or Q4 status to record quarter result")
+	}
+
+	// no duplicate quarter results
+	for _, qr := range contest.QuarterResults {
+		if qr.Quarter == quarter {
+			log.Warn("quarter result already exists for given quarter", "quarter", quarter)
+			return nil, errs.ErrQuarterResultAlreadyExists
+		}
 	}
 
 	// parse labels

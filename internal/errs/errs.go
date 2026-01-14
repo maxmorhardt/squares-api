@@ -16,10 +16,10 @@ var (
 )
 
 var (
-	ErrContestNotEditable   = errors.New("contest is not in an editable state")
-	ErrSquareNotEditable    = errors.New("squares can only be edited when contest is active")
-	ErrContestAlreadyExists = errors.New("contest already exists with this name")
-	ErrSquareLimitReached   = errors.New("you have reached your square limit for this contest")
+	ErrContestNotEditable         = errors.New("contest is not in an editable state")
+	ErrSquareNotEditable          = errors.New("squares can only be edited when contest is active")
+	ErrContestAlreadyExists       = errors.New("contest already exists with this name")
+	ErrQuarterResultAlreadyExists = errors.New("result of this quarter has already been recorded")
 )
 
 var (

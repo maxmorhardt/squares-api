@@ -48,6 +48,10 @@ func (s *redisService) PublishContestDeleted(ctx context.Context, contestID uuid
 }
 
 func (s *redisService) publishToContestChannel(ctx context.Context, contestID uuid.UUID, message any) error {
+	if !config.IsRedisAvailable || config.RedisClient == nil {
+		return nil
+	}
+
 	channel := fmt.Sprintf("%s:%s", model.ContestChannelPrefix, contestID)
 	jsonData, err := json.Marshal(message)
 	if err != nil {

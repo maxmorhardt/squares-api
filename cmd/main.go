@@ -42,9 +42,10 @@ func main() {
 
 	config.InitOIDC()
 	config.InitDB()
-	config.InitRedis()
 	config.InitSMTP()
 
+	go config.InitRedis()
+	
 	if err := initGin().Run(":8080"); err != nil {
 		slog.Error("failed to start server", "error", err)
 		panic(err)
