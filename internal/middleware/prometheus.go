@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 var (
@@ -18,8 +19,8 @@ var (
 
 	httpRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "http_request_duration_seconds",
-			Help: "Duration of HTTP requests",
+			Name:    "http_request_duration_seconds",
+			Help:    "Duration of HTTP requests",
 			Buckets: []float64{.01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 30},
 		},
 		[]string{"method", "path", "status"},
@@ -35,6 +36,8 @@ var (
 
 func init() {
 	prometheus.MustRegister(httpRequestsTotal, httpRequestDuration, activeConnections)
+	prometheus.MustRegister(collectors.NewGoCollector())
+	prometheus.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 }
 
 func PrometheusMiddleware(c *gin.Context) {
