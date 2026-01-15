@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 var (
@@ -36,8 +35,6 @@ var (
 
 func init() {
 	prometheus.MustRegister(httpRequestsTotal, httpRequestDuration, activeConnections)
-	prometheus.MustRegister(collectors.NewGoCollector())
-	prometheus.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 }
 
 func PrometheusMiddleware(c *gin.Context) {
