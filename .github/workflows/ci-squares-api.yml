@@ -16,6 +16,7 @@ jobs:
       repository: ${{ github.repository }}
       build_path: './cmd/main.go'
       binary_name: ${{ github.event.repository.name }}
+    secrets: inherit
 
   docker-ci:
     uses: maxmorhardt/workflows/.github/workflows/ci-docker.yml@main
