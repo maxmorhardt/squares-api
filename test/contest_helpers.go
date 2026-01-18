@@ -28,7 +28,7 @@ func CreateContest(router http.Handler, authToken, oidcUser, name, homeTeam, awa
 	router.ServeHTTP(w, req)
 
 	var contest model.Contest
-	json.Unmarshal(w.Body.Bytes(), &contest)
+	_ = json.Unmarshal(w.Body.Bytes(), &contest)
 
 	return &contest, w.Code
 }
@@ -40,7 +40,7 @@ func GetContestByID(router http.Handler, contestID uuid.UUID) (*model.Contest, i
 	router.ServeHTTP(w, req)
 
 	var contest model.Contest
-	json.Unmarshal(w.Body.Bytes(), &contest)
+	_ = json.Unmarshal(w.Body.Bytes(), &contest)
 
 	return &contest, w.Code
 }
@@ -53,7 +53,7 @@ func GetContestsByUser(router http.Handler, oidcUser, authToken string) (model.P
 	router.ServeHTTP(w, req)
 
 	var response model.PaginatedContestResponse
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	return response, w.Code
 }
@@ -69,7 +69,7 @@ func UpdateContest(router http.Handler, contestID uuid.UUID, authToken string, u
 	router.ServeHTTP(w, req)
 
 	var contest model.Contest
-	json.Unmarshal(w.Body.Bytes(), &contest)
+	_ = json.Unmarshal(w.Body.Bytes(), &contest)
 
 	return contest, w.Code
 }
@@ -95,7 +95,7 @@ func StartContest(router http.Handler, contestID uuid.UUID, authToken string) (*
 	router.ServeHTTP(w, req)
 
 	var contest model.Contest
-	json.Unmarshal(w.Body.Bytes(), &contest)
+	_ = json.Unmarshal(w.Body.Bytes(), &contest)
 
 	return &contest, w.Code
 }

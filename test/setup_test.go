@@ -150,7 +150,12 @@ func setupAuth() {
 		slog.Error("failed to request token", "error", err)
 		return
 	}
-	defer resp.Body.Close()
+	
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn("failed to close response body", "error", err)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK || err != nil {
