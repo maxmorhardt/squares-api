@@ -17,21 +17,17 @@ definitions:
   model.ContactRequest:
     properties:
       email:
-        example: john@example.com
         maxLength: 255
         type: string
       message:
-        example: I have a question...
         maxLength: 2000
         minLength: 1
         type: string
       name:
-        example: John Doe
         maxLength: 100
         minLength: 1
         type: string
       subject:
-        example: Question about features
         maxLength: 200
         minLength: 1
         type: string
@@ -118,15 +114,12 @@ definitions:
   model.CreateContestRequest:
     properties:
       awayTeam:
-        example: Away Team
         maxLength: 20
         type: string
       homeTeam:
-        example: Home Team
         maxLength: 20
         type: string
       name:
-        example: My Contest
         maxLength: 20
         minLength: 1
         type: string
@@ -200,13 +193,16 @@ definitions:
   model.QuarterResultRequest:
     properties:
       awayTeamScore:
-        example: 7
+        maximum: 9999
         minimum: 0
         type: integer
       homeTeamScore:
-        example: 14
+        maximum: 9999
         minimum: 0
         type: integer
+    required:
+    - awayTeamScore
+    - homeTeamScore
     type: object
   model.Square:
     properties:
@@ -241,7 +237,6 @@ definitions:
   model.UpdateContactSubmissionRequest:
     properties:
       response:
-        example: Thank you for contacting us...
         maxLength: 2000
         minLength: 1
         type: string
@@ -250,21 +245,17 @@ definitions:
         - pending
         - responded
         - resolved
-        example: responded
         type: string
     type: object
   model.UpdateContestRequest:
     properties:
       awayTeam:
-        example: Updated Away Team
         maxLength: 20
         type: string
       homeTeam:
-        example: Updated Home Team
         maxLength: 20
         type: string
       name:
-        example: Updated Contest Name
         maxLength: 20
         minLength: 1
         type: string
@@ -272,10 +263,8 @@ definitions:
   model.UpdateSquareRequest:
     properties:
       owner:
-        example: username
         type: string
       value:
-        example: MRM
         maxLength: 3
         minLength: 1
         type: string

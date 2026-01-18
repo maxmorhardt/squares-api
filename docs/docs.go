@@ -776,26 +776,22 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string",
-                    "maxLength": 255,
-                    "example": "john@example.com"
+                    "maxLength": 255
                 },
                 "message": {
                     "type": "string",
                     "maxLength": 2000,
-                    "minLength": 1,
-                    "example": "I have a question..."
+                    "minLength": 1
                 },
                 "name": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 1,
-                    "example": "John Doe"
+                    "minLength": 1
                 },
                 "subject": {
                     "type": "string",
                     "maxLength": 200,
-                    "minLength": 1,
-                    "example": "Question about features"
+                    "minLength": 1
                 }
             }
         },
@@ -915,19 +911,16 @@ const docTemplate = `{
             "properties": {
                 "awayTeam": {
                     "type": "string",
-                    "maxLength": 20,
-                    "example": "Away Team"
+                    "maxLength": 20
                 },
                 "homeTeam": {
                     "type": "string",
-                    "maxLength": 20,
-                    "example": "Home Team"
+                    "maxLength": 20
                 },
                 "name": {
                     "type": "string",
                     "maxLength": 20,
-                    "minLength": 1,
-                    "example": "My Contest"
+                    "minLength": 1
                 },
                 "owner": {
                     "type": "string"
@@ -1026,16 +1019,20 @@ const docTemplate = `{
         },
         "model.QuarterResultRequest": {
             "type": "object",
+            "required": [
+                "awayTeamScore",
+                "homeTeamScore"
+            ],
             "properties": {
                 "awayTeamScore": {
                     "type": "integer",
-                    "minimum": 0,
-                    "example": 7
+                    "maximum": 9999,
+                    "minimum": 0
                 },
                 "homeTeamScore": {
                     "type": "integer",
-                    "minimum": 0,
-                    "example": 14
+                    "maximum": 9999,
+                    "minimum": 0
                 }
             }
         },
@@ -1089,8 +1086,7 @@ const docTemplate = `{
                 "response": {
                     "type": "string",
                     "maxLength": 2000,
-                    "minLength": 1,
-                    "example": "Thank you for contacting us..."
+                    "minLength": 1
                 },
                 "status": {
                     "type": "string",
@@ -1098,8 +1094,7 @@ const docTemplate = `{
                         "pending",
                         "responded",
                         "resolved"
-                    ],
-                    "example": "responded"
+                    ]
                 }
             }
         },
@@ -1108,19 +1103,16 @@ const docTemplate = `{
             "properties": {
                 "awayTeam": {
                     "type": "string",
-                    "maxLength": 20,
-                    "example": "Updated Away Team"
+                    "maxLength": 20
                 },
                 "homeTeam": {
                     "type": "string",
-                    "maxLength": 20,
-                    "example": "Updated Home Team"
+                    "maxLength": 20
                 },
                 "name": {
                     "type": "string",
                     "maxLength": 20,
-                    "minLength": 1,
-                    "example": "Updated Contest Name"
+                    "minLength": 1
                 }
             }
         },
@@ -1132,14 +1124,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "owner": {
-                    "type": "string",
-                    "example": "username"
+                    "type": "string"
                 },
                 "value": {
                     "type": "string",
                     "maxLength": 3,
-                    "minLength": 1,
-                    "example": "MRM"
+                    "minLength": 1
                 }
             }
         }
