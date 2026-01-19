@@ -179,26 +179,26 @@ const docTemplate = `{
                 }
             }
         },
-        "/contests/user/{username}": {
+        "/contests/owner/{owner}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all contests created by a specific user with pagination (required)",
+                "description": "Returns all contests created by a specific owner with pagination",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "contests"
                 ],
-                "summary": "Get all contests by username",
+                "summary": "Get all contests by owner",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Username",
-                        "name": "username",
+                        "description": "Owner",
+                        "name": "owner",
                         "in": "path",
                         "required": true
                     },
@@ -242,21 +242,28 @@ const docTemplate = `{
                 }
             }
         },
-        "/contests/{id}": {
+        "/contests/owner/{owner}/name/{name}": {
             "get": {
-                "description": "Returns a single contest by its ID",
+                "description": "Returns a single contest by its owner and name",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "contests"
                 ],
-                "summary": "Get a contest by ID",
+                "summary": "Get a contest by Owner and Name",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Contest ID",
-                        "name": "id",
+                        "description": "Owner",
+                        "name": "owner",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name",
+                        "name": "name",
                         "in": "path",
                         "required": true
                     }
@@ -287,7 +294,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
+            }
+        },
+        "/contests/{id}": {
             "delete": {
                 "description": "Deletes a contest by id",
                 "consumes": [
@@ -834,8 +843,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "awayTeam": {
-                    "type": "string",
-                    "example": "49ers"
+                    "type": "string"
                 },
                 "createdAt": {
                     "type": "string"
@@ -844,15 +852,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "homeTeam": {
-                    "type": "string",
-                    "example": "Chiefs"
+                    "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
                 "name": {
-                    "type": "string",
-                    "example": "Super Bowl 2025"
+                    "type": "string"
                 },
                 "owner": {
                     "type": "string"
@@ -870,17 +876,7 @@ const docTemplate = `{
                     }
                 },
                 "status": {
-                    "type": "string",
-                    "enum": [
-                        "ACTIVE",
-                        "Q1",
-                        "Q2",
-                        "Q3",
-                        "Q4",
-                        "FINISHED",
-                        "DELETED"
-                    ],
-                    "example": "ACTIVE"
+                    "type": "string"
                 },
                 "updatedAt": {
                     "type": "string"
@@ -923,7 +919,8 @@ const docTemplate = `{
                     "minLength": 1
                 },
                 "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 255
                 }
             }
         },
@@ -969,8 +966,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "awayTeamScore": {
-                    "type": "integer",
-                    "example": 7
+                    "type": "integer"
                 },
                 "contestId": {
                     "type": "string"
@@ -982,15 +978,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "homeTeamScore": {
-                    "type": "integer",
-                    "example": 14
+                    "type": "integer"
                 },
                 "id": {
                     "type": "string"
                 },
                 "quarter": {
-                    "type": "integer",
-                    "example": 1
+                    "type": "integer"
                 },
                 "updatedAt": {
                     "type": "string"
@@ -1002,18 +996,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "winnerCol": {
-                    "type": "integer",
-                    "example": 7
+                    "type": "integer"
                 },
-                "winnerFirstName": {
-                    "type": "string"
-                },
-                "winnerLastName": {
+                "winnerName": {
                     "type": "string"
                 },
                 "winnerRow": {
-                    "type": "integer",
-                    "example": 4
+                    "type": "integer"
                 }
             }
         },
@@ -1040,8 +1029,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "col": {
-                    "type": "integer",
-                    "example": 0
+                    "type": "integer"
                 },
                 "contestId": {
                     "type": "string"
@@ -1058,15 +1046,11 @@ const docTemplate = `{
                 "owner": {
                     "type": "string"
                 },
-                "ownerFirstName": {
-                    "type": "string"
-                },
-                "ownerLastName": {
+                "ownerName": {
                     "type": "string"
                 },
                 "row": {
-                    "type": "integer",
-                    "example": 0
+                    "type": "integer"
                 },
                 "updatedAt": {
                     "type": "string"
@@ -1075,8 +1059,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {
-                    "type": "string",
-                    "example": "MRM"
+                    "type": "string"
                 }
             }
         },
@@ -1108,11 +1091,6 @@ const docTemplate = `{
                 "homeTeam": {
                     "type": "string",
                     "maxLength": 20
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 20,
-                    "minLength": 1
                 }
             }
         },

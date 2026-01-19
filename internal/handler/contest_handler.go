@@ -16,8 +16,8 @@ import (
 )
 
 type ContestHandler interface {
-	GetContestByID(c *gin.Context)
-	GetContestsByUser(c *gin.Context)
+	GetContestByOwnerAndName(c *gin.Context)
+	GetContestsByOwner(c *gin.Context)
 
 	CreateContest(c *gin.Context)
 	UpdateContest(c *gin.Context)
@@ -45,68 +45,70 @@ func NewContestHandler(contestService service.ContestService, authService servic
 // Getters
 // ====================
 
-// @Summary Get a contest by ID
-// @Description Returns a single contest by its ID
+// @Summary Get a contest by Owner and Name
+// @Description Returns a single contest by its owner and name
 // @Tags contests
 // @Produce json
-// @Param id path string true "Contest ID"
+// @Param owner path string true "Owner"
+// @Param name path string true "Name"
 // @Success 200 {object} model.ContestSwagger
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
-// @Router /contests/{id} [get]
-func (h *contestHandler) GetContestByID(c *gin.Context) {
+// @Router /contests/owner/{owner}/name/{name} [get]
+func (h *contestHandler) GetContestByOwnerAndName(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
-	// parse contest id from path
-	contestIDParam := c.Param("id")
-	if contestIDParam == "" {
-		log.Warn("contest id not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
+	// parse path vars
+	owner := c.Param("owner")
+	if owner == "" {
+		log.Warn("contest owner not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Owner is required", c))
 		return
 	}
 
-	contestID, err := uuid.Parse(contestIDParam)
-	if err != nil {
-		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID format", c))
+	name := c.Param("name")
+		if owner == "" {
+		log.Warn("contest name not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Name is required", c))
 		return
 	}
 
 	// get contest from service
-	contest, err := h.contestService.GetContestByID(c.Request.Context(), contestID)
+	contest, err := h.contestService.GetContestByOwnerAndName(c.Request.Context(), owner, name)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-		} else {
-			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
+			return
 		}
+
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
 		return
 	}
 
 	c.JSON(http.StatusOK, contest)
 }
 
-// @Summary Get all contests by username
-// @Description Returns all contests created by a specific user with pagination (required)
+// @Summary Get all contests by owner
+// @Description Returns all contests created by a specific owner with pagination
 // @Tags contests
 // @Produce json
-// @Param username path string true "Username"
+// @Param owner path string true "Owner"
 // @Param page query int true "Page number" minimum(1)
 // @Param limit query int true "Items per page (max 25)" minimum(1) maximum(25)
 // @Success 200 {object} model.PaginatedContestResponseSwagger
 // @Failure 400 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /contests/user/{username} [get]
-func (h *contestHandler) GetContestsByUser(c *gin.Context) {
+// @Router /contests/owner/{owner} [get]
+func (h *contestHandler) GetContestsByOwner(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
-	// parse username from path
-	username := c.Param("username")
-	if username == "" {
-		log.Warn("username not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid username", c))
+	// parse owner from path
+	owner := c.Param("owner")
+	if owner == "" {
+		log.Warn("contest owner not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Owner is required", c))
 		return
 	}
 
@@ -118,7 +120,7 @@ func (h *contestHandler) GetContestsByUser(c *gin.Context) {
 	}
 
 	// get paginated contests from service
-	contests, total, err := h.contestService.GetContestsByUserPaginated(c.Request.Context(), username, page, limit)
+	contests, total, err := h.contestService.GetContestsByOwnerPaginated(c.Request.Context(), owner, page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to retrieve contests", c))
 		return
@@ -263,9 +265,6 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}
-
-	sanitized := util.SanitizeInput(*req.Name)
-	req.Name = &sanitized
 
 	if req.HomeTeam != nil {
 		sanitized := util.SanitizeInput(*req.HomeTeam)

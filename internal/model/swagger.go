@@ -7,20 +7,20 @@ import (
 )
 
 type ContestSwagger struct {
-	ID             uuid.UUID       `json:"id" description:"Unique contest identifier"`
-	Name           string          `json:"name" example:"Super Bowl 2025" description:"Contest name (1-20 characters, letters, numbers, spaces, hyphens, underscores only)"`
-	XLabels        []int8          `json:"xLabels" description:"X-axis labels (0-9 randomized when transitioning to Q1)"`
-	YLabels        []int8          `json:"yLabels" description:"Y-axis labels (0-9 randomized when transitioning to Q1)"`
-	HomeTeam       string          `json:"homeTeam,omitempty" example:"Chiefs" description:"Home team name (1-20 characters, letters, numbers, spaces, hyphens, underscores only)"`
-	AwayTeam       string          `json:"awayTeam,omitempty" example:"49ers" description:"Away team name (1-20 characters, letters, numbers, spaces, hyphens, underscores only)"`
-	Squares        []Square        `json:"squares" description:"100 squares in 10x10 grid"`
-	QuarterResults []QuarterResult `json:"quarterResults,omitempty" description:"Results for each quarter (Q1-Q4)"`
-	Owner          string          `json:"owner" description:"Username of the contest owner"`
-	Status         string          `json:"status" example:"ACTIVE" enums:"ACTIVE,Q1,Q2,Q3,Q4,FINISHED,DELETED" description:"Contest status (ACTIVE→Q1→Q2→Q3→Q4→FINISHED, or DELETED at any time)"`
-	CreatedAt      time.Time       `json:"createdAt" description:"When the contest was created"`
-	UpdatedAt      time.Time       `json:"updatedAt" description:"When the contest was last updated"`
-	CreatedBy      string          `json:"createdBy" description:"Username who created the contest"`
-	UpdatedBy      string          `json:"updatedBy" description:"Username who last updated the contest"`
+	ID             uuid.UUID       `json:"id"`
+	Name           string          `json:"name"`
+	XLabels        []int8          `json:"xLabels"`
+	YLabels        []int8          `json:"yLabels"`
+	HomeTeam       string          `json:"homeTeam,omitempty"`
+	AwayTeam       string          `json:"awayTeam,omitempty"`
+	Squares        []Square        `json:"squares"`
+	QuarterResults []QuarterResult `json:"quarterResults,omitempty"`
+	Owner          string          `json:"owner"`
+	Status         string          `json:"status"`
+	CreatedAt      time.Time       `json:"createdAt"`
+	UpdatedAt      time.Time       `json:"updatedAt"`
+	CreatedBy      string          `json:"createdBy"`
+	UpdatedBy      string          `json:"updatedBy"`
 }
 
 type PaginatedContestResponseSwagger struct {

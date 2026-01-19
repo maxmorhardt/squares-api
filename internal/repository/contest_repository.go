@@ -11,9 +11,9 @@ import (
 
 type ContestRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Contest, error)
-	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
-	GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
-	ExistsByUserAndName(ctx context.Context, username, name string) (bool, error)
+	GetByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error)
+	ExistsByOwnerAndName(ctx context.Context, owner, name string) (bool, error)
+	GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error)
 
 	Create(ctx context.Context, contest *model.Contest) error
 	Update(ctx context.Context, contest *model.Contest) error
@@ -21,7 +21,7 @@ type ContestRepository interface {
 	CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error
 
 	GetSquareByID(ctx context.Context, squareID uuid.UUID) (*model.Square, error)
-	UpdateSquare(ctx context.Context, square *model.Square, value, owner, firstName, lastName string) (*model.Square, error)
+	UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
 	ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error)
 }
 
@@ -51,49 +51,47 @@ func (r *contestRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.C
 	return &contest, err
 }
 
-func (r *contestRepository) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+func (r *contestRepository) GetByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error) {
+	var contest model.Contest
+	err := r.db.WithContext(ctx).
+		Preload("Squares").
+		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
+			return db.Order("quarter ASC")
+		}).
+		First(&contest, "owner = ? AND name = ? AND status != ?", owner, name, model.ContestStatusDeleted).Error
+
+	return &contest, err
+}
+
+func (r *contestRepository) ExistsByOwnerAndName(ctx context.Context, owner, name string) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&model.Contest{}).
-		Where("id = ? AND status != ?", id, model.ContestStatusDeleted).
+		Where("owner = ? AND name = ? AND status != ?", owner, name, model.ContestStatusDeleted).
 		Count(&count).Error
 
 	return count > 0, err
 }
 
-func (r *contestRepository) GetAllByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {
+func (r *contestRepository) GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error) {
 	var contests []model.Contest
 	var total int64
 
 	// get total count of contests for user
-	if err := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ? AND status != ?", username, model.ContestStatusDeleted).Count(&total).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// calculate offset and fetch paginated contests
 	offset := (page - 1) * limit
 	err := r.db.WithContext(ctx).
-		Preload("Squares").
-		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
-			return db.Order("quarter ASC")
-		}).
-		Where("created_by = ? AND status != ?", username, model.ContestStatusDeleted).
+		Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted).
 		Order("updated_at DESC").
 		Offset(offset).
 		Limit(limit).
 		Find(&contests).Error
 
 	return contests, total, err
-}
-
-func (r *contestRepository) ExistsByUserAndName(ctx context.Context, username, name string) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).
-		Model(&model.Contest{}).
-		Where("created_by = ? AND name = ? AND status != ?", username, name, model.ContestStatusDeleted).
-		Count(&count).Error
-
-	return count > 0, err
 }
 
 // ====================
@@ -149,14 +147,13 @@ func (r *contestRepository) GetSquareByID(ctx context.Context, squareID uuid.UUI
 	return &square, err
 }
 
-func (r *contestRepository) UpdateSquare(ctx context.Context, square *model.Square, value, owner, firstName, lastName string) (*model.Square, error) {
+func (r *contestRepository) UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error) {
 	var updatedSquare *model.Square
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// update square value and owner information
 		square.Value = value
 		square.Owner = owner
-		square.OwnerFirstName = firstName
-		square.OwnerLastName = lastName
+		square.OwnerName = ownerName
 
 		// save updated square
 		if err := tx.Save(square).Error; err != nil {
@@ -176,8 +173,7 @@ func (r *contestRepository) ClearSquare(ctx context.Context, square *model.Squar
 		// clear all square data
 		square.Value = ""
 		square.Owner = ""
-		square.OwnerFirstName = ""
-		square.OwnerLastName = ""
+		square.OwnerName = ""
 
 		// save cleared square
 		if err := tx.Save(square).Error; err != nil {

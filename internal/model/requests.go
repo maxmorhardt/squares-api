@@ -15,7 +15,6 @@ type UpdateSquareRequest struct {
 type ClearSquareRequest struct{}
 
 type UpdateContestRequest struct {
-	Name     *string `json:"name,omitempty" binding:"omitempty,max=20,min=1"`
 	HomeTeam *string `json:"homeTeam,omitempty" binding:"omitempty,max=20"`
 	AwayTeam *string `json:"awayTeam,omitempty" binding:"omitempty,max=20"`
 }

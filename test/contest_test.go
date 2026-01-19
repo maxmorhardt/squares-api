@@ -1,9 +1,12 @@
 package test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -20,7 +23,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 		awayTeam = "Eagles"
 	)
 	t.Run("1_CreateContest", func(t *testing.T) {
-		contest, status := CreateContest(router, authToken, oidcUser, name, homeTeam, awayTeam)
+		contest, status := createContest(router, authToken, oidcUser, name, homeTeam, awayTeam)
 
 		assert.NotNil(t, contest)
 		assert.Equal(t, status, http.StatusOK)
@@ -35,17 +38,15 @@ func TestContest_FullLifecycle(t *testing.T) {
 		require.NotEqual(t, uuid.Nil, contestID, "contestID must be set for subsequent tests")
 	})
 
-	t.Run("2_GetContestByID", func(t *testing.T) {
-		contest, status := GetContestByID(router, contestID)
+	t.Run("2_GetContestByOwnerAndName", func(t *testing.T) {
+		contest, status := getContestByOwnerAndName(router, oidcUser, name)
 
 		assert.Equal(t, status, http.StatusOK)
-		assert.Equal(t, contestID, contest.ID)
 		assert.Equal(t, name, contest.Name)
-		assert.Equal(t, status, http.StatusOK)
 	})
 
 	t.Run("3_GetContestsByUser", func(t *testing.T) {
-		response, status := GetContestsByUser(router, oidcUser, authToken)
+		response, status := getContestsByOwner(router, oidcUser, authToken)
 
 		assert.Equal(t, status, http.StatusOK)
 		assert.GreaterOrEqual(t, len(response.Contests), 1)
@@ -54,7 +55,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 
 		found := false
 		for _, c := range response.Contests {
-			if c.ID == contestID {
+			if c.Name == name {
 				found = true
 				break
 			}
@@ -64,23 +65,20 @@ func TestContest_FullLifecycle(t *testing.T) {
 	})
 
 	t.Run("4_UpdateContest", func(t *testing.T) {
-		newName := "Super Bowl LX"
 		newHomeTeam := "49ers"
 		updateReq := model.UpdateContestRequest{
-			Name:     &newName,
 			HomeTeam: &newHomeTeam,
 		}
 
-		contest, status := UpdateContest(router, contestID, authToken, updateReq)
+		contest, status := updateContest(router, contestID, authToken, updateReq)
 
 		assert.Equal(t, status, http.StatusOK)
-		assert.Equal(t, "Super Bowl LX", contest.Name)
 		assert.Equal(t, "49ers", contest.HomeTeam)
 		assert.Equal(t, "Eagles", contest.AwayTeam)
 	})
 
 	t.Run("5_FillAllSquares", func(t *testing.T) {
-		contest, _ := GetContestByID(router, contestID)
+		contest, _ := getContestByOwnerAndName(router, oidcUser, name)
 		require.Len(t, contest.Squares, 100)
 
 		for i, square := range contest.Squares {
@@ -90,11 +88,11 @@ func TestContest_FullLifecycle(t *testing.T) {
 				Owner: oidcUser,
 			}
 
-			status := UpdateSquare(router, contestID, square.ID, authToken, updateSquareReq)
+			status := updateSquare(router, contestID, square.ID, authToken, updateSquareReq)
 			assert.Equal(t, status, http.StatusOK)
 		}
 
-		contest, _ = GetContestByID(router, contestID)
+		contest, _ = getContestByOwnerAndName(router, oidcUser, name)
 		for _, square := range contest.Squares {
 			assert.NotEmpty(t, square.Value, "Square at row=%d, col=%d should have a value", square.Row, square.Col)
 			assert.NotEmpty(t, square.Owner, "Square at row=%d, col=%d should have an owner", square.Row, square.Col)
@@ -102,30 +100,30 @@ func TestContest_FullLifecycle(t *testing.T) {
 	})
 
 	t.Run("6_StartContestAndSubmitResults", func(t *testing.T) {
-		contest, status := StartContest(router, contestID, authToken)
+		contest, status := startContest(router, contestID, authToken)
 		assert.Equal(t, status, http.StatusOK)
 		assert.Equal(t, model.ContestStatusQ1, contest.Status)
 
-		SubmitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 7, AwayTeamScore: 3})
+		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 7, AwayTeamScore: 3})
 		assert.Equal(t, status, http.StatusOK)
 
-		SubmitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 14, AwayTeamScore: 10})
+		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 14, AwayTeamScore: 10})
 		assert.Equal(t, status, http.StatusOK)
 
-		SubmitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 21, AwayTeamScore: 17})
+		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 21, AwayTeamScore: 17})
 		assert.Equal(t, status, http.StatusOK)
 
-		SubmitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 28, AwayTeamScore: 24})
+		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 28, AwayTeamScore: 24})
 		assert.Equal(t, status, http.StatusOK)
 
-		contest, _ = GetContestByID(router, contestID)
+		contest, _ = getContestByOwnerAndName(router, oidcUser, name)
 		assert.Equal(t, model.ContestStatusFinished, contest.Status)
 		assert.Len(t, contest.QuarterResults, 4)
 	})
 
 	t.Run("7_DeleteContest", func(t *testing.T) {
-		DeleteContest(router, contestID, authToken)
-		_, status := GetContestByID(router, contestID)
+		deleteContest(router, contestID, authToken)
+		_, status := getContestByOwnerAndName(router, oidcUser, name)
 		assert.Equal(t, status, http.StatusNotFound)
 	})
 }
@@ -152,7 +150,7 @@ func TestCreateContest_Validation(t *testing.T) {
 				Owner: `ThisOwnerNameIsTooLongThisOwnerNameIsTooLongThisOwnerNameIsTooLongThisOwnerNameIsTooLong
 	ThisOwnerNameIsTooLongThisOwnerNameIsTooLongThisOwnerNameIsTooLongThisOwnerNameIsTooLongThisOwnerNameIsTooLong
 	ThisOwnerNameIsTooLongThisOwnerNameIsTooLongThisOwnerNameIsTooLongThisOwnerNameIsTooLongThisOwnerNameIsTooLong`,
-				Name: "Valid Name",
+				Name:     "Valid Name",
 				HomeTeam: "Chiefs",
 				AwayTeam: "Eagles",
 			},
@@ -202,9 +200,121 @@ func TestCreateContest_Validation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			contest, status := CreateContest(router, authToken, tc.request.Owner, tc.request.Name, tc.request.HomeTeam, tc.request.AwayTeam)
+			contest, status := createContest(router, authToken, tc.request.Owner, tc.request.Name, tc.request.HomeTeam, tc.request.AwayTeam)
 			slog.Info("negative contest result", "contest", contest)
 			assert.Equal(t, tc.expectedStatus, status)
 		})
 	}
+}
+
+func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awayTeam string) (*model.Contest, int) {
+	reqBody := model.CreateContestRequest{
+		Owner:    oidcUser,
+		Name:     name,
+		HomeTeam: homeTeam,
+		AwayTeam: awayTeam,
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req, _ := http.NewRequest(http.MethodPut, "/contests", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var contest model.Contest
+	_ = json.Unmarshal(w.Body.Bytes(), &contest)
+
+	return &contest, w.Code
+}
+
+func getContestByOwnerAndName(router http.Handler, owner, name string) (*model.Contest, int) {
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/owner/%s/name/%s", owner, name), nil)
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var contest model.Contest
+	_ = json.Unmarshal(w.Body.Bytes(), &contest)
+
+	return &contest, w.Code
+}
+
+func getContestsByOwner(router http.Handler, oidcUser, authToken string) (model.PaginatedContestResponse, int) {
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/owner/%s?page=1&limit=10", oidcUser), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var response model.PaginatedContestResponse
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
+
+	return response, w.Code
+}
+
+func updateContest(router http.Handler, contestID uuid.UUID, authToken string, updateReq model.UpdateContestRequest) (model.Contest, int) {
+	body, _ := json.Marshal(updateReq)
+
+	req, _ := http.NewRequest(http.MethodPatch, fmt.Sprintf("/contests/%s", contestID), bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var contest model.Contest
+	_ = json.Unmarshal(w.Body.Bytes(), &contest)
+
+	return contest, w.Code
+}
+
+func updateSquare(router http.Handler, contestID uuid.UUID, squareID uuid.UUID, authToken string, updateReq model.UpdateSquareRequest) int {
+	body, _ := json.Marshal(updateReq)
+
+	req, _ := http.NewRequest(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", contestID, squareID), bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	return w.Code
+}
+
+func startContest(router http.Handler, contestID uuid.UUID, authToken string) (*model.Contest, int) {
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", contestID), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var contest model.Contest
+	_ = json.Unmarshal(w.Body.Bytes(), &contest)
+
+	return &contest, w.Code
+}
+
+func submitQuarterResult(router http.Handler, contestID uuid.UUID, authToken string, reqBody model.QuarterResultRequest) int {
+	body, _ := json.Marshal(reqBody)
+
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/quarter-result", contestID), bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	return w.Code
+}
+
+func deleteContest(router http.Handler, contestID uuid.UUID, authToken string) int {
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", contestID), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	return w.Code
 }

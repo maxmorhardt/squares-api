@@ -63,19 +63,16 @@ definitions:
   model.ContestSwagger:
     properties:
       awayTeam:
-        example: 49ers
         type: string
       createdAt:
         type: string
       createdBy:
         type: string
       homeTeam:
-        example: Chiefs
         type: string
       id:
         type: string
       name:
-        example: Super Bowl 2025
         type: string
       owner:
         type: string
@@ -88,15 +85,6 @@ definitions:
           $ref: '#/definitions/model.Square'
         type: array
       status:
-        enum:
-        - ACTIVE
-        - Q1
-        - Q2
-        - Q3
-        - Q4
-        - FINISHED
-        - DELETED
-        example: ACTIVE
         type: string
       updatedAt:
         type: string
@@ -124,6 +112,7 @@ definitions:
         minLength: 1
         type: string
       owner:
+        maxLength: 255
         type: string
     required:
     - name
@@ -157,7 +146,6 @@ definitions:
   model.QuarterResult:
     properties:
       awayTeamScore:
-        example: 7
         type: integer
       contestId:
         type: string
@@ -166,12 +154,10 @@ definitions:
       createdBy:
         type: string
       homeTeamScore:
-        example: 14
         type: integer
       id:
         type: string
       quarter:
-        example: 1
         type: integer
       updatedAt:
         type: string
@@ -180,14 +166,10 @@ definitions:
       winner:
         type: string
       winnerCol:
-        example: 7
         type: integer
-      winnerFirstName:
-        type: string
-      winnerLastName:
+      winnerName:
         type: string
       winnerRow:
-        example: 4
         type: integer
     type: object
   model.QuarterResultRequest:
@@ -207,7 +189,6 @@ definitions:
   model.Square:
     properties:
       col:
-        example: 0
         type: integer
       contestId:
         type: string
@@ -219,19 +200,15 @@ definitions:
         type: string
       owner:
         type: string
-      ownerFirstName:
-        type: string
-      ownerLastName:
+      ownerName:
         type: string
       row:
-        example: 0
         type: integer
       updatedAt:
         type: string
       updatedBy:
         type: string
       value:
-        example: MRM
         type: string
     type: object
   model.UpdateContactSubmissionRequest:
@@ -254,10 +231,6 @@ definitions:
         type: string
       homeTeam:
         maxLength: 20
-        type: string
-      name:
-        maxLength: 20
-        minLength: 1
         type: string
     type: object
   model.UpdateSquareRequest:
@@ -416,36 +389,6 @@ paths:
           schema:
             $ref: '#/definitions/model.APIError'
       summary: Delete contest
-      tags:
-      - contests
-    get:
-      description: Returns a single contest by its ID
-      parameters:
-      - description: Contest ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.ContestSwagger'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.APIError'
-      summary: Get a contest by ID
       tags:
       - contests
     patch:
@@ -664,14 +607,13 @@ paths:
       summary: Start contest
       tags:
       - contests
-  /contests/user/{username}:
+  /contests/owner/{owner}:
     get:
-      description: Returns all contests created by a specific user with pagination
-        (required)
+      description: Returns all contests created by a specific owner with pagination
       parameters:
-      - description: Username
+      - description: Owner
         in: path
-        name: username
+        name: owner
         required: true
         type: string
       - description: Page number
@@ -704,7 +646,43 @@ paths:
             $ref: '#/definitions/model.APIError'
       security:
       - BearerAuth: []
-      summary: Get all contests by username
+      summary: Get all contests by owner
+      tags:
+      - contests
+  /contests/owner/{owner}/name/{name}:
+    get:
+      description: Returns a single contest by its owner and name
+      parameters:
+      - description: Owner
+        in: path
+        name: owner
+        required: true
+        type: string
+      - description: Name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ContestSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      summary: Get a contest by Owner and Name
       tags:
       - contests
   /health:

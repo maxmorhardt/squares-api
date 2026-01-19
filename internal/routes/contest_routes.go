@@ -7,8 +7,8 @@ import (
 )
 
 func RegisterContestRoutes(rg *gin.RouterGroup, h handler.ContestHandler) {
-	rg.GET("/:id", h.GetContestByID)
-	rg.GET("/user/:username", middleware.AuthMiddleware(), h.GetContestsByUser)
+	rg.GET("/owner/:owner/name/:name", h.GetContestByOwnerAndName)
+	rg.GET("/owner/:owner", middleware.AuthMiddleware(), h.GetContestsByOwner)
 
 	rg.PUT("", middleware.AuthMiddleware(), h.CreateContest)
 	rg.PATCH("/:id", middleware.AuthMiddleware(), h.UpdateContest)

@@ -88,6 +88,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
 			return
 		}
+		
 		log.Warn("failed to validate websocket request", "error", err)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
 		return

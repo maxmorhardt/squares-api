@@ -15,8 +15,8 @@ import (
 )
 
 type ContestService interface {
-	GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error)
-	GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error)
+	GetContestByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error)
+	GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error)
 
 	CreateContest(ctx context.Context, req *model.CreateContestRequest, user string) (*model.Contest, error)
 	UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
@@ -50,31 +50,31 @@ func NewContestService(
 // Getters
 // ====================
 
-func (s *contestService) GetContestByID(ctx context.Context, contestID uuid.UUID) (*model.Contest, error) {
+func (s *contestService) GetContestByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get contest from repository
-	contest, err := s.repo.GetByID(ctx, contestID)
+	contest, err := s.repo.GetByOwnerAndName(ctx, owner, name)
 	if err != nil {
-		log.Error("failed to get contest by id", "contest_id", contestID, "error", err)
+		log.Error("failed to get contest by owner and name", "owner", owner, "name", name, "error", err)
 		return nil, err
 	}
 
-	log.Info("contest retrieved successfully", "contest_id", contest.ID)
+	log.Info("contest retrieved successfully", "owner", owner, "name", name, "contest_id", contest.ID)
 	return contest, nil
 }
 
-func (s *contestService) GetContestsByUserPaginated(ctx context.Context, username string, page, limit int) ([]model.Contest, int64, error) {
+func (s *contestService) GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get paginated contests from repository
-	contests, total, err := s.repo.GetAllByUserPaginated(ctx, username, page, limit)
+	contests, total, err := s.repo.GetAllByOwnerPaginated(ctx, owner, page, limit)
 	if err != nil {
-		log.Error("failed to get paginated contests by user", "username", username, "error", err)
+		log.Error("failed to get paginated contests by user", "owner", owner, "error", err)
 		return nil, 0, err
 	}
 
-	log.Info("retrieved paginated contests by username", "count", len(contests))
+	log.Info("retrieved paginated contests by owner", "count", len(contests))
 	return contests, total, nil
 }
 
@@ -86,7 +86,7 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 	log := util.LoggerFromContext(ctx)
 
 	// check if contest name already exists for user
-	exists, err := s.repo.ExistsByUserAndName(ctx, req.Owner, req.Name)
+	exists, err := s.repo.ExistsByOwnerAndName(ctx, req.Owner, req.Name)
 	if err != nil {
 		log.Error("failed to check if contest exists", "owner", req.Owner, "name", req.Name, "error", err)
 		return nil, errs.ErrDatabaseUnavailable
@@ -142,6 +142,7 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 			log.Warn("contest not found for update", "contest_id", contestID)
 			return nil, err
 		}
+
 		log.Error("failed to get contest for ownership validation", "contest_id", contestID, "error", err)
 		return nil, errs.ErrDatabaseUnavailable
 	}
@@ -151,27 +152,9 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 		return nil, errs.ErrUnauthorizedContestEdit
 	}
 
-	// check if new name already exists for user
-	if req.Name != nil && *req.Name != contest.Name {
-		exists, err := s.repo.ExistsByUserAndName(ctx, contest.Owner, *req.Name)
-		if err != nil {
-			log.Error("failed to check contest name uniqueness", "user", user, "name", *req.Name, "error", err)
-			return nil, errs.ErrDatabaseUnavailable
-		}
-		if exists {
-			log.Warn("contest name already exists for user", "user", contest.Owner, "name", *req.Name)
-			return nil, errs.ErrContestAlreadyExists
-		}
-	}
-
 	// check for changes and build update
 	needsUpdate := false
 	contestUpdate := &model.ContestWSUpdate{}
-	if req.Name != nil && *req.Name != contest.Name {
-		contest.Name = *req.Name
-		needsUpdate = true
-	}
-
 	if req.HomeTeam != nil && *req.HomeTeam != contest.HomeTeam {
 		contest.HomeTeam = *req.HomeTeam
 		contestUpdate.HomeTeam = *req.HomeTeam
@@ -352,27 +335,25 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 	}
 
 	// find the winning square and get owner details
-	var winner, winnerFirstName, winnerLastName string
+	var winner, winnerName string
 	for _, square := range contest.Squares {
 		if square.Row == winnerRow && square.Col == winnerCol {
 			winner = square.Owner
-			winnerFirstName = square.OwnerFirstName
-			winnerLastName = square.OwnerLastName
+			winnerName = square.OwnerName
 			break
 		}
 	}
 
 	// create quarter result
 	result := &model.QuarterResult{
-		ContestID:       contestID,
-		Quarter:         quarter,
-		HomeTeamScore:   homeScore,
-		AwayTeamScore:   awayScore,
-		WinnerRow:       winnerRow,
-		WinnerCol:       winnerCol,
-		Winner:          winner,
-		WinnerFirstName: winnerFirstName,
-		WinnerLastName:  winnerLastName,
+		ContestID:     contestID,
+		Quarter:       quarter,
+		HomeTeamScore: homeScore,
+		AwayTeamScore: awayScore,
+		WinnerRow:     winnerRow,
+		WinnerCol:     winnerCol,
+		Winner:        winner,
+		WinnerName:    winnerName,
 	}
 
 	if err := s.repo.CreateQuarterResult(ctx, result); err != nil {
@@ -409,8 +390,7 @@ func (s *contestService) transitionContestAfterQuarter(ctx context.Context, cont
 			WinnerRow:       result.WinnerRow,
 			WinnerCol:       result.WinnerCol,
 			Winner:          result.Winner,
-			WinnerFirstName: result.WinnerFirstName,
-			WinnerLastName:  result.WinnerLastName,
+			WinnerName:      result.WinnerName,
 			Status:          newStatus,
 		}
 
@@ -540,7 +520,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 		return nil, errs.ErrClaimsNotFound
 	}
 
-	updatedSquare, err := s.repo.UpdateSquare(ctx, square, req.Value, req.Owner, claims.FirstName, claims.LastName)
+	updatedSquare, err := s.repo.UpdateSquare(ctx, square, req.Value, req.Owner, claims.Name)
 	if err != nil {
 		log.Error("failed to update square", "square_id", square.ID, "value", req.Value, "owner", req.Owner, "error", err)
 		return nil, err

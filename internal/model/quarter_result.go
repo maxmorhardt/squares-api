@@ -10,14 +10,13 @@ import (
 type QuarterResult struct {
 	ID              uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
 	ContestID       uuid.UUID `json:"contestId" gorm:"type:uuid;index;not null"`
-	Quarter         int       `json:"quarter" gorm:"type:int;not null" example:"1" description:"Quarter number (1, 2, 3, or 4)"`
-	HomeTeamScore   int       `json:"homeTeamScore" example:"14" description:"Home team score at end of quarter"`
-	AwayTeamScore   int       `json:"awayTeamScore" example:"7" description:"Away team score at end of quarter"`
-	WinnerRow       int       `json:"winnerRow" example:"4" description:"Row of the winning square (0-9)"`
-	WinnerCol       int       `json:"winnerCol" example:"7" description:"Column of the winning square (0-9)"`
-	Winner          string    `json:"winner" description:"Username of the winner"`
-	WinnerFirstName string    `json:"winnerFirstName" description:"First name of the winner"`
-	WinnerLastName  string    `json:"winnerLastName" description:"Last name of the winner"`
+	Quarter         int       `json:"quarter" gorm:"type:int;not null"`
+	HomeTeamScore   int       `json:"homeTeamScore"`
+	AwayTeamScore   int       `json:"awayTeamScore"`
+	WinnerRow       int       `json:"winnerRow"`
+	WinnerCol       int       `json:"winnerCol"`
+	Winner          string    `json:"winner"`
+	WinnerName      string    `json:"winnerName"`
 	CreatedAt       time.Time `json:"createdAt"`
 	UpdatedAt       time.Time `json:"updatedAt"`
 	CreatedBy       string    `json:"createdBy"`
