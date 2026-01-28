@@ -51,8 +51,9 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 	gin.SetMode(gin.TestMode)
 
+	config.InitOIDC(true)
+
 	setupTestDatabase(ctx)
-	setupMockServices()
 	setupAuth()
 	router = setupTestRouter()
 
@@ -110,10 +111,6 @@ func setupTestDatabase(ctx context.Context) {
 			os.Exit(1)
 		}
 	}
-}
-
-func setupMockServices() {
-	config.InitOIDC(false)
 }
 
 func setupAuth() {

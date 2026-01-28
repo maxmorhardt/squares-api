@@ -40,7 +40,7 @@ func init() {
 func main() {
 	_ = godotenv.Load()
 
-	config.InitOIDC(true)
+	config.InitOIDC(false)
 	config.InitDB()
 	config.InitSMTP()
 
