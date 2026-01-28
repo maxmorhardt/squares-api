@@ -12,7 +12,6 @@ require (
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.40.0
-	github.com/ulule/limiter/v3 v3.11.2
 )
 
 require (
