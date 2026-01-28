@@ -340,7 +340,7 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 		if square.Row == winnerRow && square.Col == winnerCol {
 			winner = square.Owner
 			winnerFirstName = square.OwnerFirstName
-			winnerFirstName = square.OwnerLastName
+			winnerLastName = square.OwnerLastName
 			break
 		}
 	}
