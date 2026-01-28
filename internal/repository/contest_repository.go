@@ -21,7 +21,7 @@ type ContestRepository interface {
 	CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error
 
 	GetSquareByID(ctx context.Context, squareID uuid.UUID) (*model.Square, error)
-	UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
+	UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerFirstName, ownerLastName string) (*model.Square, error)
 	ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error)
 }
 
@@ -147,13 +147,14 @@ func (r *contestRepository) GetSquareByID(ctx context.Context, squareID uuid.UUI
 	return &square, err
 }
 
-func (r *contestRepository) UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error) {
+func (r *contestRepository) UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerFirstName, ownerLastName string) (*model.Square, error) {
 	var updatedSquare *model.Square
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// update square value and owner information
 		square.Value = value
 		square.Owner = owner
-		square.OwnerName = ownerName
+		square.OwnerFirstName = ownerFirstName
+		square.OwnerLastName = ownerLastName
 
 		// save updated square
 		if err := tx.Save(square).Error; err != nil {
@@ -173,7 +174,8 @@ func (r *contestRepository) ClearSquare(ctx context.Context, square *model.Squar
 		// clear all square data
 		square.Value = ""
 		square.Owner = ""
-		square.OwnerName = ""
+		square.OwnerFirstName = ""
+		square.OwnerLastName = ""
 
 		// save cleared square
 		if err := tx.Save(square).Error; err != nil {

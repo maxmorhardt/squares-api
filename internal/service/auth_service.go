@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"slices"
 
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -10,7 +9,7 @@ import (
 
 type AuthService interface {
 	IsDeclaredUser(ctx context.Context, user string) bool
-	IsInGroup(ctx context.Context, group string) bool
+	HasRole(ctx context.Context, role string) bool
 }
 
 type authService struct{}
@@ -24,11 +23,17 @@ func (s *authService) IsDeclaredUser(ctx context.Context, user string) bool {
 	return ctxUser == user
 }
 
-func (s *authService) IsInGroup(ctx context.Context, group string) bool {
+func (s *authService) HasRole(ctx context.Context, role string) bool {
 	claims := util.ClaimsFromContext(ctx)
 	if claims == nil {
 		return false
 	}
 
-	return slices.Contains(claims.Groups, group)
+	for key := range claims.Roles {
+		if key == role {
+			return true
+		}
+	}
+
+	return false
 }

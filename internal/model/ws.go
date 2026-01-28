@@ -47,7 +47,8 @@ type QuarterResultWSUpdate struct {
 	WinnerRow       int           `json:"winnerRow"`
 	WinnerCol       int           `json:"winnerCol"`
 	Winner          string        `json:"winner"`
-	WinnerName      string        `json:"winnerName"`
+	WinnerFirstName string        `json:"winnerFirstName"`
+	WinnerLastName  string        `json:"winnerLastName"`
 	Status          ContestStatus `json:"status"`
 }
 

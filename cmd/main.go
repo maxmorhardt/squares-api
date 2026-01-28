@@ -40,7 +40,7 @@ func init() {
 func main() {
 	_ = godotenv.Load()
 
-	config.InitOIDC()
+	config.InitOIDC(true)
 	config.InitDB()
 	config.InitSMTP()
 
@@ -84,7 +84,6 @@ func setupMiddleware(r *gin.Engine, metricsEnabled bool) {
 	r.Use(middleware.RequestSizeLimitMiddleware())
 	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.LoggerMiddleware)
-	r.Use(middleware.RateLimitMiddleware())
 
 	if metricsEnabled {
 		r.Use(middleware.PrometheusMiddleware)

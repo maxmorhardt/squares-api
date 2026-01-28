@@ -10,23 +10,25 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
-func AuthMiddleware(allowedGroups ...string) gin.HandlerFunc {
+const authErrorMessage = "Authentication required. Please log in to continue"
+
+func AuthMiddleware() gin.HandlerFunc {
+	// verify token from authorization header
 	return func(c *gin.Context) {
-		// verify token from authorization header
 		claims := verifyToken(c, false)
-		authMiddleware(c, claims, allowedGroups...)
+		authMiddleware(c, claims)
 	}
 }
 
-func AuthMiddlewareWS(allowedGroups ...string) gin.HandlerFunc {
+func AuthMiddlewareWS() gin.HandlerFunc {
+	// verify token from websocket protocol header
 	return func(c *gin.Context) {
-		// verify token from websocket protocol header
 		claims := verifyToken(c, true)
-		authMiddleware(c, claims, allowedGroups...)
+		authMiddleware(c, claims)
 	}
 }
 
-func authMiddleware(c *gin.Context, claims *model.Claims, allowedGroups ...string) {
+func authMiddleware(c *gin.Context, claims *model.Claims) {
 	// abort if token verification failed
 	if claims == nil {
 		c.Abort()
@@ -34,22 +36,14 @@ func authMiddleware(c *gin.Context, claims *model.Claims, allowedGroups ...strin
 	}
 
 	// add user and claims to context
-	util.SetGinContextValue(c, model.UserKey, claims.Username)
+	util.SetGinContextValue(c, model.UserKey, claims.Subject)
 	util.SetGinContextValue(c, model.ClaimsKey, claims)
 
 	// add user to logger
 	log := util.LoggerFromGinContext(c)
-	log = log.With("user", claims.Username)
+	log = log.With("user", claims.Subject)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
-	// if no group restrictions, proceed
-	if len(allowedGroups) == 0 {
-		c.Next()
-		return
-	}
-
-	// validate user has required group membership
-	validateGroups(c, claims, allowedGroups...)
 	c.Next()
 }
 
@@ -63,7 +57,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 		wsProtocol := c.Request.Header.Get("Sec-WebSocket-Protocol")
 		if wsProtocol == "" {
 			log.Warn("missing sec-websocket-protocol header")
-			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Missing Sec-WebSocket-Protocol header", c))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 			return nil
 		}
 
@@ -73,7 +67,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			log.Warn("missing authorization header")
-			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Missing Authorization header", c))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 			return nil
 		}
 
@@ -85,7 +79,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 	if err != nil {
 		log.Warn("failed to verify token", "error", err)
 		if !isWebSocket {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Invalid token", c))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}
 
 		return nil
@@ -96,39 +90,11 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 	if err := idToken.Claims(&claims); err != nil {
 		log.Warn("failed to parse claims", "err", err)
 		if !isWebSocket {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Invalid token claims", c))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}
 
 		return nil
 	}
 
 	return &claims
-}
-
-func validateGroups(c *gin.Context, claims *model.Claims, allowedGroups ...string) {
-	log := util.LoggerFromGinContext(c)
-
-	// create set of allowed groups for fast lookup
-	allowedSet := make(map[string]struct{}, len(allowedGroups))
-	for _, group := range allowedGroups {
-		allowedSet[group] = struct{}{}
-	}
-
-	// check if user has any allowed group
-	hasGroup := false
-	for _, group := range claims.Groups {
-		if _, allowedGroup := allowedSet[group]; allowedGroup {
-			hasGroup = true
-			break
-		}
-	}
-
-	// abort if user doesn't have required group
-	if !hasGroup {
-		log.Warn("user forbidden", "groups", claims.Groups, "allowed_groups", allowedGroups)
-		c.AbortWithStatusJSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, "Forbidden", c))
-		return
-	}
-
-	log.Info("user authorized", "groups", claims.Groups)
 }

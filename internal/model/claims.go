@@ -1,16 +1,17 @@
 package model
 
 const (
-	SquaresAdminGroup string = "squares-admin"
+	SquaresAdminRole string = "squares-admin"
 )
 
+type Roles map[string]map[string]string
+
 type Claims struct {
-	Username  string   `json:"preferred_username"`
-	Groups    []string `json:"groups"`
-	Name      string   `json:"name"`
-	Email     string   `json:"email"`
-	Scope     string   `json:"scope"`
-	Expire    int64    `json:"exp"`
-	IssuedAt  int64    `json:"iat"`
-	Subject   string   `json:"sub"`
+	Subject   string `json:"sub"`
+	Email     string `json:"email"`
+	Roles     Roles  `json:"urn:zitadel:iam:org:project:roles"`
+	FirstName string `json:"given_name"`
+	LastName  string `json:"family_name"`
+	Expire    int64  `json:"exp"`
+	IssuedAt  int64  `json:"iat"`
 }

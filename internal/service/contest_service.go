@@ -148,7 +148,7 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 	}
 
 	if contest.Owner != user {
-		log.Warn("user is not authorized to update contest", "contest_id", contestID, "owner", contest.Owner, "user", user)
+		log.Warn("user is not authorized to update contest", "contest_id", contestID, "owner", contest.Owner)
 		return nil, errs.ErrUnauthorizedContestEdit
 	}
 
@@ -211,7 +211,7 @@ func (s *contestService) StartContest(ctx context.Context, contestID uuid.UUID, 
 		return nil, err
 	}
 
-	log.Info("contest started successfully", "contest_id", contestID, "user", user)
+	log.Info("contest started successfully", "contest_id", contestID)
 	return contest, nil
 }
 
@@ -257,7 +257,7 @@ func (s *contestService) transitionToQ1(ctx context.Context, contest *model.Cont
 		}
 	}()
 
-	log.Info("transitioned to Q1, labels randomized, squares now immutable", "contest_id", contest.ID, "user", user)
+	log.Info("transitioned to Q1, labels randomized, squares now immutable", "contest_id", contest.ID)
 	return nil
 }
 
@@ -335,25 +335,27 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 	}
 
 	// find the winning square and get owner details
-	var winner, winnerName string
+	var winner, winnerFirstName, winnerLastName string
 	for _, square := range contest.Squares {
 		if square.Row == winnerRow && square.Col == winnerCol {
 			winner = square.Owner
-			winnerName = square.OwnerName
+			winnerFirstName = square.OwnerFirstName
+			winnerFirstName = square.OwnerLastName
 			break
 		}
 	}
 
 	// create quarter result
 	result := &model.QuarterResult{
-		ContestID:     contestID,
-		Quarter:       quarter,
-		HomeTeamScore: homeScore,
-		AwayTeamScore: awayScore,
-		WinnerRow:     winnerRow,
-		WinnerCol:     winnerCol,
-		Winner:        winner,
-		WinnerName:    winnerName,
+		ContestID:       contestID,
+		Quarter:         quarter,
+		HomeTeamScore:   homeScore,
+		AwayTeamScore:   awayScore,
+		WinnerRow:       winnerRow,
+		WinnerCol:       winnerCol,
+		Winner:          winner,
+		WinnerFirstName: winnerFirstName,
+		WinnerLastName:  winnerLastName,
 	}
 
 	if err := s.repo.CreateQuarterResult(ctx, result); err != nil {
@@ -390,7 +392,8 @@ func (s *contestService) transitionContestAfterQuarter(ctx context.Context, cont
 			WinnerRow:       result.WinnerRow,
 			WinnerCol:       result.WinnerCol,
 			Winner:          result.Winner,
-			WinnerName:      result.WinnerName,
+			WinnerFirstName: result.WinnerFirstName,
+			WinnerLastName:  result.WinnerLastName,
 			Status:          newStatus,
 		}
 
@@ -445,7 +448,7 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 	}
 
 	if contest.Owner != user {
-		log.Warn("unauthorized delete attempt", "user", user, "contest_owner", contest.Owner)
+		log.Warn("unauthorized delete attempt", "contest_owner", contest.Owner)
 		return errs.ErrUnauthorizedContestDelete
 	}
 
@@ -504,12 +507,12 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 
 	// check authorization
 	if req.Owner != user {
-		log.Warn("user not authorized to update square", "square_id", squareID, "requested_owner", req.Owner, "user", user)
+		log.Warn("user not authorized to update square", "square_id", squareID, "requested_owner", req.Owner)
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 
 	if square.Owner != "" && square.Owner != user {
-		log.Warn("user not authorized to update square", "square_id", squareID, "owner", square.Owner, "user", user, "requested_owner", req.Owner)
+		log.Warn("user not authorized to update square", "square_id", squareID, "owner", square.Owner, "requested_owner", req.Owner)
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 
@@ -520,7 +523,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 		return nil, errs.ErrClaimsNotFound
 	}
 
-	updatedSquare, err := s.repo.UpdateSquare(ctx, square, req.Value, req.Owner, claims.Name)
+	updatedSquare, err := s.repo.UpdateSquare(ctx, square, req.Value, req.Owner, claims.FirstName, claims.LastName)
 	if err != nil {
 		log.Error("failed to update square", "square_id", square.ID, "value", req.Value, "owner", req.Owner, "error", err)
 		return nil, err

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/smtp"
 
-	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
@@ -14,7 +13,6 @@ import (
 
 type ContactService interface {
 	SubmitContact(ctx context.Context, req *model.ContactRequest, ipAddress string) error
-	UpdateContactSubmission(ctx context.Context, id uuid.UUID, req *model.UpdateContactSubmissionRequest) (*model.ContactSubmission, error)
 }
 
 type contactService struct {
@@ -96,33 +94,4 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 	addr := fmt.Sprintf("%s:%s", config.SMTPHost, config.SMTPPort)
 
 	return smtp.SendMail(addr, auth, from, to, []byte(message))
-}
-
-func (s *contactService) UpdateContactSubmission(ctx context.Context, id uuid.UUID, req *model.UpdateContactSubmissionRequest) (*model.ContactSubmission, error) {
-	log := util.LoggerFromContext(ctx)
-
-	// get existing submission
-	submission, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		log.Error("failed to get contact submission", "submission_id", id, "error", err)
-		return nil, err
-	}
-
-	// update fields if provided
-	if req.Status != nil {
-		submission.Status = *req.Status
-	}
-
-	if req.Response != nil {
-		submission.Response = *req.Response
-	}
-
-	// save updated submission
-	if err := s.repo.Update(ctx, submission); err != nil {
-		log.Error("failed to update contact submission", "submission_id", id, "error", err)
-		return nil, err
-	}
-
-	log.Info("contact submission updated", "submission_id", id, "status", submission.Status)
-	return submission, nil
 }
