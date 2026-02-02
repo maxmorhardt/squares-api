@@ -29,5 +29,5 @@ type ContactRequest struct {
 	Email          string `json:"email" binding:"required,email,max=255,safestring"`
 	Subject        string `json:"subject" binding:"required,min=1,max=200,safestring"`
 	Message        string `json:"message" binding:"required,min=1,max=2000,safestring"`
-	TurnstileToken string `json:"turnstileToken" binding:"required,min=1,max=255,safestring"`
+	TurnstileToken string `json:"turnstileToken" binding:"required,min=1,max=2000,safestring"`
 }
