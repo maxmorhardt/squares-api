@@ -6,6 +6,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.11.0
+	github.com/go-resty/resty/v2 v2.17.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.23.2

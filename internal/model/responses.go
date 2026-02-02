@@ -13,3 +13,7 @@ type PaginatedContestResponse struct {
 	HasNext     bool      `json:"hasNext"`
 	HasPrevious bool      `json:"hasPrevious"`
 }
+
+type ContactResponse struct {
+	Message string `json:"message"`
+}

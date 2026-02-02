@@ -68,7 +68,7 @@ func (h *contestHandler) GetContestByOwnerAndName(c *gin.Context) {
 	}
 
 	name := c.Param("name")
-		if owner == "" {
+	if owner == "" {
 		log.Warn("contest name not provided")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Name is required", c))
 		return
@@ -195,12 +195,6 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 		return
 	}
 
-	// sanitize inputs
-	req.Name = util.SanitizeInput(req.Name)
-	req.HomeTeam = util.SanitizeInput(req.HomeTeam)
-	req.AwayTeam = util.SanitizeInput(req.AwayTeam)
-	req.Owner = util.SanitizeInput(req.Owner)
-
 	// get authenticated user
 	user := c.GetString(model.UserKey)
 
@@ -264,16 +258,6 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 		log.Warn("invalid request body", "error", err)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
-	}
-
-	if req.HomeTeam != nil {
-		sanitized := util.SanitizeInput(*req.HomeTeam)
-		req.HomeTeam = &sanitized
-	}
-
-	if req.AwayTeam != nil {
-		sanitized := util.SanitizeInput(*req.AwayTeam)
-		req.AwayTeam = &sanitized
 	}
 
 	// get authenticated user
@@ -511,9 +495,8 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 		return
 	}
 
-	// sanitize and normalize inputs
-	req.Value = strings.ToUpper(util.SanitizeInput(req.Value))
-	req.Owner = util.SanitizeInput(req.Owner)
+	// normalize value to uppercase
+	req.Value = strings.ToUpper(req.Value)
 
 	// get authenticated user
 	user := c.GetString(model.UserKey)

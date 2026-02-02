@@ -13,16 +13,16 @@ import (
 
 func TestSubmitContact(t *testing.T) {
 	req := model.ContactRequest{
-		Name:    "Test User",
-		Email:   "test@example.com",
-		Subject: "Test Subject",
-		Message: "This is a test message.",
+		Name:           "Test User",
+		Email:          "test@example.com",
+		Subject:        "Test Subject",
+		Message:        "This is a test message.",
+		TurnstileToken: "test-token",
 	}
 
-	resp, body, _ := submitContact(router, &req)
+	resp, _, _ := submitContact(router, &req)
 
-	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
-	assert.Contains(t, string(body), "Contact form submitted successfully")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func TestSubmitContact_Validation(t *testing.T) {
@@ -34,30 +34,33 @@ func TestSubmitContact_Validation(t *testing.T) {
 		{
 			name: "Missing Name",
 			request: model.ContactRequest{
-				Name:    "",
-				Email:   "test@example.com",
-				Subject: "Test Subject",
-				Message: "This is a test message.",
+				Name:           "",
+				Email:          "test@example.com",
+				Subject:        "Test Subject",
+				Message:        "This is a test message.",
+				TurnstileToken: "test-token",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Invalid Email",
 			request: model.ContactRequest{
-				Name:    "Test User",
-				Email:   "not-an-email",
-				Subject: "Test Subject",
-				Message: "This is a test message.",
+				Name:           "Test User",
+				Email:          "not-an-email",
+				Subject:        "Test Subject",
+				Message:        "This is a test message.",
+				TurnstileToken: "test-token",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Missing Message",
 			request: model.ContactRequest{
-				Name:    "Test User",
-				Email:   "test@example.com",
-				Subject: "Test Subject",
-				Message: "",
+				Name:           "Test User",
+				Email:          "test@example.com",
+				Subject:        "Test Subject",
+				Message:        "",
+				TurnstileToken: "test-token",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},

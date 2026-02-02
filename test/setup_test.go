@@ -2,17 +2,15 @@ package test
 
 import (
 	"context"
-	"encoding/json"
-	"io"
 	"log/slog"
-	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
+	"github.com/go-resty/resty/v2"
 	"github.com/joho/godotenv"
 	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/handler"
@@ -20,6 +18,7 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/routes"
 	"github.com/maxmorhardt/squares-api/internal/service"
+	"github.com/maxmorhardt/squares-api/internal/validators"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -50,7 +49,9 @@ func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
 
 	config.InitOIDC()
+	config.InitTurnstile()
 
+	setupValidators()
 	setupTestDatabase(ctx)
 	setupAuth()
 	router = setupTestRouter()
@@ -124,45 +125,33 @@ func setupAuth() {
 	}
 
 	// request token using client credentials grant
-	data := url.Values{}
-	data.Set("grant_type", "client_credentials")
-	data.Set("client_id", clientID)
-	data.Set("username", oidcUser)
-	data.Set("password", password)
-	data.Set("scope", "openid email profile")
-
-	requestBody := data.Encode()
-	req, err := http.NewRequest("POST", authUrl, strings.NewReader(requestBody))
-	if err != nil {
-		slog.Error("failed to create token request", "error", err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		slog.Error("failed to request token", "error", err)
-		return
-	}
-
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("failed to close response body", "error", err)
-		}
-	}()
-
-	body, err := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK || err != nil {
-		slog.Error("failed to get auth token", "status", resp.StatusCode, "body", string(body))
-		return
-	}
+	client := resty.New().SetTimeout(10 * time.Second)
 
 	var tokenResp struct {
 		AccessToken string `json:"access_token"`
 	}
 
-	_ = json.Unmarshal(body, &tokenResp)
+	resp, err := client.R().
+		SetFormData(map[string]string{
+			"grant_type": "client_credentials",
+			"client_id":  clientID,
+			"username":   oidcUser,
+			"password":   password,
+			"scope":      "openid email profile",
+		}).
+		SetResult(&tokenResp).
+		Post(authUrl)
+
+	if err != nil {
+		slog.Error("failed to request token", "error", err)
+		return
+	}
+
+	if !resp.IsSuccess() {
+		slog.Error("failed to get auth token", "status", resp.StatusCode(), "body", resp.String())
+		return
+	}
+
 	authToken = tokenResp.AccessToken
 	if authToken == "" {
 		slog.Error("no access token in response")
@@ -194,6 +183,13 @@ func setupTestRouter() *gin.Engine {
 	routes.RegisterWebSocketRoutes(r.Group("/ws"), wsHandler)
 
 	return r
+}
+
+func setupValidators() {
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		_ = v.RegisterValidation("contestname", validators.ValidateContestName)
+		_ = v.RegisterValidation("safestring", validators.ValidateSafeString)
+	}
 }
 
 func teardownTestDatabase(ctx context.Context) {

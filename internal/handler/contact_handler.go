@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -30,9 +31,8 @@ func NewContactHandler(contactService service.ContactService) ContactHandler {
 // @Accept json
 // @Produce json
 // @Param contact body model.ContactRequest true "Contact form data"
-// @Success 202 "Contact form submitted successfully"
+// @Success 200 {object} model.ContactResponse
 // @Failure 400 {object} model.APIError
-// @Failure 429 {object} model.APIError
 // @Router /contact [post]
 func (h *contactHandler) SubmitContact(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
@@ -45,23 +45,20 @@ func (h *contactHandler) SubmitContact(c *gin.Context) {
 		return
 	}
 
-	// sanitize inputs to prevent email injection
-	req.Name = util.SanitizeInput(req.Name)
-	req.Email = util.SanitizeInput(req.Email)
-	req.Subject = util.SanitizeInput(req.Subject)
-	req.Message = util.SanitizeInput(req.Message)
-
 	// get client ip address
 	ipAddress := c.ClientIP()
 
 	// submit contact via service
 	if err := h.contactService.SubmitContact(c.Request.Context(), &req, ipAddress); err != nil {
-		log.Error("failed to submit contact", "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to submit contact form", c))
+		if errors.Is(err, errs.ErrInvalidTurnstile) {
+			log.Error("invalid contact submission captcha", "error", err)
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		} else {
+			log.Error("failed to submit contact", "error", err)
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to submit contact form. Please try again", c))
+		}
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{
-		"message": "Contact form submitted successfully. We will get back to you soon.",
-	})
+	c.JSON(http.StatusOK, model.ContactResponse{Message: "Contact request submitted successfully. We will get back to you soon"})
 }

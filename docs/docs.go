@@ -40,87 +40,14 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "202": {
-                        "description": "Contact form submitted successfully"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    }
-                }
-            }
-        },
-        "/contact/{id}": {
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update the status and/or response of a contact submission",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "contact"
-                ],
-                "summary": "Update a contact submission",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Contact Submission ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Update data",
-                        "name": "update",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.UpdateContactSubmissionRequest"
-                        }
-                    }
-                ],
-                "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.ContactSubmission"
+                            "$ref": "#/definitions/model.ContactResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -780,7 +707,8 @@ const docTemplate = `{
                 "email",
                 "message",
                 "name",
-                "subject"
+                "subject",
+                "turnstileToken"
             ],
             "properties": {
                 "email": {
@@ -801,40 +729,18 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 200,
                     "minLength": 1
+                },
+                "turnstileToken": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
                 }
             }
         },
-        "model.ContactSubmission": {
+        "model.ContactResponse": {
             "type": "object",
             "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "ipAddress": {
-                    "type": "string"
-                },
                 "message": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "response": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "subject": {
-                    "type": "string"
-                },
-                "updatedAt": {
                     "type": "string"
                 }
             }
@@ -1060,24 +966,6 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "string"
-                }
-            }
-        },
-        "model.UpdateContactSubmissionRequest": {
-            "type": "object",
-            "properties": {
-                "response": {
-                    "type": "string",
-                    "maxLength": 2000,
-                    "minLength": 1
-                },
-                "status": {
-                    "type": "string",
-                    "enum": [
-                        "pending",
-                        "responded",
-                        "resolved"
-                    ]
                 }
             }
         },

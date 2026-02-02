@@ -37,3 +37,7 @@ var (
 	ErrInvalidPage  = errors.New("invalid page parameter")
 	ErrInvalidLimit = errors.New("invalid limit parameter")
 )
+
+var (
+	ErrInvalidTurnstile = errors.New("invalid or expired captcha")
+)

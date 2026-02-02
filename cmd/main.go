@@ -24,7 +24,6 @@ func init() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
-
 	slog.SetDefault(logger)
 
 	logger.Info("initialized logger")
@@ -43,9 +42,10 @@ func main() {
 	config.InitOIDC()
 	config.InitDB()
 	config.InitSMTP()
+	config.InitTurnstile()
 
 	go config.InitRedis()
-	
+
 	if err := initGin().Run(":8080"); err != nil {
 		slog.Error("failed to start server", "error", err)
 		panic(err)
@@ -112,5 +112,6 @@ func setupRoutes(r *gin.Engine) {
 func setupValidators() {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		_ = v.RegisterValidation("contestname", validators.ValidateContestName)
+		_ = v.RegisterValidation("safestring", validators.ValidateSafeString)
 	}
 }

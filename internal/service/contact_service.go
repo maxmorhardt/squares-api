@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/smtp"
+	"time"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/maxmorhardt/squares-api/internal/config"
+	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -27,6 +30,12 @@ func NewContactService(repo repository.ContactRepository) ContactService {
 
 func (s *contactService) SubmitContact(ctx context.Context, req *model.ContactRequest, ipAddress string) error {
 	log := util.LoggerFromContext(ctx)
+
+	// validate turnstile token
+	if err := s.validateTurnstile(ctx, req.TurnstileToken, ipAddress); err != nil {
+		log.Error("turnstile validation failed", "error", err)
+		return errs.ErrInvalidTurnstile
+	}
 
 	// create contact submission record
 	submission := &model.ContactSubmission{
@@ -94,4 +103,44 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 	addr := fmt.Sprintf("%s:%s", config.SMTPHost, config.SMTPPort)
 
 	return smtp.SendMail(addr, auth, from, to, []byte(message))
+}
+
+type turnstileResponse struct {
+	Success     bool     `json:"success"`
+	ChallengeTS string   `json:"challenge_ts"`
+	Hostname    string   `json:"hostname"`
+	ErrorCodes  []string `json:"error-codes"`
+	Action      string   `json:"action"`
+	CData       string   `json:"cdata"`
+}
+
+func (s *contactService) validateTurnstile(ctx context.Context, token, remoteIP string) error {
+	client := resty.New().
+		SetTimeout(10 * time.Second).
+		SetBaseURL("https://challenges.cloudflare.com")
+
+	var turnstileResp turnstileResponse
+	resp, err := client.R().
+		SetContext(ctx).
+		SetFormData(map[string]string{
+			"secret":   config.TurnstileSecretKey,
+			"response": token,
+			"remoteip": remoteIP,
+		}).
+		SetResult(&turnstileResp).
+		Post("/turnstile/v0/siteverify")
+
+	if err != nil {
+		return fmt.Errorf("failed to verify turnstile token: %w", err)
+	}
+
+	if !resp.IsSuccess() {
+		return fmt.Errorf("turnstile API returned status %d", resp.StatusCode())
+	}
+
+	if !turnstileResp.Success {
+		return fmt.Errorf("turnstile validation failed: %v", turnstileResp.ErrorCodes)
+	}
+
+	return nil
 }
