@@ -335,27 +335,25 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 	}
 
 	// find the winning square and get owner details
-	var winner, winnerFirstName, winnerLastName string
+	var winner, winnerName string
 	for _, square := range contest.Squares {
 		if square.Row == winnerRow && square.Col == winnerCol {
 			winner = square.Owner
-			winnerFirstName = square.OwnerFirstName
-			winnerLastName = square.OwnerLastName
+			winnerName = square.OwnerName
 			break
 		}
 	}
 
 	// create quarter result
 	result := &model.QuarterResult{
-		ContestID:       contestID,
-		Quarter:         quarter,
-		HomeTeamScore:   homeScore,
-		AwayTeamScore:   awayScore,
-		WinnerRow:       winnerRow,
-		WinnerCol:       winnerCol,
-		Winner:          winner,
-		WinnerFirstName: winnerFirstName,
-		WinnerLastName:  winnerLastName,
+		ContestID:     contestID,
+		Quarter:       quarter,
+		HomeTeamScore: homeScore,
+		AwayTeamScore: awayScore,
+		WinnerRow:     winnerRow,
+		WinnerCol:     winnerCol,
+		Winner:        winner,
+		WinnerName:    winnerName,
 	}
 
 	if err := s.repo.CreateQuarterResult(ctx, result); err != nil {
@@ -386,15 +384,14 @@ func (s *contestService) transitionContestAfterQuarter(ctx context.Context, cont
 	// publish quarter result to websocket clients
 	go func() {
 		quarterResultUpdate := &model.QuarterResultWSUpdate{
-			Quarter:         result.Quarter,
-			HomeTeamScore:   result.HomeTeamScore,
-			AwayTeamScore:   result.AwayTeamScore,
-			WinnerRow:       result.WinnerRow,
-			WinnerCol:       result.WinnerCol,
-			Winner:          result.Winner,
-			WinnerFirstName: result.WinnerFirstName,
-			WinnerLastName:  result.WinnerLastName,
-			Status:          newStatus,
+			Quarter:       result.Quarter,
+			HomeTeamScore: result.HomeTeamScore,
+			AwayTeamScore: result.AwayTeamScore,
+			WinnerRow:     result.WinnerRow,
+			WinnerCol:     result.WinnerCol,
+			Winner:        result.Winner,
+			WinnerName:    result.WinnerName,
+			Status:        newStatus,
 		}
 
 		if err := s.redisService.PublishQuarterResult(context.Background(), contest.ID, user, quarterResultUpdate); err != nil {
@@ -523,7 +520,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 		return nil, errs.ErrClaimsNotFound
 	}
 
-	updatedSquare, err := s.repo.UpdateSquare(ctx, square, req.Value, req.Owner, claims.FirstName, claims.LastName)
+	updatedSquare, err := s.repo.UpdateSquare(ctx, square, req.Value, req.Owner, claims.Name)
 	if err != nil {
 		log.Error("failed to update square", "square_id", square.ID, "value", req.Value, "owner", req.Owner, "error", err)
 		return nil, err

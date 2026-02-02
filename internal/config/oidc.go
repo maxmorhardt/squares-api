@@ -10,9 +10,9 @@ import (
 
 var OIDCVerifier *oidc.IDTokenVerifier
 
-const authProvider = "https://login.maxstash.io"
+const authProvider = "https://login.maxstash.io/application/o/squares/"
 
-func InitOIDC(isIntegrationTest bool) {
+func InitOIDC() {
 	clientID := os.Getenv("OIDC_CLIENT_ID")
 	if clientID == "" {
 		slog.Error("OIDC_CLIENT_ID environment variable is not set")
@@ -28,14 +28,7 @@ func InitOIDC(isIntegrationTest bool) {
 	oidcConfig := &oidc.Config{
 		ClientID: clientID,
 	}
-
-	if isIntegrationTest {
-		oidcConfig = &oidc.Config{
-			SkipClientIDCheck: true,
-			SkipExpiryCheck: true,
-		}
-	}
-
 	OIDCVerifier = provider.Verifier(oidcConfig)
+	
 	slog.Info("oidc configuration initialized")
 }

@@ -36,12 +36,12 @@ func authMiddleware(c *gin.Context, claims *model.Claims) {
 	}
 
 	// add user and claims to context
-	util.SetGinContextValue(c, model.UserKey, claims.Subject)
+	util.SetGinContextValue(c, model.UserKey, claims.Username)
 	util.SetGinContextValue(c, model.ClaimsKey, claims)
 
 	// add user to logger
 	log := util.LoggerFromGinContext(c)
-	log = log.With("user", claims.Subject)
+	log = log.With("user", claims.Username)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
 	c.Next()

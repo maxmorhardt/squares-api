@@ -2,9 +2,7 @@ package test
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -34,7 +32,6 @@ const (
 	postgresDBName   = "squares"
 	postgresUser     = "test_user"
 	postgresPassword = "test_password"
-	oidcUser         = "357422269611377236"
 )
 
 var (
@@ -42,6 +39,7 @@ var (
 	postgresContainer *postgres.PostgresContainer
 	contestService    service.ContestService
 	contactService    service.ContactService
+	oidcUser          string
 	authToken         string
 )
 
@@ -51,7 +49,7 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 	gin.SetMode(gin.TestMode)
 
-	config.InitOIDC(true)
+	config.InitOIDC()
 
 	setupTestDatabase(ctx)
 	setupAuth()
@@ -115,11 +113,12 @@ func setupTestDatabase(ctx context.Context) {
 
 func setupAuth() {
 	// get credentials from environment
-	authUrl := "https://login.maxstash.io/oauth/v2/token"
+	authUrl := "https://login.maxstash.io/application/o/token/"
 	clientID := os.Getenv("OIDC_CLIENT_ID")
-	clientSecret := os.Getenv("OIDC_CLIENT_SECRET")
+	oidcUser = os.Getenv("OIDC_USER")
+	password := os.Getenv("OIDC_PASSWORD")
 
-	if clientID == "" || clientSecret == "" {
+	if clientID == "" || oidcUser == "" || password == "" {
 		slog.Error("OIDC environment variables missing")
 		panic("OIDC environment variables must be set")
 	}
@@ -127,6 +126,9 @@ func setupAuth() {
 	// request token using client credentials grant
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
+	data.Set("client_id", clientID)
+	data.Set("username", oidcUser)
+	data.Set("password", password)
 	data.Set("scope", "openid email profile")
 
 	requestBody := data.Encode()
@@ -136,10 +138,6 @@ func setupAuth() {
 		return
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	auth := fmt.Sprintf("%s:%s", clientID, clientSecret)
-	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-	req.Header.Set("Authorization", basicAuth)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -161,11 +159,11 @@ func setupAuth() {
 	}
 
 	var tokenResp struct {
-		IDToken string `json:"id_token"`
+		AccessToken string `json:"access_token"`
 	}
 
 	_ = json.Unmarshal(body, &tokenResp)
-	authToken = tokenResp.IDToken
+	authToken = tokenResp.AccessToken
 	if authToken == "" {
 		slog.Error("no access token in response")
 		return

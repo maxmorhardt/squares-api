@@ -14,8 +14,7 @@ type Square struct {
 	Col            int       `json:"col"`
 	Value          string    `json:"value"`
 	Owner          string    `json:"owner"`
-	OwnerFirstName string    `json:"ownerFirstName"`
-	OwnerLastName  string    `json:"ownerLastName"`
+	OwnerName      string    `json:"ownerName"`
 	CreatedAt      time.Time `json:"createdAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 	CreatedBy      string    `json:"createdBy"`
