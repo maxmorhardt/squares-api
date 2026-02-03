@@ -380,7 +380,7 @@ func (h *contestHandler) StartContest(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Param quarterResult body model.QuarterResultRequest true "Quarter result data"
-// @Success 201 {object} model.QuarterResult
+// @Success 200 {object} model.QuarterResult
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
@@ -432,7 +432,7 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, result)
+	c.JSON(http.StatusOK, result)
 }
 
 // ====================

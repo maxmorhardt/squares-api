@@ -8,22 +8,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	"github.com/go-playground/validator/v10"
 	"github.com/go-resty/resty/v2"
 	"github.com/joho/godotenv"
-	"github.com/maxmorhardt/squares-api/internal/config"
-	"github.com/maxmorhardt/squares-api/internal/handler"
-	"github.com/maxmorhardt/squares-api/internal/model"
-	"github.com/maxmorhardt/squares-api/internal/repository"
-	"github.com/maxmorhardt/squares-api/internal/routes"
-	"github.com/maxmorhardt/squares-api/internal/service"
-	"github.com/maxmorhardt/squares-api/internal/validators"
+	"github.com/maxmorhardt/squares-api/internal/bootstrap"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/testcontainers/testcontainers-go/wait"
-	postgresdriver "gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 const (
@@ -31,40 +22,34 @@ const (
 	postgresDBName   = "squares"
 	postgresUser     = "test_user"
 	postgresPassword = "test_password"
+	redisTag         = "redis:8-alpine"
 )
 
 var (
 	router            *gin.Engine
 	postgresContainer *postgres.PostgresContainer
-	contestService    service.ContestService
-	contactService    service.ContactService
+	redisContainer    *redis.RedisContainer
 	oidcUser          string
 	authToken         string
 )
 
 func TestMain(m *testing.M) {
-	// setup
-	_ = godotenv.Load(".env")
+	_ = godotenv.Load("../.env.test")
 	ctx := context.Background()
 	gin.SetMode(gin.TestMode)
 
-	config.InitOIDC()
-	config.InitTurnstile()
-
-	setupValidators()
-	setupTestDatabase(ctx)
+	setupPostgresContainer(ctx)
+	setupRedisContainer(ctx)
 	setupAuth()
-	router = setupTestRouter()
+	router = bootstrap.NewServer()
 
-	// run tests
 	code := m.Run()
 
-	// teardown
-	teardownTestDatabase(ctx)
+	teardownContainers(ctx)
 	os.Exit(code)
 }
 
-func setupTestDatabase(ctx context.Context) {
+func setupPostgresContainer(ctx context.Context) {
 	// start a postgres container
 	var err error
 	postgresContainer, err = postgres.Run(ctx,
@@ -83,33 +68,60 @@ func setupTestDatabase(ctx context.Context) {
 		os.Exit(1)
 	}
 
-	// get connection string from container
-	connStr, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
+	// container connection details
+	host, err := postgresContainer.Host(ctx)
 	if err != nil {
-		slog.Error("failed to get connection string", "error", err)
+		slog.Error("failed to get container host", "error", err)
 		os.Exit(1)
 	}
 
-	// connect to the test database
-	config.DB, err = gorm.Open(postgresdriver.Open(connStr), &gorm.Config{})
+	port, err := postgresContainer.MappedPort(ctx, "5432")
 	if err != nil {
-		slog.Error("failed to connect to test database", "error", err)
+		slog.Error("failed to get container port", "error", err)
 		os.Exit(1)
 	}
 
-	// run migrations
-	models := []any{
-		&model.Contest{},
-		&model.Square{},
-		&model.QuarterResult{},
-		&model.ContactSubmission{},
+	os.Setenv("DB_HOST", host)
+	os.Setenv("DB_PORT", port.Port())
+	os.Setenv("DB_USER", postgresUser)
+	os.Setenv("DB_PASSWORD", postgresPassword)
+	os.Setenv("DB_NAME", postgresDBName)
+	os.Setenv("DB_SSL_MODE", "disable")
+
+	slog.Info("postgres container configured", "host", host, "port", port.Port())
+}
+
+func setupRedisContainer(ctx context.Context) {
+	var err error
+	redisContainer, err = redis.Run(ctx,
+		redisTag,
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("Ready to accept connections").WithStartupTimeout(30*time.Second)),
+	)
+
+	if err != nil {
+		slog.Error("failed to start redis container", "error", err)
+		os.Exit(1)
 	}
-	for _, model := range models {
-		if err := config.DB.AutoMigrate(model); err != nil {
-			slog.Error("failed to migrate model", "error", err)
-			os.Exit(1)
-		}
+
+	// container connection details
+	host, err := redisContainer.Host(ctx)
+	if err != nil {
+		slog.Error("failed to get redis container host", "error", err)
+		os.Exit(1)
 	}
+
+	port, err := redisContainer.MappedPort(ctx, "6379")
+	if err != nil {
+		slog.Error("failed to get redis container port", "error", err)
+		os.Exit(1)
+	}
+
+	redisHost := host + ":" + port.Port()
+	os.Setenv("REDIS_HOST", redisHost)
+	os.Setenv("REDIS_PASSWORD", "")
+
+	slog.Info("redis container configured", "host", redisHost)
 }
 
 func setupAuth() {
@@ -161,41 +173,16 @@ func setupAuth() {
 	slog.Info("successfully obtained auth token")
 }
 
-func setupTestRouter() *gin.Engine {
-	r := gin.New()
-	r.Use(gin.Recovery())
-
-	contestRepo := repository.NewContestRepository()
-	contactRepo := repository.NewContactRepository()
-
-	authService := service.NewAuthService()
-	redisService := service.NewRedisService()
-	contestService = service.NewContestService(contestRepo, redisService, authService)
-	contactService = service.NewContactService(contactRepo)
-	wsService := service.NewWebSocketService()
-
-	contestHandler := handler.NewContestHandler(contestService, authService)
-	contactHandler := handler.NewContactHandler(contactService)
-	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo)
-
-	routes.RegisterRootRoutes(r.Group(""), contactHandler)
-	routes.RegisterContestRoutes(r.Group("/contests"), contestHandler)
-	routes.RegisterWebSocketRoutes(r.Group("/ws"), wsHandler)
-
-	return r
-}
-
-func setupValidators() {
-	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		_ = v.RegisterValidation("contestname", validators.ValidateContestName)
-		_ = v.RegisterValidation("safestring", validators.ValidateSafeString)
-	}
-}
-
-func teardownTestDatabase(ctx context.Context) {
+func teardownContainers(ctx context.Context) {
 	if postgresContainer != nil {
 		if err := postgresContainer.Terminate(ctx); err != nil {
 			slog.Warn("failed to terminate postgres container", "error", err)
+		}
+	}
+
+	if redisContainer != nil {
+		if err := redisContainer.Terminate(ctx); err != nil {
+			slog.Warn("failed to terminate redis container", "error", err)
 		}
 	}
 }

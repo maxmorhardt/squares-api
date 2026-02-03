@@ -69,8 +69,8 @@ func (s *contactService) SubmitContact(ctx context.Context, req *model.ContactRe
 
 func (s *contactService) sendEmailNotification(req *model.ContactRequest) error {
 	// construct email message
-	from := config.SMTPUser
-	to := []string{config.SupportEmail}
+	from := config.Env().SMTP.User
+	to := []string{config.Env().SMTP.SupportEmail}
 	subject := fmt.Sprintf("Contact Form: %s", req.Subject)
 	body := fmt.Sprintf(
 		"New contact form submission:\n\n"+
@@ -92,15 +92,15 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 			"\r\n"+
 			"%s",
 		from,
-		config.SupportEmail,
+		config.Env().SMTP.SupportEmail,
 		subject,
 		req.Email,
 		body,
 	)
 
 	// send email via smtp
-	auth := smtp.PlainAuth("", config.SMTPUser, config.SMTPPassword, config.SMTPHost)
-	addr := fmt.Sprintf("%s:%s", config.SMTPHost, config.SMTPPort)
+	auth := smtp.PlainAuth("", config.Env().SMTP.User, config.Env().SMTP.Password, config.Env().SMTP.Host)
+	addr := fmt.Sprintf("%s:%d", config.Env().SMTP.Host, config.Env().SMTP.Port)
 
 	return smtp.SendMail(addr, auth, from, to, []byte(message))
 }
@@ -123,7 +123,7 @@ func (s *contactService) validateTurnstile(ctx context.Context, token, remoteIP 
 	resp, err := client.R().
 		SetContext(ctx).
 		SetFormData(map[string]string{
-			"secret":   config.TurnstileSecretKey,
+			"secret":   config.Env().Turnstile.SecretKey,
 			"response": token,
 			"remoteip": remoteIP,
 		}).

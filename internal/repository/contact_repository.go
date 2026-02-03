@@ -21,7 +21,7 @@ type contactRepository struct {
 
 func NewContactRepository() ContactRepository {
 	return &contactRepository{
-		db: config.DB,
+		db: config.DB(),
 	}
 }
 

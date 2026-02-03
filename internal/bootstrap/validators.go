@@ -1,12 +1,20 @@
-package validators
+package bootstrap
 
 import (
 	"regexp"
 
+	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 )
 
-func ValidateContestName(fl validator.FieldLevel) bool {
+func setupValidators() {
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		_ = v.RegisterValidation("contestname", validateContestName)
+		_ = v.RegisterValidation("safestring", validateSafeString)
+	}
+}
+
+func validateContestName(fl validator.FieldLevel) bool {
 	name := fl.Field().String()
 	if len(name) == 0 {
 		return true
@@ -17,13 +25,12 @@ func ValidateContestName(fl validator.FieldLevel) bool {
 }
 
 // Blocks: < > { } [ ] \ | ` and other control characters
-func ValidateSafeString(fl validator.FieldLevel) bool {
+func validateSafeString(fl validator.FieldLevel) bool {
 	str := fl.Field().String()
 	if len(str) == 0 {
 		return true
 	}
 
-	// reject dangerous characters
 	dangerousChars := regexp.MustCompile(`[<>{}[\]\\|` + "`" + `]`)
 	return !dangerousChars.MatchString(str)
 }

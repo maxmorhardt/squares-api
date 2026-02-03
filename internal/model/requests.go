@@ -20,8 +20,8 @@ type UpdateContestRequest struct {
 }
 
 type QuarterResultRequest struct {
-	HomeTeamScore int `json:"homeTeamScore" binding:"required,min=0,max=9999"`
-	AwayTeamScore int `json:"awayTeamScore" binding:"required,min=0,max=9999"`
+	HomeTeamScore int `json:"homeTeamScore" binding:"min=0,max=9999"`
+	AwayTeamScore int `json:"awayTeamScore" binding:"min=0,max=9999"`
 }
 
 type ContactRequest struct {

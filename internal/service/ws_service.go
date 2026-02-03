@@ -48,7 +48,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	// subscribe to redis channel for contest updates
 	log.Info("subscribing to redis channel")
 	contestChannel := fmt.Sprintf("%s:%s", model.ContestChannelPrefix, contestID)
-	pubsub := config.RedisClient.Subscribe(ctx, contestChannel)
+	pubsub := config.Redis().Subscribe(ctx, contestChannel)
 	defer func() {
 		log.Info("closing redis subscription")
 		if err := pubsub.Close(); err != nil {

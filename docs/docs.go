@@ -381,8 +381,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/model.QuarterResult"
                         }
@@ -732,7 +732,7 @@ const docTemplate = `{
                 },
                 "turnstileToken": {
                     "type": "string",
-                    "maxLength": 255,
+                    "maxLength": 2000,
                     "minLength": 1
                 }
             }
@@ -914,10 +914,6 @@ const docTemplate = `{
         },
         "model.QuarterResultRequest": {
             "type": "object",
-            "required": [
-                "awayTeamScore",
-                "homeTeamScore"
-            ],
             "properties": {
                 "awayTeamScore": {
                     "type": "integer",

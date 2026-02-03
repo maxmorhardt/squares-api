@@ -75,7 +75,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 	}
 
 	// verify token with oidc provider
-	idToken, err := config.OIDCVerifier.Verify(c.Request.Context(), token)
+	idToken, err := config.OIDCVerifier().Verify(c.Request.Context(), token)
 	if err != nil {
 		log.Warn("failed to verify token", "error", err)
 		if !isWebSocket {

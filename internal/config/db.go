@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/maxmorhardt/squares-api/internal/model"
@@ -12,7 +11,7 @@ import (
 	"gorm.io/plugin/dbresolver"
 )
 
-var DB *gorm.DB
+var database *gorm.DB
 
 const (
 	maxOpenConns    int           = 20
@@ -22,17 +21,20 @@ const (
 
 func InitDB() {
 	setupPrimary()
-	setupReadReplica()
+	
+	if (Env().DB.ReadHost != "") {
+		setupReadReplica()
+	}
 }
 
 func setupPrimary() {
 	dsn := formatDSN(
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_SSL_MODE"),
+		Env().DB.Host,
+		Env().DB.Port,
+		Env().DB.User,
+		Env().DB.Password,
+		Env().DB.Name,
+		Env().DB.SSLMode,
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -62,25 +64,18 @@ func setupPrimary() {
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(maxConnLifetime)
 
-	DB = db
+	database = db
 	slog.Info("primary database configured")
 }
 
 func setupReadReplica() {
-	readHost := os.Getenv("DB_READ_HOST")
-	if readHost == "" {
-		slog.Info("no read replica configured")
-		return
-	}
-
-	// build read replica dsn
 	dsn := formatDSN(
-		readHost,
-		os.Getenv("DB_READ_PORT"),
-		os.Getenv("DB_READ_USER"),
-		os.Getenv("DB_READ_PASSWORD"),
-		os.Getenv("DB_READ_NAME"),
-		os.Getenv("DB_READ_SSL_MODE"),
+		Env().DB.ReadHost,
+		Env().DB.ReadPort,
+		Env().DB.ReadUser,
+		Env().DB.ReadPassword,
+		Env().DB.ReadName,
+		Env().DB.ReadSSLMode,
 	)
 
 	// register read replica with dbresolver
@@ -96,7 +91,7 @@ func setupReadReplica() {
 	resolver.SetMaxIdleConns(maxIdleConns)
 	resolver.SetMaxOpenConns(maxOpenConns)
 
-	err := DB.Use(resolver)
+	err := database.Use(resolver)
 	if err != nil {
 		slog.Warn("failed to register read replica", "error", err)
 		return
@@ -105,9 +100,13 @@ func setupReadReplica() {
 	slog.Info("read replica configured")
 }
 
-func formatDSN(host, port, user, password, dbname, sslmode string) string {
+func formatDSN(host string, port int, user, password, dbname, sslmode string) string {
 	return fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		host, port, user, password, dbname, sslmode,
 	)
+}
+
+func DB() *gorm.DB {
+	return database
 }

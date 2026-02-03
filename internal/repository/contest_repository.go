@@ -31,7 +31,7 @@ type contestRepository struct {
 
 func NewContestRepository() ContestRepository {
 	return &contestRepository{
-		db: config.DB,
+		db: config.DB(),
 	}
 }
 

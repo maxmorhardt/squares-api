@@ -8,8 +8,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func RegisterRootRoutes(rg *gin.RouterGroup, contactHandler handler.ContactHandler) {
+func RegisterRootRoutes(rg *gin.RouterGroup) {
 	rg.GET("/health", handler.HealthCheck)
 	rg.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
-	rg.POST("/contact", contactHandler.SubmitContact)
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/service"
@@ -50,12 +49,6 @@ func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo 
 // @Router /ws/contests/{contestId} [get]
 func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
-	
-	// ignore if redis not available
-	if !config.IsRedisAvailable || config.RedisClient == nil {
-		log.Warn("redis not available, not allowing ws connection")
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Websocket not available. Please try again later", c))
-	}
 
 	// parse contest id from path
 	contestIDParam := c.Param("id")
