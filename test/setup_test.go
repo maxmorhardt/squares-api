@@ -81,12 +81,12 @@ func setupPostgresContainer(ctx context.Context) {
 		os.Exit(1)
 	}
 
-	os.Setenv("DB_HOST", host)
-	os.Setenv("DB_PORT", port.Port())
-	os.Setenv("DB_USER", postgresUser)
-	os.Setenv("DB_PASSWORD", postgresPassword)
-	os.Setenv("DB_NAME", postgresDBName)
-	os.Setenv("DB_SSL_MODE", "disable")
+	_ = os.Setenv("DB_HOST", host)
+	_ = os.Setenv("DB_PORT", port.Port())
+	_ = os.Setenv("DB_USER", postgresUser)
+	_ = os.Setenv("DB_PASSWORD", postgresPassword)
+	_ = os.Setenv("DB_NAME", postgresDBName)
+	_ = os.Setenv("DB_SSL_MODE", "disable")
 
 	slog.Info("postgres container configured", "host", host, "port", port.Port())
 }
@@ -118,8 +118,8 @@ func setupRedisContainer(ctx context.Context) {
 	}
 
 	redisHost := host + ":" + port.Port()
-	os.Setenv("REDIS_HOST", redisHost)
-	os.Setenv("REDIS_PASSWORD", "")
+	_ = os.Setenv("REDIS_HOST", redisHost)
+	_ = os.Setenv("REDIS_PASSWORD", "")
 
 	slog.Info("redis container configured", "host", redisHost)
 }
