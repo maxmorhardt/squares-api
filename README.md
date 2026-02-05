@@ -4,7 +4,7 @@
 ![Gin](https://img.shields.io/badge/gin-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white)
+![NATS](https://img.shields.io/badge/NATS-27AAE1?style=for-the-badge&logo=nats.io&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 
 ## Overview
@@ -19,7 +19,7 @@ A real-time football squares pool API built with Go and Gin. Supports contest li
 - **Winner Tracking** - Stores winner username, first name, and last name for each quarter
 - **Real-time Updates** - WebSocket connections for live contest, square, and quarter result updates
 - **OIDC Authentication** - JWT token validation with username, first name, and last name claims
-- **Redis Pub/Sub** - Scales horizontally with cross-instance WebSocket broadcasting
+- **NATS Messaging** - Scales horizontally with cross-instance WebSocket broadcasting
 - **PostgreSQL** - Data persistence with GORM ORM and automatic migrations
 - **Swagger Documentation** - Auto-generated API documentation
 
@@ -27,10 +27,10 @@ A real-time football squares pool API built with Go and Gin. Supports contest li
 This application requires the following services to be deployed:
 - **OIDC Provider** (e.g., Keycloak) for authentication
 - **PostgreSQL** database for data persistence
-- **Redis** for pub/sub messaging and session management
+- **NATS** for pub/sub messaging and real-time event broadcasting
 - **SMTP Server** for email notifications
 
 ## Development
 1. Set up environment variables
-2. Start required services (PostgreSQL, Redis, OIDC provider)
+2. Start required services (PostgreSQL, NATS, OIDC provider)
 3. Run `go run cmd/main.go`
