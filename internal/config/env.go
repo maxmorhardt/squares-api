@@ -15,7 +15,7 @@ type config struct {
 	SMTP      smtpConfig
 	OIDC      oidcConfig
 	Turnstile turnstileConfig
-	Redis     redisConfig
+	NATS      natsConfig
 }
 
 type serverConfig struct {
@@ -50,15 +50,15 @@ type oidcConfig struct {
 	Issuer   string `env:"OIDC_ISSUER" envDefault:"https://login.maxstash.io/application/o/squares/"`
 }
 
-type redisConfig struct {
-	Host string `env:"REDIS_HOST,required"`
+type natsConfig struct {
+	URL string `env:"NATS_URL,required"`
 }
 
 type turnstileConfig struct {
 	SecretKey string `env:"TURNSTILE_SECRET_KEY,required"`
 }
 
-func LoadEnv() () {
+func LoadEnv() {
 	_ = godotenv.Load()
 
 	cfg = &config{}

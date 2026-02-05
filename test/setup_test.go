@@ -13,7 +13,6 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/bootstrap"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -22,13 +21,13 @@ const (
 	postgresDBName   = "squares"
 	postgresUser     = "test_user"
 	postgresPassword = "test_password"
-	redisTag         = "redis:8-alpine"
+	natsTag          = "nats:2.10-alpine"
 )
 
 var (
 	router            *gin.Engine
 	postgresContainer *postgres.PostgresContainer
-	redisContainer    *redis.RedisContainer
+	natsContainer     testcontainers.Container
 	oidcUser          string
 	authToken         string
 )
@@ -39,7 +38,7 @@ func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
 
 	setupPostgresContainer(ctx)
-	setupRedisContainer(ctx)
+	setupNatsContainer(ctx)
 	setupAuth()
 	router = bootstrap.NewServer()
 
@@ -91,37 +90,39 @@ func setupPostgresContainer(ctx context.Context) {
 	slog.Info("postgres container configured", "host", host, "port", port.Port())
 }
 
-func setupRedisContainer(ctx context.Context) {
+func setupNatsContainer(ctx context.Context) {
 	var err error
-	redisContainer, err = redis.Run(ctx,
-		redisTag,
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("Ready to accept connections").WithStartupTimeout(30*time.Second)),
-	)
+	natsContainer, err = testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			Image:        natsTag,
+			ExposedPorts: []string{"4222/tcp"},
+			WaitingFor:   wait.ForLog("Server is ready").WithStartupTimeout(30 * time.Second),
+		},
+		Started: true,
+	})
 
 	if err != nil {
-		slog.Error("failed to start redis container", "error", err)
+		slog.Error("failed to start NATS container", "error", err)
 		os.Exit(1)
 	}
 
 	// container connection details
-	host, err := redisContainer.Host(ctx)
+	host, err := natsContainer.Host(ctx)
 	if err != nil {
-		slog.Error("failed to get redis container host", "error", err)
+		slog.Error("failed to get NATS container host", "error", err)
 		os.Exit(1)
 	}
 
-	port, err := redisContainer.MappedPort(ctx, "6379")
+	port, err := natsContainer.MappedPort(ctx, "4222")
 	if err != nil {
-		slog.Error("failed to get redis container port", "error", err)
+		slog.Error("failed to get NATS container port", "error", err)
 		os.Exit(1)
 	}
 
-	redisHost := host + ":" + port.Port()
-	_ = os.Setenv("REDIS_HOST", redisHost)
-	_ = os.Setenv("REDIS_PASSWORD", "")
+	natsURL := "nats://" + host + ":" + port.Port()
+	_ = os.Setenv("NATS_URL", natsURL)
 
-	slog.Info("redis container configured", "host", redisHost)
+	slog.Info("NATS container configured", "url", natsURL)
 }
 
 func setupAuth() {
@@ -180,9 +181,9 @@ func teardownContainers(ctx context.Context) {
 		}
 	}
 
-	if redisContainer != nil {
-		if err := redisContainer.Terminate(ctx); err != nil {
-			slog.Warn("failed to terminate redis container", "error", err)
+	if natsContainer != nil {
+		if err := natsContainer.Terminate(ctx); err != nil {
+			slog.Warn("failed to terminate NATS container", "error", err)
 		}
 	}
 }

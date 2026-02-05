@@ -12,7 +12,7 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
-	"github.com/redis/go-redis/v9"
+	"github.com/nats-io/nats.go"
 )
 
 const (
@@ -45,17 +45,31 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 		log.Error("failed to send connected message", "error", err)
 	}
 
-	// subscribe to redis channel for contest updates
-	log.Info("subscribing to redis channel")
-	contestChannel := fmt.Sprintf("%s:%s", model.ContestChannelPrefix, contestID)
-	pubsub := config.Redis().Subscribe(ctx, contestChannel)
+	// subscribe to NATS subject for contest updates
+	log.Info("subscribing to NATS subject")
+	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID)
+	sub, err := config.NATS().Subscribe(contestSubject, func(msg *nats.Msg) {
+		// This callback is not used; we'll use the channel below
+	})
+	if err != nil {
+		log.Error("failed to subscribe to NATS", "error", err)
+		return
+	}
 	defer func() {
-		log.Info("closing redis subscription")
-		if err := pubsub.Close(); err != nil {
-			log.Error("failed to close redis subscription", "error", err)
+		log.Info("closing NATS subscription")
+		if err := sub.Unsubscribe(); err != nil {
+			log.Error("failed to unsubscribe from NATS", "error", err)
 		}
 	}()
-	redisChannel := pubsub.Channel()
+
+	// Use channel subscription for message handling
+	natsChan := make(chan *nats.Msg, 64)
+	sub.Unsubscribe() // Unsubscribe from callback-based subscription
+	sub, err = config.NATS().ChanSubscribe(contestSubject, natsChan)
+	if err != nil {
+		log.Error("failed to create channel subscription", "error", err)
+		return
+	}
 
 	// setup ping/pong to keep connection alive
 	pingChecker := time.NewTicker(pingInterval)
@@ -74,7 +88,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 
 	// start message handlers
 	go s.handleIncomingMessages(conn)
-	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, contestID, connectionID, redisChannel, log)
+	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, contestID, connectionID, natsChan, log)
 }
 
 // ignore incoming messages
@@ -95,20 +109,20 @@ func (s *websocketService) handleOutgoingMessages(
 	jwtChecker *time.Ticker,
 	contestID uuid.UUID,
 	connectionID uuid.UUID,
-	redisChannel <-chan *redis.Message,
+	natsChan <-chan *nats.Msg,
 	log *slog.Logger,
 ) {
 	for {
 		select {
-		// forward redis updates to websocket client
-		case msg := <-redisChannel:
+		// forward NATS updates to websocket client
+		case msg := <-natsChan:
 			var updateData model.WSUpdate
-			if err := json.Unmarshal([]byte(msg.Payload), &updateData); err != nil {
-				log.Error("failed to unmarshal redis message", "error", err, "payload", msg.Payload)
+			if err := json.Unmarshal(msg.Data, &updateData); err != nil {
+				log.Error("failed to unmarshal NATS message", "error", err, "data", string(msg.Data))
 			}
 
 			if err := sendWebSocketMessage(conn, log, &updateData); err != nil {
-				log.Error("failed to send redis message to websocket client", "error", err)
+				log.Error("failed to send NATS message to websocket client", "error", err)
 			}
 
 		// send periodic ping to keep connection alive

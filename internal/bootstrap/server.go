@@ -16,7 +16,7 @@ func NewServer() *gin.Engine {
 
 	config.InitOIDC()
 	config.InitDB()
-	config.InitRedis()
+	config.InitNATS()
 
 	r := gin.New()
 
@@ -44,8 +44,8 @@ func setupRoutes(r *gin.Engine) {
 	contactRepo := repository.NewContactRepository()
 
 	authService := service.NewAuthService()
-	redisService := service.NewRedisService()
-	contestService := service.NewContestService(contestRepo, redisService, authService)
+	natsService := service.NewNatsService()
+	contestService := service.NewContestService(contestRepo, natsService, authService)
 	wsService := service.NewWebSocketService()
 	contactService := service.NewContactService(contactRepo)
 
