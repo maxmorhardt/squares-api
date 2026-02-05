@@ -181,7 +181,7 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 
 	// publish update to websocket clients
 	go func() {
-		if err := s.natsService.PublishContestUpdate(context.Background(), contest.ID, user, contestUpdate); err != nil {
+		if err := s.natsService.PublishContestUpdate(contest.ID, user, contestUpdate); err != nil {
 			log.Error("failed to publish contest update", "contest_id", contest.ID, "error", err)
 		}
 	}()
@@ -252,7 +252,7 @@ func (s *contestService) transitionToQ1(ctx context.Context, contest *model.Cont
 			YLabels: yLabels,
 			Status:  model.ContestStatusQ1,
 		}
-		if err := s.natsService.PublishContestUpdate(context.Background(), contest.ID, user, contestUpdate); err != nil {
+		if err := s.natsService.PublishContestUpdate(contest.ID, user, contestUpdate); err != nil {
 			log.Error("failed to publish contest update for Q1 transition", "contest_id", contest.ID, "error", err)
 		}
 	}()
@@ -394,7 +394,7 @@ func (s *contestService) transitionContestAfterQuarter(ctx context.Context, cont
 			Status:        newStatus,
 		}
 
-		if err := s.natsService.PublishQuarterResult(context.Background(), contest.ID, user, quarterResultUpdate); err != nil {
+		if err := s.natsService.PublishQuarterResult(contest.ID, user, quarterResultUpdate); err != nil {
 			log.Error("failed to publish quarter result", "contest_id", contest.ID, "quarter", result.Quarter, "error", err)
 		}
 	}()
@@ -456,7 +456,7 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 	}
 
 	go func() {
-		if err := s.natsService.PublishContestDeleted(context.Background(), contestID, user); err != nil {
+		if err := s.natsService.PublishContestDeleted(contestID, user); err != nil {
 			log.Error("failed to publish contest deleted", "contest_id", contestID, "error", err)
 		}
 	}()
@@ -527,7 +527,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 	}
 
 	go func() {
-		if err := s.natsService.PublishSquareUpdate(context.Background(), updatedSquare.ContestID, user, updatedSquare.ID, updatedSquare.Value); err != nil {
+		if err := s.natsService.PublishSquareUpdate(updatedSquare.ContestID, user, updatedSquare.ID, updatedSquare.Value); err != nil {
 			log.Error("failed to publish square update", "contestId", updatedSquare.ContestID, "squareId", updatedSquare.ID, "error", err)
 		}
 	}()
@@ -585,7 +585,7 @@ func (s *contestService) ClearSquare(ctx context.Context, contestID uuid.UUID, s
 	}
 
 	go func() {
-		if err := s.natsService.PublishSquareUpdate(context.Background(), clearedSquare.ContestID, user, clearedSquare.ID, ""); err != nil {
+		if err := s.natsService.PublishSquareUpdate(clearedSquare.ContestID, user, clearedSquare.ID, ""); err != nil {
 			log.Error("failed to publish square clear", "contestId", clearedSquare.ContestID, "squareId", clearedSquare.ID, "error", err)
 		}
 	}()
