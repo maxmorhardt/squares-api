@@ -62,9 +62,12 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 		}
 	}()
 
-	// Use channel subscription for message handling
 	natsChan := make(chan *nats.Msg, 64)
-	sub.Unsubscribe() // Unsubscribe from callback-based subscription
+	if err := sub.Unsubscribe(); err != nil {
+		log.Error("failed to unsubscribe from callback subscription", "error", err)
+		return
+	}
+
 	sub, err = config.NATS().ChanSubscribe(contestSubject, natsChan)
 	if err != nil {
 		log.Error("failed to create channel subscription", "error", err)
@@ -115,10 +118,20 @@ func (s *websocketService) handleOutgoingMessages(
 	for {
 		select {
 		// forward NATS updates to websocket client
-		case msg := <-natsChan:
+		case msg, ok := <-natsChan:
+			if !ok {
+				log.Warn("NATS channel closed, closing websocket connection")
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
+					log.Error("failed to send disconnected message", "error", err)
+				}
+				_ = conn.Close()
+				return
+			}
+
 			var updateData model.WSUpdate
 			if err := json.Unmarshal(msg.Data, &updateData); err != nil {
 				log.Error("failed to unmarshal NATS message", "error", err, "data", string(msg.Data))
+				continue
 			}
 
 			if err := sendWebSocketMessage(conn, log, &updateData); err != nil {
