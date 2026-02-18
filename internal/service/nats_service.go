@@ -10,9 +10,9 @@ import (
 )
 
 type NatsService interface {
-	PublishSquareUpdate(contestID uuid.UUID, updatedBy string, squareID uuid.UUID, value string) error
-	PublishContestUpdate(contestID uuid.UUID, updatedBy string, contestUpdate *model.ContestWSUpdate) error
-	PublishQuarterResult(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResultWSUpdate) error
+	PublishSquareUpdate(contestID uuid.UUID, updatedBy string, square *model.Square) error
+	PublishContestUpdate(contestID uuid.UUID, updatedBy string, contest *model.Contest) error
+	PublishQuarterResult(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult) error
 	PublishContestDeleted(contestID uuid.UUID, updatedBy string) error
 }
 
@@ -22,21 +22,17 @@ func NewNatsService() NatsService {
 	return &natsService{}
 }
 
-func (s *natsService) PublishSquareUpdate(contestID uuid.UUID, updatedBy string, squareID uuid.UUID, value string) error {
-	updateMessage := model.NewSquareUpdateMessage(contestID, updatedBy, &model.SquareWSUpdate{
-		SquareID: squareID,
-		Value:    value,
-	})
-
+func (s *natsService) PublishSquareUpdate(contestID uuid.UUID, updatedBy string, square *model.Square) error {
+	updateMessage := model.NewSquareUpdateMessage(contestID, updatedBy, square)
 	return s.publishToContestSubject(contestID, updateMessage)
 }
 
-func (s *natsService) PublishContestUpdate(contestID uuid.UUID, updatedBy string, contestUpdate *model.ContestWSUpdate) error {
-	updateMessage := model.NewContestUpdateMessage(contestID, updatedBy, contestUpdate)
+func (s *natsService) PublishContestUpdate(contestID uuid.UUID, updatedBy string, contest *model.Contest) error {
+	updateMessage := model.NewContestUpdateMessage(contestID, updatedBy, contest)
 	return s.publishToContestSubject(contestID, updateMessage)
 }
 
-func (s *natsService) PublishQuarterResult(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResultWSUpdate) error {
+func (s *natsService) PublishQuarterResult(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult) error {
 	updateMessage := model.NewQuarterResultUpdateMessage(contestID, updatedBy, quarterResult)
 	return s.publishToContestSubject(contestID, updateMessage)
 }
@@ -47,11 +43,20 @@ func (s *natsService) PublishContestDeleted(contestID uuid.UUID, updatedBy strin
 }
 
 func (s *natsService) publishToContestSubject(contestID uuid.UUID, message any) error {
-	subject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID)
+	subject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
 	jsonData, err := json.Marshal(message)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	return config.NATS().Publish(subject, jsonData)
+	natsConn := config.NATS()
+	if natsConn == nil || !natsConn.IsConnected() {
+		return fmt.Errorf("NATS connection is not available")
+	}
+
+	if err := natsConn.Publish(subject, jsonData); err != nil {
+		return fmt.Errorf("failed to publish to NATS subject %s: %w", subject, err)
+	}
+
+	return nil
 }

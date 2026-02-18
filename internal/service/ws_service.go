@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	pingInterval     = 30 * time.Second
-	pongTimeout      = 60 * time.Second
-	writeDeadline    = 10 * time.Second
-	jwtCheckInterval = 5 * time.Minute
+	pingInterval      = 30 * time.Second
+	pongTimeout       = 60 * time.Second
+	writeDeadline     = 10 * time.Second
+	jwtCheckInterval  = 5 * time.Minute
+	natsCheckInterval = 10 * time.Second
 )
 
 type WebSocketService interface {
@@ -41,14 +42,22 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	ctx = context.WithValue(ctx, model.ConnectionIDKey, connectionID)
 
 	// send initial connected message
-	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID)); err != nil {
+	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(connectionID)); err != nil {
 		log.Error("failed to send connected message", "error", err)
 	}
 
 	// subscribe to NATS subject for contest updates
 	log.Info("subscribing to NATS subject")
-	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID)
-	sub, err := config.NATS().Subscribe(contestSubject, func(msg *nats.Msg) {
+	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
+
+	natsConn := config.NATS()
+	if natsConn == nil || !natsConn.IsConnected() {
+		log.Error("NATS connection not available")
+		_ = conn.Close()
+		return
+	}
+
+	sub, err := natsConn.Subscribe(contestSubject, func(msg *nats.Msg) {
 		// This callback is not used; we'll use the channel below
 	})
 	if err != nil {
@@ -71,8 +80,14 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	sub, err = config.NATS().ChanSubscribe(contestSubject, natsChan)
 	if err != nil {
 		log.Error("failed to create channel subscription", "error", err)
+		_ = conn.Close()
 		return
 	}
+	defer func() {
+		if err := sub.Unsubscribe(); err != nil {
+			log.Error("failed to unsubscribe from channel subscription", "error", err)
+		}
+	}()
 
 	// setup ping/pong to keep connection alive
 	pingChecker := time.NewTicker(pingInterval)
@@ -89,9 +104,13 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	jwtChecker := time.NewTicker(jwtCheckInterval)
 	defer jwtChecker.Stop()
 
+	// setup NATS connection checker
+	natsChecker := time.NewTicker(natsCheckInterval)
+	defer natsChecker.Stop()
+
 	// start message handlers
 	go s.handleIncomingMessages(conn)
-	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, contestID, connectionID, natsChan, log)
+	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, natsChecker, connectionID, natsChan, log, sub)
 }
 
 // ignore incoming messages
@@ -110,10 +129,11 @@ func (s *websocketService) handleOutgoingMessages(
 	conn *websocket.Conn,
 	pingChecker *time.Ticker,
 	jwtChecker *time.Ticker,
-	contestID uuid.UUID,
+	natsChecker *time.Ticker,
 	connectionID uuid.UUID,
 	natsChan <-chan *nats.Msg,
 	log *slog.Logger,
+	sub *nats.Subscription,
 ) {
 	for {
 		select {
@@ -121,7 +141,7 @@ func (s *websocketService) handleOutgoingMessages(
 		case msg, ok := <-natsChan:
 			if !ok {
 				log.Warn("NATS channel closed, closing websocket connection")
-				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(connectionID)); err != nil {
 					log.Error("failed to send disconnected message", "error", err)
 				}
 				_ = conn.Close()
@@ -151,12 +171,25 @@ func (s *websocketService) handleOutgoingMessages(
 		case <-jwtChecker.C:
 			if shouldCloseConnection(ctx, log) {
 				log.Warn("closing connection due to token validation failure")
-				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(connectionID)); err != nil {
 					log.Error("failed to send disconnected message", "error", err)
 				}
 				_ = conn.Close()
 				return
 			}
+
+		// check NATS connection periodically
+		case <-natsChecker.C:
+			natsConn := config.NATS()
+			if natsConn == nil || !natsConn.IsConnected() || !sub.IsValid() {
+				log.Warn("NATS connection lost, closing websocket")
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(connectionID)); err != nil {
+					log.Error("failed to send disconnected message", "error", err)
+				}
+				_ = conn.Close()
+				return
+			}
+
 		// handle client disconnection
 		case <-ctx.Done():
 			log.Info("websocket client disconnected")
@@ -180,15 +213,7 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 		return err
 	}
 
-	log.Info("sent websocket message",
-		"ws_type", data.Type,
-		"ws_contest_id", data.ContestID,
-		"ws_updated_by", data.UpdatedBy,
-		"ws_timestamp", data.Timestamp,
-		"ws_square", data.Square,
-		"ws_contest", data.Contest,
-		"ws_quarter_result", data.QuarterResult,
-	)
+	log.Info("sent websocket message", "ws_type", data.Type)
 	return nil
 }
 
