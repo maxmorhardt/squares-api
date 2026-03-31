@@ -83,14 +83,14 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Warn("contest not found, closing websocket")
-			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4404, "Contest not found"))
-			conn.Close()
+			_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4404, "Contest not found"))
+			_ = conn.Close()
 			return
 		}
 
 		log.Warn("failed to validate websocket request", "error", err)
-		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4500, "Failed to get contest"))
-		conn.Close()
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4500, "Failed to get contest"))
+		_ = conn.Close()
 		return
 	}
 
@@ -101,8 +101,8 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	natsConn := config.NATS()
 	if natsConn == nil || !natsConn.IsConnected() {
 		log.Error("NATS connection not available, rejecting websocket")
-		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4503, "Real-time updates unavailable"))
-		conn.Close()
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4503, "Real-time updates unavailable"))
+		_ = conn.Close()
 		return
 	}
 
