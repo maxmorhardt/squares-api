@@ -178,7 +178,12 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 
 	// publish update to websocket clients
 	go func() {
-		if err := s.natsService.PublishContestUpdate(contest.ID, user, contest); err != nil {
+		// create a lightweight copy of the contest to avoid sending large preloaded relations
+		wsContest := *contest
+		wsContest.Squares = nil
+		wsContest.QuarterResults = nil
+
+		if err := s.natsService.PublishContestUpdate(contest.ID, user, &wsContest); err != nil {
 			log.Error("failed to publish contest update", "contest_id", contest.ID, "error", err)
 		}
 	}()
