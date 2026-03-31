@@ -40,9 +40,9 @@ func TestContest_FullLifecycle(t *testing.T) {
 	})
 
 	t.Run("2_GetContestByOwnerAndName", func(t *testing.T) {
-		contest, status := getContestByOwnerAndName(router, oidcUser, name)
+		contest, status := getContestByOwnerAndName(router, oidcUser, name, authToken)
 
-		assert.Equal(t, status, http.StatusOK)
+		assert.Equal(t, http.StatusOK, status)
 		assert.Equal(t, name, contest.Name)
 	})
 
@@ -79,7 +79,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 	})
 
 	t.Run("5_FillAllSquares", func(t *testing.T) {
-		contest, _ := getContestByOwnerAndName(router, oidcUser, name)
+		contest, _ := getContestByOwnerAndName(router, oidcUser, name, authToken)
 		require.Len(t, contest.Squares, 100)
 
 		for i, square := range contest.Squares {
@@ -93,7 +93,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 			assert.Equal(t, status, http.StatusOK)
 		}
 
-		contest, _ = getContestByOwnerAndName(router, oidcUser, name)
+		contest, _ = getContestByOwnerAndName(router, oidcUser, name, authToken)
 		for _, square := range contest.Squares {
 			assert.NotEmpty(t, square.Value, "Square at row=%d, col=%d should have a value", square.Row, square.Col)
 			assert.NotEmpty(t, square.Owner, "Square at row=%d, col=%d should have an owner", square.Row, square.Col)
@@ -117,15 +117,15 @@ func TestContest_FullLifecycle(t *testing.T) {
 		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 28, AwayTeamScore: 24})
 		assert.Equal(t, status, http.StatusOK)
 
-		contest, _ = getContestByOwnerAndName(router, oidcUser, name)
+		contest, _ = getContestByOwnerAndName(router, oidcUser, name, authToken)
 		assert.Equal(t, model.ContestStatusFinished, contest.Status)
 		assert.Len(t, contest.QuarterResults, 4)
 	})
 
 	t.Run("7_DeleteContest", func(t *testing.T) {
 		deleteContest(router, contestID, authToken)
-		_, status := getContestByOwnerAndName(router, oidcUser, name)
-		assert.Equal(t, status, http.StatusNotFound)
+		_, status := getContestByOwnerAndName(router, oidcUser, name, authToken)
+		assert.Equal(t, http.StatusNotFound, status)
 	})
 }
 
@@ -312,7 +312,7 @@ func TestUpdateSquare_Validation(t *testing.T) {
 	require.Equal(t, http.StatusOK, status)
 	require.NotEqual(t, uuid.Nil, contest.ID)
 
-	contest, status = getContestByOwnerAndName(router, oidcUser, contestName)
+	contest, status = getContestByOwnerAndName(router, oidcUser, contestName, authToken)
 	require.Equal(t, http.StatusOK, status)
 	require.Len(t, contest.Squares, 100)
 
@@ -438,7 +438,7 @@ func TestQuarterResult_Validation(t *testing.T) {
 		require.Equal(t, http.StatusOK, status)
 		require.NotEqual(t, uuid.Nil, contest.ID)
 
-		contest, status = getContestByOwnerAndName(router, oidcUser, name)
+		contest, status = getContestByOwnerAndName(router, oidcUser, name, authToken)
 		require.Equal(t, http.StatusOK, status)
 		require.Len(t, contest.Squares, 100)
 
@@ -597,8 +597,9 @@ func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awa
 	return &contest, w.Code
 }
 
-func getContestByOwnerAndName(router http.Handler, owner, name string) (*model.Contest, int) {
+func getContestByOwnerAndName(router http.Handler, owner, name, authToken string) (*model.Contest, int) {
 	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/owner/%s/name/%s", owner, name), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
