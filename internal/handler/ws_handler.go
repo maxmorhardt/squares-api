@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/service"
@@ -86,10 +87,18 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log = log.With("contest_id", contest.ID)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
-	// reject connection for finished or deleted contests
-	if contest.Status == model.ContestStatusFinished || contest.Status == model.ContestStatusDeleted {
+	// reject connection for deleted contests
+	if contest.Status == model.ContestStatusDeleted {
 		log.Warn("websocket connection rejected for contest status", "status", contest.Status)
-		c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusBadRequest, "Cannot connect to contest in FINISHED or DELETED state", c))
+		c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusBadRequest, "Cannot connect to contest in DELETED state", c))
+		return
+	}
+
+	// verify NATS is available before upgrading
+	natsConn := config.NATS()
+	if natsConn == nil || !natsConn.IsConnected() {
+		log.Error("NATS connection not available, rejecting websocket upgrade")
+		c.JSON(http.StatusServiceUnavailable, model.NewAPIError(http.StatusServiceUnavailable, "Real-time updates unavailable", c))
 		return
 	}
 

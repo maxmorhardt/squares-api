@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ const (
 	writeDeadline     = 10 * time.Second
 	jwtCheckInterval  = 5 * time.Minute
 	natsCheckInterval = 10 * time.Second
+	maxChatMessageLen = 255
 )
 
 type WebSocketService interface {
@@ -41,25 +43,13 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	log = log.With("connection_id", connectionID)
 	ctx = context.WithValue(ctx, model.ConnectionIDKey, connectionID)
 
-	// send initial connected message
-	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(connectionID)); err != nil {
-		log.Error("failed to send connected message", "error", err)
-	}
-
-	// subscribe to NATS subject for contest updates
+	// subscribe to NATS subject for contest updates before notifying client
 	log.Info("subscribing to NATS subject")
 	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
 
+	natsChan := make(chan *nats.Msg, 64)
 	natsConn := config.NATS()
-	if natsConn == nil || !natsConn.IsConnected() {
-		log.Error("NATS connection not available")
-		_ = conn.Close()
-		return
-	}
-
-	sub, err := natsConn.Subscribe(contestSubject, func(msg *nats.Msg) {
-		// This callback is not used; we'll use the channel below
-	})
+	sub, err := natsConn.ChanSubscribe(contestSubject, natsChan)
 	if err != nil {
 		log.Error("failed to subscribe to NATS", "error", err)
 		return
@@ -71,23 +61,11 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 		}
 	}()
 
-	natsChan := make(chan *nats.Msg, 64)
-	if err := sub.Unsubscribe(); err != nil {
-		log.Error("failed to unsubscribe from callback subscription", "error", err)
+	// send connected message only after NATS subscription is established
+	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(connectionID)); err != nil {
+		log.Error("failed to send connected message", "error", err)
 		return
 	}
-
-	sub, err = config.NATS().ChanSubscribe(contestSubject, natsChan)
-	if err != nil {
-		log.Error("failed to create channel subscription", "error", err)
-		_ = conn.Close()
-		return
-	}
-	defer func() {
-		if err := sub.Unsubscribe(); err != nil {
-			log.Error("failed to unsubscribe from channel subscription", "error", err)
-		}
-	}()
 
 	// setup ping/pong to keep connection alive
 	pingChecker := time.NewTicker(pingInterval)
@@ -109,18 +87,60 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	defer natsChecker.Stop()
 
 	// start message handlers
-	go s.handleIncomingMessages(conn)
+	go s.handleIncomingMessages(ctx, conn, contestID, log)
 	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, natsChecker, connectionID, natsChan, log, sub)
 }
 
-// ignore incoming messages
-func (s *websocketService) handleIncomingMessages(conn *websocket.Conn) {
+// handle incoming messages from websocket client
+func (s *websocketService) handleIncomingMessages(ctx context.Context, conn *websocket.Conn, contestID uuid.UUID, log *slog.Logger) {
 	for {
-		_, _, err := conn.ReadMessage()
+		_, rawMsg, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}
+
+		var chatMsg model.WSChatMessage
+		if err := json.Unmarshal(rawMsg, &chatMsg); err != nil {
+			log.Warn("failed to unmarshal incoming ws message", "error", err)
+			continue
+		}
+
+		s.handleChatMessage(ctx, contestID, chatMsg.Message, log)
 	}
+}
+
+func (s *websocketService) handleChatMessage(ctx context.Context, contestID uuid.UUID, message string, log *slog.Logger) {
+	message = strings.TrimSpace(message)
+	if message == "" || len(message) > maxChatMessageLen {
+		return
+	}
+
+	claims, ok := ctx.Value(model.ClaimsKey).(*model.Claims)
+	if !ok || claims == nil {
+		log.Warn("no claims in context for chat message")
+		return
+	}
+
+	chatMsg := model.NewChatMessage(contestID, claims.Username, message)
+	jsonData, err := json.Marshal(chatMsg)
+	if err != nil {
+		log.Error("failed to marshal chat message", "error", err)
+		return
+	}
+
+	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
+	natsConn := config.NATS()
+	if natsConn == nil || !natsConn.IsConnected() {
+		log.Warn("NATS not available for chat message")
+		return
+	}
+
+	if err := natsConn.Publish(contestSubject, jsonData); err != nil {
+		log.Error("failed to publish chat message to NATS", "error", err)
+		return
+	}
+
+	log.Info("chat message sent", "sender", claims.Username, "message", message)
 }
 
 // main event loop

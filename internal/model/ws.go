@@ -11,10 +11,15 @@ const (
 	ContestUpdateType       string = "contest_update"
 	QuarterResultUpdateType string = "quarter_result_update"
 	ContestDeletedType      string = "contest_deleted"
+	ChatMessageType         string = "chat_message"
 	ConnectedType           string = "connected"
 	DisconnectType          string = "disconnected"
 	ContestChannelPrefix    string = "contest"
 )
+
+type WSChatMessage struct {
+	Message string `json:"message"`
+}
 
 type WSUpdate struct {
 	Type          string         `json:"type"`
@@ -25,6 +30,7 @@ type WSUpdate struct {
 	Square        *Square        `json:"square,omitempty"`
 	Contest       *Contest       `json:"contest,omitempty"`
 	QuarterResult *QuarterResult `json:"quarterResult,omitempty"`
+	Message       string         `json:"message,omitempty"`
 }
 
 func NewConnectedMessage(connectionID uuid.UUID) *WSUpdate {
@@ -81,5 +87,15 @@ func NewContestDeletedMessage(contestId uuid.UUID, updatedBy string) *WSUpdate {
 		ContestID: contestId,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
+	}
+}
+
+func NewChatMessage(contestId uuid.UUID, sender string, message string) *WSUpdate {
+	return &WSUpdate{
+		Type:      ChatMessageType,
+		ContestID: contestId,
+		UpdatedBy: sender,
+		Timestamp: time.Now(),
+		Message:   message,
 	}
 }
