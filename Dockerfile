@@ -14,7 +14,8 @@ RUN addgroup -g 1000 squares && \
 
 COPY --chown=squares:squares squares-api .
 
-RUN apk add --no-cache ca-certificates && \
+RUN apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates && \
     chmod +x squares-api
 
 USER squares
