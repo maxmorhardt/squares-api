@@ -62,7 +62,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	}()
 
 	// send connected message only after NATS subscription is established
-	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(connectionID)); err != nil {
+	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID)); err != nil {
 		log.Error("failed to send connected message", "error", err)
 		return
 	}
@@ -70,6 +70,9 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	// setup ping/pong to keep connection alive
 	pingChecker := time.NewTicker(pingInterval)
 	defer pingChecker.Stop()
+
+	// set read limit to prevent oversized frames
+	conn.SetReadLimit(1024)
 
 	// set read deadline and pong handler
 	_ = conn.SetReadDeadline(time.Now().Add(pongTimeout))
@@ -88,7 +91,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 
 	// start message handlers
 	go s.handleIncomingMessages(ctx, conn, contestID, log)
-	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, natsChecker, connectionID, natsChan, log, sub)
+	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, natsChecker, contestID, connectionID, natsChan, log, sub)
 }
 
 // handle incoming messages from websocket client
@@ -150,6 +153,7 @@ func (s *websocketService) handleOutgoingMessages(
 	pingChecker *time.Ticker,
 	jwtChecker *time.Ticker,
 	natsChecker *time.Ticker,
+	contestID uuid.UUID,
 	connectionID uuid.UUID,
 	natsChan <-chan *nats.Msg,
 	log *slog.Logger,
@@ -161,7 +165,7 @@ func (s *websocketService) handleOutgoingMessages(
 		case msg, ok := <-natsChan:
 			if !ok {
 				log.Warn("NATS channel closed, closing websocket connection")
-				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(connectionID)); err != nil {
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
 					log.Error("failed to send disconnected message", "error", err)
 				}
 				_ = conn.Close()
@@ -191,7 +195,7 @@ func (s *websocketService) handleOutgoingMessages(
 		case <-jwtChecker.C:
 			if shouldCloseConnection(ctx, log) {
 				log.Warn("closing connection due to token validation failure")
-				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(connectionID)); err != nil {
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
 					log.Error("failed to send disconnected message", "error", err)
 				}
 				_ = conn.Close()
@@ -203,7 +207,7 @@ func (s *websocketService) handleOutgoingMessages(
 			natsConn := config.NATS()
 			if natsConn == nil || !natsConn.IsConnected() || !sub.IsValid() {
 				log.Warn("NATS connection lost, closing websocket")
-				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(connectionID)); err != nil {
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
 					log.Error("failed to send disconnected message", "error", err)
 				}
 				_ = conn.Close()

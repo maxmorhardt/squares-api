@@ -87,13 +87,6 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log = log.With("contest_id", contest.ID)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
-	// reject connection for deleted contests
-	if contest.Status == model.ContestStatusDeleted {
-		log.Warn("websocket connection rejected for contest status", "status", contest.Status)
-		c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusBadRequest, "Cannot connect to contest in DELETED state", c))
-		return
-	}
-
 	// verify NATS is available before upgrading
 	natsConn := config.NATS()
 	if natsConn == nil || !natsConn.IsConnected() {

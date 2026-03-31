@@ -33,18 +33,20 @@ type WSUpdate struct {
 	Message       string         `json:"message,omitempty"`
 }
 
-func NewConnectedMessage(connectionID uuid.UUID) *WSUpdate {
+func NewConnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
 		Type:         ConnectedType,
+		ContestID:    contestID,
 		ConnectionID: connectionID,
 		UpdatedBy:    "system",
 		Timestamp:    time.Now(),
 	}
 }
 
-func NewDisconnectedMessage(connectionID uuid.UUID) *WSUpdate {
+func NewDisconnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
 		Type:         DisconnectType,
+		ContestID:    contestID,
 		ConnectionID: connectionID,
 		UpdatedBy:    "system",
 		Timestamp:    time.Now(),
