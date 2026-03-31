@@ -47,7 +47,7 @@ func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo 
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /ws/contests/{owner}/{name} [get]
+// @Router /ws/contests/owner/{owner}/name/{name} [get]
 func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
