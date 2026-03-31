@@ -71,16 +71,26 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	responseHeader := http.Header{}
 	responseHeader.Set("Sec-WebSocket-Protocol", token)
 
+	// upgrade http connection to websocket
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, responseHeader)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to upgrade connection", c))
+		return
+	}
+
 	// validate contest exists and check status
 	contest, err := h.contestRepo.GetByOwnerAndName(c.Request.Context(), owner, name)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, "Contest not found", c))
+			log.Warn("contest not found, closing websocket")
+			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4404, "Contest not found"))
+			conn.Close()
 			return
 		}
 
 		log.Warn("failed to validate websocket request", "error", err)
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
+		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4500, "Failed to get contest"))
+		conn.Close()
 		return
 	}
 
@@ -90,15 +100,9 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	// verify NATS is available before upgrading
 	natsConn := config.NATS()
 	if natsConn == nil || !natsConn.IsConnected() {
-		log.Error("NATS connection not available, rejecting websocket upgrade")
-		c.JSON(http.StatusServiceUnavailable, model.NewAPIError(http.StatusServiceUnavailable, "Real-time updates unavailable", c))
-		return
-	}
-
-	// upgrade http connection to websocket
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, responseHeader)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to upgrade connection", c))
+		log.Error("NATS connection not available, rejecting websocket")
+		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4503, "Real-time updates unavailable"))
+		conn.Close()
 		return
 	}
 
