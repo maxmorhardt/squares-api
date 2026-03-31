@@ -60,7 +60,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	}
 
 	name := c.Param("name")
-	if owner == "" {
+	if name == "" {
 		log.Warn("contest name not provided")
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Name is required", c))
 		return
