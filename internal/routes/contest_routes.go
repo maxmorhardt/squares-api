@@ -7,7 +7,7 @@ import (
 )
 
 func RegisterContestRoutes(rg *gin.RouterGroup, h handler.ContestHandler) {
-	rg.GET("/owner/:owner/name/:name", h.GetContestByOwnerAndName)
+	rg.GET("/owner/:owner/name/:name", middleware.AuthMiddleware(), h.GetContestByOwnerAndName)
 	rg.GET("/owner/:owner", middleware.AuthMiddleware(), h.GetContestsByOwner)
 
 	rg.PUT("", middleware.AuthMiddleware(), h.CreateContest)
