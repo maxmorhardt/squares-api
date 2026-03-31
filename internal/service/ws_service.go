@@ -49,11 +49,18 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 
 	natsChan := make(chan *nats.Msg, 64)
 	natsConn := config.NATS()
+	if natsConn == nil || !natsConn.IsConnected() {
+		log.Error("NATS connection not available")
+		_ = conn.Close()
+		return
+	}
+
 	sub, err := natsConn.ChanSubscribe(contestSubject, natsChan)
 	if err != nil {
 		log.Error("failed to subscribe to NATS", "error", err)
 		return
 	}
+	
 	defer func() {
 		log.Info("closing NATS subscription")
 		if err := sub.Unsubscribe(); err != nil {
@@ -115,6 +122,11 @@ func (s *websocketService) handleIncomingMessages(ctx context.Context, conn *web
 func (s *websocketService) handleChatMessage(ctx context.Context, contestID uuid.UUID, message string, log *slog.Logger) {
 	message = strings.TrimSpace(message)
 	if message == "" || len(message) > maxChatMessageLen {
+		return
+	}
+
+	if !util.IsSafeString(message) {
+		log.Warn("chat message contains unsafe characters")
 		return
 	}
 

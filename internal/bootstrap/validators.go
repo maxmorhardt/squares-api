@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
 func setupValidators() {
@@ -31,6 +32,5 @@ func validateSafeString(fl validator.FieldLevel) bool {
 		return true
 	}
 
-	dangerousChars := regexp.MustCompile(`[<>{}[\]\\|` + "`" + `]`)
-	return !dangerousChars.MatchString(str)
+	return util.IsSafeString(str)
 }

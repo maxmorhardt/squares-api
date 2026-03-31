@@ -53,49 +53,49 @@ func NewDisconnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpda
 	}
 }
 
-func NewSquareUpdateMessage(contestId uuid.UUID, updatedBy string, square *Square) *WSUpdate {
+func NewSquareUpdateMessage(contestID uuid.UUID, updatedBy string, square *Square) *WSUpdate {
 	return &WSUpdate{
 		Type:      SquareUpdateType,
-		ContestID: contestId,
+		ContestID: contestID,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
 		Square:    square,
 	}
 }
 
-func NewQuarterResultUpdateMessage(contestId uuid.UUID, updatedBy string, quarterResult *QuarterResult) *WSUpdate {
+func NewQuarterResultUpdateMessage(contestID uuid.UUID, updatedBy string, quarterResult *QuarterResult) *WSUpdate {
 	return &WSUpdate{
 		Type:          QuarterResultUpdateType,
-		ContestID:     contestId,
+		ContestID:     contestID,
 		UpdatedBy:     updatedBy,
 		Timestamp:     time.Now(),
 		QuarterResult: quarterResult,
 	}
 }
 
-func NewContestUpdateMessage(contestId uuid.UUID, updatedBy string, contest *Contest) *WSUpdate {
+func NewContestUpdateMessage(contestID uuid.UUID, updatedBy string, contest *Contest) *WSUpdate {
 	return &WSUpdate{
 		Type:      ContestUpdateType,
-		ContestID: contestId,
+		ContestID: contestID,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
 		Contest:   contest,
 	}
 }
 
-func NewContestDeletedMessage(contestId uuid.UUID, updatedBy string) *WSUpdate {
+func NewContestDeletedMessage(contestID uuid.UUID, updatedBy string) *WSUpdate {
 	return &WSUpdate{
 		Type:      ContestDeletedType,
-		ContestID: contestId,
+		ContestID: contestID,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
 	}
 }
 
-func NewChatMessage(contestId uuid.UUID, sender string, message string) *WSUpdate {
+func NewChatMessage(contestID uuid.UUID, sender string, message string) *WSUpdate {
 	return &WSUpdate{
 		Type:      ChatMessageType,
-		ContestID: contestId,
+		ContestID: contestID,
 		UpdatedBy: sender,
 		Timestamp: time.Now(),
 		Message:   message,
