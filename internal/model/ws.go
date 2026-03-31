@@ -11,101 +11,93 @@ const (
 	ContestUpdateType       string = "contest_update"
 	QuarterResultUpdateType string = "quarter_result_update"
 	ContestDeletedType      string = "contest_deleted"
+	ChatMessageType         string = "chat_message"
 	ConnectedType           string = "connected"
 	DisconnectType          string = "disconnected"
 	ContestChannelPrefix    string = "contest"
 )
 
+type WSChatMessage struct {
+	Message string `json:"message"`
+}
+
 type WSUpdate struct {
-	Type          string                 `json:"type"`
-	ContestID     uuid.UUID              `json:"contestId"`
-	ConnectionID  uuid.UUID              `json:"connectionId,omitempty"`
-	UpdatedBy     string                 `json:"updatedBy"`
-	Timestamp     time.Time              `json:"timestamp"`
-	Square        *SquareWSUpdate        `json:"square,omitempty"`
-	Contest       *ContestWSUpdate       `json:"contest,omitempty"`
-	QuarterResult *QuarterResultWSUpdate `json:"quarterResult,omitempty"`
+	Type          string         `json:"type"`
+	ContestID     uuid.UUID      `json:"contestId"`
+	ConnectionID  uuid.UUID      `json:"connectionId,omitempty"`
+	UpdatedBy     string         `json:"updatedBy"`
+	Timestamp     time.Time      `json:"timestamp"`
+	Square        *Square        `json:"square,omitempty"`
+	Contest       *Contest       `json:"contest,omitempty"`
+	QuarterResult *QuarterResult `json:"quarterResult,omitempty"`
+	Message       string         `json:"message,omitempty"`
 }
 
-type SquareWSUpdate struct {
-	SquareID uuid.UUID `json:"squareId"`
-	Value    string    `json:"value"`
-}
-
-type ContestWSUpdate struct {
-	HomeTeam string        `json:"homeTeam,omitempty"`
-	AwayTeam string        `json:"awayTeam,omitempty"`
-	XLabels  []int8        `json:"xLabels,omitempty"`
-	YLabels  []int8        `json:"yLabels,omitempty"`
-	Status   ContestStatus `json:"status,omitempty"`
-}
-
-type QuarterResultWSUpdate struct {
-	Quarter         int           `json:"quarter"`
-	HomeTeamScore   int           `json:"homeTeamScore"`
-	AwayTeamScore   int           `json:"awayTeamScore"`
-	WinnerRow       int           `json:"winnerRow"`
-	WinnerCol       int           `json:"winnerCol"`
-	Winner          string        `json:"winner"`
-	WinnerName      string        `json:"winnerName"`
-	Status          ContestStatus `json:"status"`
-}
-
-func NewConnectedMessage(contestId uuid.UUID, connectionID uuid.UUID) *WSUpdate {
+func NewConnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
 		Type:         ConnectedType,
-		ContestID:    contestId,
+		ContestID:    contestID,
 		ConnectionID: connectionID,
 		UpdatedBy:    "system",
 		Timestamp:    time.Now(),
 	}
 }
 
-func NewDisconnectedMessage(contestId uuid.UUID, connectionID uuid.UUID) *WSUpdate {
+func NewDisconnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
 		Type:         DisconnectType,
-		ContestID:    contestId,
+		ContestID:    contestID,
 		ConnectionID: connectionID,
 		UpdatedBy:    "system",
 		Timestamp:    time.Now(),
 	}
 }
 
-func NewSquareUpdateMessage(contestId uuid.UUID, updatedBy string, squareUpdate *SquareWSUpdate) *WSUpdate {
+func NewSquareUpdateMessage(contestID uuid.UUID, updatedBy string, square *Square) *WSUpdate {
 	return &WSUpdate{
 		Type:      SquareUpdateType,
-		ContestID: contestId,
+		ContestID: contestID,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
-		Square:    squareUpdate,
+		Square:    square,
 	}
 }
 
-func NewQuarterResultUpdateMessage(contestId uuid.UUID, updatedBy string, quarterResultUpdate *QuarterResultWSUpdate) *WSUpdate {
+func NewQuarterResultUpdateMessage(contestID uuid.UUID, updatedBy string, quarterResult *QuarterResult) *WSUpdate {
 	return &WSUpdate{
 		Type:          QuarterResultUpdateType,
-		ContestID:     contestId,
+		ContestID:     contestID,
 		UpdatedBy:     updatedBy,
 		Timestamp:     time.Now(),
-		QuarterResult: quarterResultUpdate,
+		QuarterResult: quarterResult,
 	}
 }
 
-func NewContestUpdateMessage(contestId uuid.UUID, updatedBy string, contestUpdate *ContestWSUpdate) *WSUpdate {
+func NewContestUpdateMessage(contestID uuid.UUID, updatedBy string, contest *Contest) *WSUpdate {
 	return &WSUpdate{
 		Type:      ContestUpdateType,
-		ContestID: contestId,
+		ContestID: contestID,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
-		Contest:   contestUpdate,
+		Contest:   contest,
 	}
 }
 
-func NewContestDeletedMessage(contestId uuid.UUID, updatedBy string) *WSUpdate {
+func NewContestDeletedMessage(contestID uuid.UUID, updatedBy string) *WSUpdate {
 	return &WSUpdate{
 		Type:      ContestDeletedType,
-		ContestID: contestId,
+		ContestID: contestID,
 		UpdatedBy: updatedBy,
 		Timestamp: time.Now(),
+	}
+}
+
+func NewChatMessage(contestID uuid.UUID, sender string, message string) *WSUpdate {
+	return &WSUpdate{
+		Type:      ChatMessageType,
+		ContestID: contestID,
+		UpdatedBy: sender,
+		Timestamp: time.Now(),
+		Message:   message,
 	}
 }

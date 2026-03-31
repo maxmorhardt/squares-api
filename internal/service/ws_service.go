@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,10 +17,12 @@ import (
 )
 
 const (
-	pingInterval     = 30 * time.Second
-	pongTimeout      = 60 * time.Second
-	writeDeadline    = 10 * time.Second
-	jwtCheckInterval = 5 * time.Minute
+	pingInterval      = 30 * time.Second
+	pongTimeout       = 60 * time.Second
+	writeDeadline     = 10 * time.Second
+	jwtCheckInterval  = 5 * time.Minute
+	natsCheckInterval = 10 * time.Second
+	maxChatMessageLen = 255
 )
 
 type WebSocketService interface {
@@ -40,21 +43,24 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	log = log.With("connection_id", connectionID)
 	ctx = context.WithValue(ctx, model.ConnectionIDKey, connectionID)
 
-	// send initial connected message
-	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID)); err != nil {
-		log.Error("failed to send connected message", "error", err)
+	// subscribe to NATS subject for contest updates before notifying client
+	log.Info("subscribing to NATS subject")
+	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
+
+	natsChan := make(chan *nats.Msg, 64)
+	natsConn := config.NATS()
+	if natsConn == nil || !natsConn.IsConnected() {
+		log.Error("NATS connection not available")
+		_ = conn.Close()
+		return
 	}
 
-	// subscribe to NATS subject for contest updates
-	log.Info("subscribing to NATS subject")
-	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID)
-	sub, err := config.NATS().Subscribe(contestSubject, func(msg *nats.Msg) {
-		// This callback is not used; we'll use the channel below
-	})
+	sub, err := natsConn.ChanSubscribe(contestSubject, natsChan)
 	if err != nil {
 		log.Error("failed to subscribe to NATS", "error", err)
 		return
 	}
+	
 	defer func() {
 		log.Info("closing NATS subscription")
 		if err := sub.Unsubscribe(); err != nil {
@@ -62,21 +68,18 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 		}
 	}()
 
-	natsChan := make(chan *nats.Msg, 64)
-	if err := sub.Unsubscribe(); err != nil {
-		log.Error("failed to unsubscribe from callback subscription", "error", err)
-		return
-	}
-
-	sub, err = config.NATS().ChanSubscribe(contestSubject, natsChan)
-	if err != nil {
-		log.Error("failed to create channel subscription", "error", err)
+	// send connected message only after NATS subscription is established
+	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID)); err != nil {
+		log.Error("failed to send connected message", "error", err)
 		return
 	}
 
 	// setup ping/pong to keep connection alive
 	pingChecker := time.NewTicker(pingInterval)
 	defer pingChecker.Stop()
+
+	// set read limit to prevent oversized frames
+	conn.SetReadLimit(1024)
 
 	// set read deadline and pong handler
 	_ = conn.SetReadDeadline(time.Now().Add(pongTimeout))
@@ -89,19 +92,70 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	jwtChecker := time.NewTicker(jwtCheckInterval)
 	defer jwtChecker.Stop()
 
+	// setup NATS connection checker
+	natsChecker := time.NewTicker(natsCheckInterval)
+	defer natsChecker.Stop()
+
 	// start message handlers
-	go s.handleIncomingMessages(conn)
-	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, contestID, connectionID, natsChan, log)
+	go s.handleIncomingMessages(ctx, conn, contestID, log)
+	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, natsChecker, contestID, connectionID, natsChan, log, sub)
 }
 
-// ignore incoming messages
-func (s *websocketService) handleIncomingMessages(conn *websocket.Conn) {
+// handle incoming messages from websocket client
+func (s *websocketService) handleIncomingMessages(ctx context.Context, conn *websocket.Conn, contestID uuid.UUID, log *slog.Logger) {
 	for {
-		_, _, err := conn.ReadMessage()
+		_, rawMsg, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}
+
+		var chatMsg model.WSChatMessage
+		if err := json.Unmarshal(rawMsg, &chatMsg); err != nil {
+			log.Warn("failed to unmarshal incoming ws message", "error", err)
+			continue
+		}
+
+		s.handleChatMessage(ctx, contestID, chatMsg.Message, log)
 	}
+}
+
+func (s *websocketService) handleChatMessage(ctx context.Context, contestID uuid.UUID, message string, log *slog.Logger) {
+	message = strings.TrimSpace(message)
+	if message == "" || len(message) > maxChatMessageLen {
+		return
+	}
+
+	if !util.IsSafeString(message) {
+		log.Warn("chat message contains unsafe characters")
+		return
+	}
+
+	claims, ok := ctx.Value(model.ClaimsKey).(*model.Claims)
+	if !ok || claims == nil {
+		log.Warn("no claims in context for chat message")
+		return
+	}
+
+	chatMsg := model.NewChatMessage(contestID, claims.Username, message)
+	jsonData, err := json.Marshal(chatMsg)
+	if err != nil {
+		log.Error("failed to marshal chat message", "error", err)
+		return
+	}
+
+	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
+	natsConn := config.NATS()
+	if natsConn == nil || !natsConn.IsConnected() {
+		log.Warn("NATS not available for chat message")
+		return
+	}
+
+	if err := natsConn.Publish(contestSubject, jsonData); err != nil {
+		log.Error("failed to publish chat message to NATS", "error", err)
+		return
+	}
+
+	log.Info("chat message sent", "sender", claims.Username, "message", message)
 }
 
 // main event loop
@@ -110,10 +164,12 @@ func (s *websocketService) handleOutgoingMessages(
 	conn *websocket.Conn,
 	pingChecker *time.Ticker,
 	jwtChecker *time.Ticker,
+	natsChecker *time.Ticker,
 	contestID uuid.UUID,
 	connectionID uuid.UUID,
 	natsChan <-chan *nats.Msg,
 	log *slog.Logger,
+	sub *nats.Subscription,
 ) {
 	for {
 		select {
@@ -157,6 +213,19 @@ func (s *websocketService) handleOutgoingMessages(
 				_ = conn.Close()
 				return
 			}
+
+		// check NATS connection periodically
+		case <-natsChecker.C:
+			natsConn := config.NATS()
+			if natsConn == nil || !natsConn.IsConnected() || !sub.IsValid() {
+				log.Warn("NATS connection lost, closing websocket")
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
+					log.Error("failed to send disconnected message", "error", err)
+				}
+				_ = conn.Close()
+				return
+			}
+
 		// handle client disconnection
 		case <-ctx.Done():
 			log.Info("websocket client disconnected")
@@ -180,15 +249,7 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 		return err
 	}
 
-	log.Info("sent websocket message",
-		"ws_type", data.Type,
-		"ws_contest_id", data.ContestID,
-		"ws_updated_by", data.UpdatedBy,
-		"ws_timestamp", data.Timestamp,
-		"ws_square", data.Square,
-		"ws_contest", data.Contest,
-		"ws_quarter_result", data.QuarterResult,
-	)
+	log.Info("sent websocket message", "ws_type", data.Type)
 	return nil
 }
 

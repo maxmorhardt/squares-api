@@ -1,8 +1,15 @@
 package util
 
 import (
+	"regexp"
 	"unicode"
 )
+
+var dangerousChars = regexp.MustCompile(`[<>{}[\]\\|` + "`" + `]`)
+
+func IsSafeString(s string) bool {
+	return !dangerousChars.MatchString(s)
+}
 
 func CapitalizeFirstLetter(err error) string {
 	if err == nil {
