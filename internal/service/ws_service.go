@@ -60,7 +60,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 		log.Error("failed to subscribe to NATS", "error", err)
 		return
 	}
-	
+
 	defer func() {
 		log.Info("closing NATS subscription")
 		if err := sub.Unsubscribe(); err != nil {
@@ -178,7 +178,7 @@ func (s *websocketService) handleOutgoingMessages(
 			if !ok {
 				log.Warn("NATS channel closed, closing websocket connection")
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
-					log.Error("failed to send disconnected message", "error", err)
+					log.Info("failed to send disconnected message", "error", err)
 				}
 				_ = conn.Close()
 				return
@@ -191,7 +191,7 @@ func (s *websocketService) handleOutgoingMessages(
 			}
 
 			if err := sendWebSocketMessage(conn, log, &updateData); err != nil {
-				log.Error("failed to send NATS message to websocket client", "error", err)
+				log.Info("failed to send NATS message to websocket client", "error", err)
 			}
 
 		// send periodic ping to keep connection alive
@@ -208,7 +208,7 @@ func (s *websocketService) handleOutgoingMessages(
 			if shouldCloseConnection(ctx, log) {
 				log.Warn("closing connection due to token validation failure")
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
-					log.Error("failed to send disconnected message", "error", err)
+					log.Info("failed to send disconnected message", "error", err)
 				}
 				_ = conn.Close()
 				return
@@ -220,7 +220,7 @@ func (s *websocketService) handleOutgoingMessages(
 			if natsConn == nil || !natsConn.IsConnected() || !sub.IsValid() {
 				log.Warn("NATS connection lost, closing websocket")
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
-					log.Error("failed to send disconnected message", "error", err)
+					log.Info("failed to send disconnected message", "error", err)
 				}
 				_ = conn.Close()
 				return
@@ -245,7 +245,7 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 	// set write deadline and send message to client
 	_ = conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 	if err := conn.WriteMessage(websocket.TextMessage, jsonData); err != nil {
-		log.Error("failed to write websocket message", "error", err, "type", data.Type)
+		log.Info("failed to write websocket message", "error", err, "type", data.Type)
 		return err
 	}
 
