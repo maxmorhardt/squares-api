@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - '*'
+  pull_request:
+    branches:
+      - main
 
 jobs:
   go-ci:
@@ -20,6 +23,6 @@ jobs:
     with:
       repository: ${{ github.repository }}
       app_name: ${{ github.event.repository.name }}
-      app_version: ${{ github.ref_name }}
+      app_version: ${{ github.event_name == 'push' && github.ref_name || 'ci' }}
       artifact_name: ${{ github.event.repository.name }}
     secrets: inherit

@@ -49,11 +49,16 @@ func setupRoutes(r *gin.Engine) {
 	wsService := service.NewWebSocketService()
 	contactService := service.NewContactService(contactRepo)
 
+	statsRepo := repository.NewStatsRepository()
+	statsService := service.NewStatsService(statsRepo)
+
 	contestHandler := handler.NewContestHandler(contestService, authService)
 	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo)
 	contactHandler := handler.NewContactHandler(contactService)
+	statsHandler := handler.NewStatsHandler(statsService)
 
 	routes.RegisterRootRoutes(r.Group(""))
+	routes.RegisterStatsRoutes(r.Group("/stats"), statsHandler)
 	routes.RegisterContactRoute(r.Group("/contact"), contactHandler)
 	routes.RegisterContestRoutes(r.Group("/contests"), contestHandler)
 	routes.RegisterWebSocketRoutes(r.Group("/ws"), wsHandler)
