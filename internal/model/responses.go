@@ -17,3 +17,9 @@ type PaginatedContestResponse struct {
 type ContactResponse struct {
 	Message string `json:"message"`
 }
+
+type StatsResponse struct {
+	ContestsCreatedToday int64 `json:"contestsCreatedToday" example:"5"`
+	SquaresClaimedToday  int64 `json:"squaresClaimedToday" example:"42"`
+	TotalActiveContests  int64 `json:"totalActiveContests" example:"12"`
+}

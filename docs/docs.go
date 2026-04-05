@@ -628,7 +628,33 @@ const docTemplate = `{
                 }
             }
         },
-        "/ws/contests/{contestId}": {
+        "/stats": {
+            "get": {
+                "description": "Returns public stats including contests created today, squares claimed today, and total active contests",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stats"
+                ],
+                "summary": "Get platform stats",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.StatsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/ws/contests/owner/{owner}/name/{name}": {
             "get": {
                 "security": [
                     {
@@ -643,9 +669,15 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "format": "uuid",
-                        "description": "Contest ID to listen for updates",
-                        "name": "contestId",
+                        "description": "Contest Owner",
+                        "name": "owner",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Contest Name",
+                        "name": "name",
                         "in": "path",
                         "required": true
                     }
@@ -962,6 +994,23 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "string"
+                }
+            }
+        },
+        "model.StatsResponse": {
+            "type": "object",
+            "properties": {
+                "contestsCreatedToday": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "squaresClaimedToday": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "totalActiveContests": {
+                    "type": "integer",
+                    "example": 12
                 }
             }
         },

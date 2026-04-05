@@ -195,6 +195,18 @@ definitions:
       value:
         type: string
     type: object
+  model.StatsResponse:
+    properties:
+      contestsCreatedToday:
+        example: 5
+        type: integer
+      squaresClaimedToday:
+        example: 42
+        type: integer
+      totalActiveContests:
+        example: 12
+        type: integer
+    type: object
   model.UpdateContestRequest:
     properties:
       awayTeam:
@@ -622,15 +634,37 @@ paths:
       summary: Health check
       tags:
       - health
-  /ws/contests/{contestId}:
+  /stats:
+    get:
+      description: Returns public stats including contests created today, squares
+        claimed today, and total active contests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.StatsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      summary: Get platform stats
+      tags:
+      - stats
+  /ws/contests/owner/{owner}/name/{name}:
     get:
       description: Establishes a persistent WebSocket connection to receive real-time
         updates for a specific contest
       parameters:
-      - description: Contest ID to listen for updates
-        format: uuid
+      - description: Contest Owner
         in: path
-        name: contestId
+        name: owner
+        required: true
+        type: string
+      - description: Contest Name
+        in: path
+        name: name
         required: true
         type: string
       responses:
