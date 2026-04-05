@@ -70,7 +70,7 @@ require (
 	go.opentelemetry.io/otel v1.41.0 // indirect
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
-	google.golang.org/grpc v1.78.0 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.6.0 // indirect
 )
