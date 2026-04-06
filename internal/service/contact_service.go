@@ -75,7 +75,6 @@ func (s *contactService) SubmitContact(ctx context.Context, req *model.ContactRe
 	return nil
 }
 
-// sanitizeHeader strips CR and LF characters to prevent email header injection.
 func sanitizeHeader(v string) string {
 	v = strings.ReplaceAll(v, "\r", "")
 	v = strings.ReplaceAll(v, "\n", "")
@@ -126,7 +125,9 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 	if err != nil {
 		return fmt.Errorf("failed to create plain text MIME part: %w", err)
 	}
-	pw.Write([]byte(plainBody))
+	if _, err = pw.Write([]byte(plainBody)); err != nil {
+		return fmt.Errorf("failed to write plain text body: %w", err)
+	}
 
 	// HTML part
 	partHeader = make(textproto.MIMEHeader)
@@ -135,9 +136,13 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 	if err != nil {
 		return fmt.Errorf("failed to create HTML MIME part: %w", err)
 	}
-	pw.Write(htmlBody.Bytes())
+	if _, err = pw.Write(htmlBody.Bytes()); err != nil {
+		return fmt.Errorf("failed to write HTML body: %w", err)
+	}
 
-	mpw.Close()
+	if err = mpw.Close(); err != nil {
+		return fmt.Errorf("failed to close multipart writer: %w", err)
+	}
 
 	// send email via smtp
 	auth := smtp.PlainAuth("", config.Env().SMTP.User, config.Env().SMTP.Password, config.Env().SMTP.Host)

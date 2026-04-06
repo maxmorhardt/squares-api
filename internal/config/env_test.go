@@ -99,7 +99,7 @@ func TestLoadEnv_MissingRequired_Panics(t *testing.T) {
 		"OIDC_CLIENT_ID", "NATS_URL", "TURNSTILE_SECRET_KEY",
 	} {
 		t.Setenv(key, "")
-		os.Unsetenv(key)
+		require.NoError(t, os.Unsetenv(key))
 	}
 
 	assert.Panics(t, func() {
