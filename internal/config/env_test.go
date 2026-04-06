@@ -92,8 +92,15 @@ func TestLoadEnv_OptionalReadReplica(t *testing.T) {
 }
 
 func TestLoadEnv_MissingRequired_Panics(t *testing.T) {
-	// Clear all env vars that might be set
-	os.Clearenv()
+	// Unset only the required keys instead of clearing the entire process environment
+	for _, key := range []string{
+		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSL_MODE",
+		"SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL",
+		"OIDC_CLIENT_ID", "NATS_URL", "TURNSTILE_SECRET_KEY",
+	} {
+		t.Setenv(key, "")
+		os.Unsetenv(key)
+	}
 
 	assert.Panics(t, func() {
 		LoadEnv()

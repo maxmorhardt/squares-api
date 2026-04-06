@@ -5,7 +5,10 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"mime/multipart"
 	"net/smtp"
+	"net/textproto"
+	"strings"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -72,12 +75,19 @@ func (s *contactService) SubmitContact(ctx context.Context, req *model.ContactRe
 	return nil
 }
 
+// sanitizeHeader strips CR and LF characters to prevent email header injection.
+func sanitizeHeader(v string) string {
+	v = strings.ReplaceAll(v, "\r", "")
+	v = strings.ReplaceAll(v, "\n", "")
+	return v
+}
+
 func (s *contactService) sendEmailNotification(req *model.ContactRequest) error {
 	// construct email message
 	from := config.Env().SMTP.User
 	to := []string{config.Env().SMTP.SupportEmail}
-	subject := fmt.Sprintf("Contact Form: %s", req.Subject)
-	body := fmt.Sprintf(
+	subject := sanitizeHeader(fmt.Sprintf("Contact Form: %s", req.Subject))
+	plainBody := fmt.Sprintf(
 		"New contact form submission:\n\n"+
 			"Name: %s\n"+
 			"Email: %s\n"+
@@ -95,36 +105,45 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 		return fmt.Errorf("failed to render contact email template: %w", err)
 	}
 
-	message := fmt.Sprintf(
-		"From: %s\r\n"+
-			"To: %s\r\n"+
-			"Subject: %s\r\n"+
-			"Reply-To: %s\r\n"+
-			"MIME-Version: 1.0\r\n"+
-			"Content-Type: multipart/alternative; boundary=\"boundary42\"\r\n"+
-			"\r\n"+
-			"--boundary42\r\n"+
-			"Content-Type: text/plain; charset=\"UTF-8\"\r\n"+
-			"\r\n"+
-			"%s\r\n"+
-			"--boundary42\r\n"+
-			"Content-Type: text/html; charset=\"UTF-8\"\r\n"+
-			"\r\n"+
-			"%s\r\n"+
-			"--boundary42--",
-		from,
-		config.Env().SMTP.SupportEmail,
-		subject,
-		req.Email,
-		body,
-		htmlBody.String(),
-	)
+	// build message with unique multipart boundary
+	var msg bytes.Buffer
+
+	// write top-level headers
+	fmt.Fprintf(&msg, "From: %s\r\n", sanitizeHeader(from))
+	fmt.Fprintf(&msg, "To: %s\r\n", sanitizeHeader(config.Env().SMTP.SupportEmail))
+	fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
+	fmt.Fprintf(&msg, "Reply-To: %s\r\n", sanitizeHeader(req.Email))
+	fmt.Fprintf(&msg, "MIME-Version: 1.0\r\n")
+
+	mpw := multipart.NewWriter(&msg)
+	fmt.Fprintf(&msg, "Content-Type: multipart/alternative; boundary=%q\r\n", mpw.Boundary())
+	fmt.Fprintf(&msg, "\r\n")
+
+	// plain text part
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Set("Content-Type", `text/plain; charset="UTF-8"`)
+	pw, err := mpw.CreatePart(partHeader)
+	if err != nil {
+		return fmt.Errorf("failed to create plain text MIME part: %w", err)
+	}
+	pw.Write([]byte(plainBody))
+
+	// HTML part
+	partHeader = make(textproto.MIMEHeader)
+	partHeader.Set("Content-Type", `text/html; charset="UTF-8"`)
+	pw, err = mpw.CreatePart(partHeader)
+	if err != nil {
+		return fmt.Errorf("failed to create HTML MIME part: %w", err)
+	}
+	pw.Write(htmlBody.Bytes())
+
+	mpw.Close()
 
 	// send email via smtp
 	auth := smtp.PlainAuth("", config.Env().SMTP.User, config.Env().SMTP.Password, config.Env().SMTP.Host)
 	addr := fmt.Sprintf("%s:%d", config.Env().SMTP.Host, config.Env().SMTP.Port)
 
-	return smtp.SendMail(addr, auth, from, to, []byte(message))
+	return smtp.SendMail(addr, auth, from, to, msg.Bytes())
 }
 
 type turnstileResponse struct {
