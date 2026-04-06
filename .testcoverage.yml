@@ -3,3 +3,8 @@ threshold:
   file: 0
   package: 0
   total: 0
+
+exclude:
+  paths:
+    - internal/routes
+    - internal/model
