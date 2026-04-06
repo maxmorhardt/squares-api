@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 	"net/smtp"
 	"time"
 
@@ -11,8 +13,11 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
+	"github.com/maxmorhardt/squares-api/internal/templates"
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
+
+var contactEmailTmpl = template.Must(template.New("contact_email").Parse(templates.ContactEmailHTML))
 
 type ContactService interface {
 	SubmitContact(ctx context.Context, req *model.ContactRequest, ipAddress string) error
@@ -84,18 +89,35 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 		req.Message,
 	)
 
+	// render HTML body
+	var htmlBody bytes.Buffer
+	if err := contactEmailTmpl.Execute(&htmlBody, req); err != nil {
+		return fmt.Errorf("failed to render contact email template: %w", err)
+	}
+
 	message := fmt.Sprintf(
 		"From: %s\r\n"+
 			"To: %s\r\n"+
 			"Subject: %s\r\n"+
 			"Reply-To: %s\r\n"+
+			"MIME-Version: 1.0\r\n"+
+			"Content-Type: multipart/alternative; boundary=\"boundary42\"\r\n"+
 			"\r\n"+
-			"%s",
+			"--boundary42\r\n"+
+			"Content-Type: text/plain; charset=\"UTF-8\"\r\n"+
+			"\r\n"+
+			"%s\r\n"+
+			"--boundary42\r\n"+
+			"Content-Type: text/html; charset=\"UTF-8\"\r\n"+
+			"\r\n"+
+			"%s\r\n"+
+			"--boundary42--",
 		from,
 		config.Env().SMTP.SupportEmail,
 		subject,
 		req.Email,
 		body,
+		htmlBody.String(),
 	)
 
 	// send email via smtp
