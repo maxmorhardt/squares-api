@@ -3,7 +3,7 @@ FROM alpine:latest
 LABEL io.maxstash.image.source="https://github.com/maxmorhardt/squares-api"
 LABEL io.maxstash.image.description="Squares API - Game squares management with real-time updates"
 LABEL io.maxstash.image.vendor="Max Morhardt"
-LABEL io.maxstash.image.licenses="MIT"
+LABEL io.maxstash.image.licenses="PolyForm-Noncommercial-1.0.0"
 
 ENV GIN_MODE="release"
 
