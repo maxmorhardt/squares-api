@@ -29,7 +29,7 @@ func TestSetupMetricsServer_Enabled(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return resp.StatusCode == http.StatusOK
 	}, 2*time.Second, 100*time.Millisecond)
 }
