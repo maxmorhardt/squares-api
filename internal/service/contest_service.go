@@ -177,6 +177,11 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot update contest in terminal state", "contest_id", contestID, "status", contest.Status)
+		return nil, errs.ErrContestFinalized
+	}
+
 	if err := s.participantService.Authorize(ctx, contestID, user, ActionEditContest); err != nil {
 		log.Warn("user is not authorized to update contest", "contest_id", contestID, "user", user)
 		return nil, errs.ErrUnauthorizedContestEdit
@@ -460,6 +465,21 @@ func calculateWinnerCoordinates(homeScore, awayScore int, xLabels, yLabels []int
 
 func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error {
 	log := util.LoggerFromContext(ctx)
+
+	// check contest is not in a terminal state
+	contest, err := s.repo.GetByID(ctx, contestID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		log.Error("failed to get contest for delete", "contest_id", contestID, "error", err)
+		return errs.ErrDatabaseUnavailable
+	}
+
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot delete contest in terminal state", "contest_id", contestID, "status", contest.Status)
+		return errs.ErrContestFinalized
+	}
 
 	// verify authorization
 	if err := s.participantService.Authorize(ctx, contestID, user, ActionDeleteContest); err != nil {

@@ -26,6 +26,7 @@ type inviteService struct {
 	participantRepo    repository.ParticipantRepository
 	contestRepo        repository.ContestRepository
 	participantService ParticipantService
+	natsService        NatsService
 }
 
 func NewInviteService(
@@ -33,17 +34,34 @@ func NewInviteService(
 	participantRepo repository.ParticipantRepository,
 	contestRepo repository.ContestRepository,
 	participantService ParticipantService,
+	natsService NatsService,
 ) InviteService {
 	return &inviteService{
 		inviteRepo:         inviteRepo,
 		participantRepo:    participantRepo,
 		contestRepo:        contestRepo,
 		participantService: participantService,
+		natsService:        natsService,
 	}
 }
 
 func (s *inviteService) CreateInvite(ctx context.Context, contestID uuid.UUID, req *model.CreateInviteRequest, user string) (*model.ContestInvite, error) {
 	log := util.LoggerFromContext(ctx)
+
+	// check contest is not in a terminal state
+	contest, err := s.contestRepo.GetByID(ctx, contestID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		log.Error("failed to get contest", "contest_id", contestID, "error", err)
+		return nil, errs.ErrDatabaseUnavailable
+	}
+
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot create invite for contest in terminal state", "contest_id", contestID, "status", contest.Status)
+		return nil, errs.ErrContestFinalized
+	}
 
 	// verify user has permission to manage invites
 	if err := s.participantService.Authorize(ctx, contestID, user, ActionManageInvites); err != nil {
@@ -130,6 +148,18 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token string, user str
 		return nil, errs.ErrInviteMaxUsesReached
 	}
 
+	// check contest is not in a terminal state
+	contest, err := s.contestRepo.GetByID(ctx, invite.ContestID)
+	if err != nil {
+		log.Error("failed to get contest for invite redemption", "contest_id", invite.ContestID, "error", err)
+		return nil, errs.ErrDatabaseUnavailable
+	}
+
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot redeem invite for contest in terminal state", "contest_id", invite.ContestID, "status", contest.Status)
+		return nil, errs.ErrContestFinalized
+	}
+
 	// check user is not already a participant
 	_, err = s.participantRepo.GetByContestAndUser(ctx, invite.ContestID, user)
 	if err == nil {
@@ -172,6 +202,12 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token string, user str
 		log.Error("failed to increment invite uses", "invite_id", invite.ID, "error", err)
 	}
 
+	go func() {
+		if err := s.natsService.PublishParticipantAdded(invite.ContestID, participant); err != nil {
+			log.Error("failed to publish participant added", "contest_id", invite.ContestID, "user", user, "error", err)
+		}
+	}()
+
 	log.Info("invite redeemed", "invite_id", invite.ID, "contest_id", invite.ContestID, "user", user)
 	return participant, nil
 }
@@ -195,6 +231,21 @@ func (s *inviteService) GetInvitesByContestID(ctx context.Context, contestID uui
 
 func (s *inviteService) DeleteInvite(ctx context.Context, contestID uuid.UUID, inviteID uuid.UUID, user string) error {
 	log := util.LoggerFromContext(ctx)
+
+	// check contest is not in a terminal state
+	contest, err := s.contestRepo.GetByID(ctx, contestID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		log.Error("failed to get contest", "contest_id", contestID, "error", err)
+		return errs.ErrDatabaseUnavailable
+	}
+
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot delete invite for contest in terminal state", "contest_id", contestID, "status", contest.Status)
+		return errs.ErrContestFinalized
+	}
 
 	// verify user has permission to manage invites
 	if err := s.participantService.Authorize(ctx, contestID, user, ActionManageInvites); err != nil {

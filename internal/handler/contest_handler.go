@@ -272,6 +272,8 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
+		} else if errors.Is(err, errs.ErrContestFinalized) {
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		} else if errors.Is(err, errs.ErrUnauthorizedContestEdit) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		} else if errors.Is(err, errs.ErrDatabaseUnavailable) {
@@ -321,6 +323,8 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 	if err = h.contestService.DeleteContest(c.Request.Context(), contestID, user); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
+		} else if errors.Is(err, errs.ErrContestFinalized) {
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		} else if errors.Is(err, errs.ErrUnauthorizedContestDelete) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		} else {

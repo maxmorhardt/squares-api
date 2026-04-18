@@ -49,11 +49,11 @@ func setupRoutes(r *gin.Engine) {
 
 	authService := service.NewAuthService()
 	natsService := service.NewNatsService()
-	participantService := service.NewParticipantService(participantRepo, contestRepo)
+	participantService := service.NewParticipantService(participantRepo, contestRepo, natsService)
 	contestService := service.NewContestService(contestRepo, participantRepo, natsService, authService, participantService)
 	wsService := service.NewWebSocketService()
 	contactService := service.NewContactService(contactRepo)
-	inviteService := service.NewInviteService(inviteRepo, participantRepo, contestRepo, participantService)
+	inviteService := service.NewInviteService(inviteRepo, participantRepo, contestRepo, participantService, natsService)
 
 	statsRepo := repository.NewStatsRepository(db)
 	statsService := service.NewStatsService(statsRepo)

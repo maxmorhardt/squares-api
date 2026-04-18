@@ -67,6 +67,8 @@ func (h *inviteHandler) CreateInvite(c *gin.Context) {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
+		case errors.Is(err, errs.ErrContestFinalized):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInsufficientRole):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		default:
@@ -144,6 +146,8 @@ func (h *inviteHandler) RedeemInvite(c *gin.Context) {
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInviteExpired), errors.Is(err, errs.ErrInviteMaxUsesReached):
 			c.JSON(http.StatusGone, model.NewAPIError(http.StatusGone, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrContestFinalized):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrAlreadyParticipant):
 			c.JSON(http.StatusConflict, model.NewAPIError(http.StatusConflict, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrNotEnoughSquares):
@@ -228,6 +232,8 @@ func (h *inviteHandler) DeleteInvite(c *gin.Context) {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
+		case errors.Is(err, errs.ErrContestFinalized):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInsufficientRole):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		default:

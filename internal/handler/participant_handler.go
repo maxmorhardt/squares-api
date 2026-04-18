@@ -133,6 +133,8 @@ func (h *participantHandler) UpdateParticipant(c *gin.Context) {
 		switch {
 		case errors.Is(err, errs.ErrNotParticipant):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrContestFinalized):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInsufficientRole), errors.Is(err, errs.ErrCannotChangeOwner):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrSquareLimitTooLow):
@@ -178,6 +180,8 @@ func (h *participantHandler) RemoveParticipant(c *gin.Context) {
 		switch {
 		case errors.Is(err, errs.ErrNotParticipant):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrContestFinalized):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInsufficientRole), errors.Is(err, errs.ErrCannotRemoveOwner):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		default:

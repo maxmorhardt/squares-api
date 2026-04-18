@@ -23,15 +23,18 @@ type ParticipantService interface {
 type participantService struct {
 	participantRepo repository.ParticipantRepository
 	contestRepo     repository.ContestRepository
+	natsService     NatsService
 }
 
 func NewParticipantService(
 	participantRepo repository.ParticipantRepository,
 	contestRepo repository.ContestRepository,
+	natsService NatsService,
 ) ParticipantService {
 	return &participantService{
 		participantRepo: participantRepo,
 		contestRepo:     contestRepo,
+		natsService:     natsService,
 	}
 }
 
@@ -151,6 +154,21 @@ func (s *participantService) GetMyContests(ctx context.Context, user string) ([]
 func (s *participantService) UpdateParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error) {
 	log := util.LoggerFromContext(ctx)
 
+	// check contest is not in a terminal state
+	contest, err := s.contestRepo.GetByID(ctx, contestID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		log.Error("failed to get contest", "contest_id", contestID, "error", err)
+		return nil, errs.ErrDatabaseUnavailable
+	}
+
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot update participant in terminal state", "contest_id", contestID, "status", contest.Status)
+		return nil, errs.ErrContestFinalized
+	}
+
 	// verify caller is owner
 	if err := s.Authorize(ctx, contestID, user, ActionManageInvites); err != nil {
 		return nil, err
@@ -202,6 +220,21 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 func (s *participantService) RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, user string) error {
 	log := util.LoggerFromContext(ctx)
 
+	// check contest is not in a terminal state
+	contest, err := s.contestRepo.GetByID(ctx, contestID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		log.Error("failed to get contest", "contest_id", contestID, "error", err)
+		return errs.ErrDatabaseUnavailable
+	}
+
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot remove participant in terminal state", "contest_id", contestID, "status", contest.Status)
+		return errs.ErrContestFinalized
+	}
+
 	// verify caller is owner
 	if err := s.Authorize(ctx, contestID, user, ActionManageInvites); err != nil {
 		return err
@@ -234,11 +267,19 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 		return err
 	}
 
+	go func() {
+		if err := s.natsService.PublishParticipantRemoved(contestID, user, participant); err != nil {
+			log.Error("failed to publish participant removed", "contest_id", contestID, "user_id", targetUserID, "error", err)
+		}
+	}()
+
 	log.Info("participant removed", "contest_id", contestID, "target_user", targetUserID)
 	return nil
 }
 
 func (s *participantService) clearParticipantSquares(ctx context.Context, contestID uuid.UUID, userID string) error {
+	log := util.LoggerFromContext(ctx)
+
 	contest, err := s.contestRepo.GetByID(ctx, contestID)
 	if err != nil {
 		return err
@@ -246,9 +287,15 @@ func (s *participantService) clearParticipantSquares(ctx context.Context, contes
 
 	for i := range contest.Squares {
 		if contest.Squares[i].Owner == userID {
-			if _, err := s.contestRepo.ClearSquare(ctx, &contest.Squares[i]); err != nil {
+			clearedSquare, err := s.contestRepo.ClearSquare(ctx, &contest.Squares[i])
+			if err != nil {
 				return err
 			}
+			go func() {
+				if err := s.natsService.PublishSquareUpdate(contest.ID, userID, clearedSquare); err != nil {
+					log.Error("failed to publish square clear for removed participant", "contestId", contest.ID, "squareId", clearedSquare.ID, "error", err)
+				}
+			}()
 		}
 	}
 
