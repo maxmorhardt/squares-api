@@ -33,7 +33,6 @@ type contestService struct {
 	repo               repository.ContestRepository
 	participantRepo    repository.ParticipantRepository
 	natsService        NatsService
-	authService        AuthService
 	participantService ParticipantService
 }
 
@@ -41,14 +40,12 @@ func NewContestService(
 	repo repository.ContestRepository,
 	participantRepo repository.ParticipantRepository,
 	natsService NatsService,
-	authService AuthService,
 	participantService ParticipantService,
 ) ContestService {
 	return &contestService{
 		repo:               repo,
 		participantRepo:    participantRepo,
 		natsService:        natsService,
-		authService:        authService,
 		participantService: participantService,
 	}
 }
@@ -533,7 +530,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 	}
 
 	// check role-based permission to claim squares
-	if err := s.participantService.Authorize(ctx, contestID, user, ActionClaimSquare); err != nil {
+	if err = s.participantService.Authorize(ctx, contestID, user, ActionClaimSquare); err != nil {
 		log.Warn("user not authorized to claim squares", "contest_id", contestID, "user", user)
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}

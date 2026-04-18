@@ -47,10 +47,9 @@ func setupRoutes(r *gin.Engine) {
 	inviteRepo := repository.NewInviteRepository(db)
 	participantRepo := repository.NewParticipantRepository(db)
 
-	authService := service.NewAuthService()
 	natsService := service.NewNatsService()
 	participantService := service.NewParticipantService(participantRepo, contestRepo, natsService)
-	contestService := service.NewContestService(contestRepo, participantRepo, natsService, authService, participantService)
+	contestService := service.NewContestService(contestRepo, participantRepo, natsService, participantService)
 	wsService := service.NewWebSocketService()
 	contactService := service.NewContactService(contactRepo)
 	inviteService := service.NewInviteService(inviteRepo, participantRepo, contestRepo, participantService, natsService)
@@ -58,7 +57,7 @@ func setupRoutes(r *gin.Engine) {
 	statsRepo := repository.NewStatsRepository(db)
 	statsService := service.NewStatsService(statsRepo)
 
-	contestHandler := handler.NewContestHandler(contestService, authService)
+	contestHandler := handler.NewContestHandler(contestService)
 	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo, participantService)
 	contactHandler := handler.NewContactHandler(contactService)
 	statsHandler := handler.NewStatsHandler(statsService)

@@ -12,7 +12,7 @@ type InviteRepository interface {
 	GetByToken(ctx context.Context, token string) (*model.ContestInvite, error)
 	GetAllByContestID(ctx context.Context, contestID uuid.UUID) ([]model.ContestInvite, error)
 	Create(ctx context.Context, invite *model.ContestInvite) error
-	IncrementUses(ctx context.Context, inviteID uuid.UUID) error
+	RedeemInvite(ctx context.Context, inviteID uuid.UUID, participant *model.ContestParticipant) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -42,11 +42,21 @@ func (r *inviteRepository) Create(ctx context.Context, invite *model.ContestInvi
 	return r.db.WithContext(ctx).Create(invite).Error
 }
 
-func (r *inviteRepository) IncrementUses(ctx context.Context, inviteID uuid.UUID) error {
-	return r.db.WithContext(ctx).
-		Model(&model.ContestInvite{}).
-		Where("id = ?", inviteID).
-		UpdateColumn("uses", gorm.Expr("uses + 1")).Error
+func (r *inviteRepository) RedeemInvite(ctx context.Context, inviteID uuid.UUID, participant *model.ContestParticipant) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(participant).Error; err != nil {
+			return err
+		}
+
+		result := tx.Model(&model.ContestInvite{}).
+			Where("id = ?", inviteID).
+			UpdateColumn("uses", gorm.Expr("uses + 1"))
+		if result.Error != nil {
+			return result.Error
+		}
+
+		return nil
+	})
 }
 
 func (r *inviteRepository) Delete(ctx context.Context, id uuid.UUID) error {

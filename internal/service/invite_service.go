@@ -183,7 +183,7 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token, user string) (*
 		return nil, errs.ErrNotEnoughSquares
 	}
 
-	// create participant
+	// create participant and increment invite usage atomically
 	participant := &model.ContestParticipant{
 		ContestID:  invite.ContestID,
 		UserID:     user,
@@ -192,14 +192,9 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token, user string) (*
 		InviteID:   &invite.ID,
 	}
 
-	if err := s.participantRepo.Create(ctx, participant); err != nil {
-		log.Error("failed to create participant", "contest_id", invite.ContestID, "user", user, "error", err)
+	if err := s.inviteRepo.RedeemInvite(ctx, invite.ID, participant); err != nil {
+		log.Error("failed to redeem invite", "invite_id", invite.ID, "contest_id", invite.ContestID, "user", user, "error", err)
 		return nil, err
-	}
-
-	// increment invite usage
-	if err := s.inviteRepo.IncrementUses(ctx, invite.ID); err != nil {
-		log.Error("failed to increment invite uses", "invite_id", invite.ID, "error", err)
 	}
 
 	go func() {

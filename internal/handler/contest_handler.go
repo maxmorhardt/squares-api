@@ -31,13 +31,11 @@ type ContestHandler interface {
 
 type contestHandler struct {
 	contestService service.ContestService
-	authService    service.AuthService
 }
 
-func NewContestHandler(contestService service.ContestService, authService service.AuthService) ContestHandler {
+func NewContestHandler(contestService service.ContestService) ContestHandler {
 	return &contestHandler{
 		contestService: contestService,
-		authService:    authService,
 	}
 }
 

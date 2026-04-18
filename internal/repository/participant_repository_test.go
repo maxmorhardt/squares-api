@@ -28,7 +28,7 @@ func seedContestForParticipant(t *testing.T, db *gorm.DB) uuid.UUID {
 	return id
 }
 
-func createTestParticipant(t *testing.T, repo ParticipantRepository, ctx context.Context, contestID uuid.UUID, userID string, role model.ParticipantRole, maxSquares int) *model.ContestParticipant {
+func createTestParticipant(t *testing.T, db *gorm.DB, contestID uuid.UUID, userID string, role model.ParticipantRole, maxSquares int) *model.ContestParticipant {
 	t.Helper()
 
 	p := &model.ContestParticipant{
@@ -37,21 +37,8 @@ func createTestParticipant(t *testing.T, repo ParticipantRepository, ctx context
 		Role:       role,
 		MaxSquares: maxSquares,
 	}
-	require.NoError(t, repo.Create(ctx, p))
+	require.NoError(t, db.Create(p).Error)
 	return p
-}
-
-func TestParticipantRepository_Create(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewParticipantRepository(db)
-	ctx := context.Background()
-
-	contestID := seedContestForParticipant(t, db)
-	p := createTestParticipant(t, repo, ctx, contestID, "user1", model.ParticipantRoleOwner, 100)
-
-	assert.NotEqual(t, uuid.Nil, p.ID)
-	assert.Equal(t, "user1", p.UserID)
-	assert.Equal(t, model.ParticipantRoleOwner, p.Role)
 }
 
 func TestParticipantRepository_GetByContestAndUser(t *testing.T) {
@@ -60,7 +47,7 @@ func TestParticipantRepository_GetByContestAndUser(t *testing.T) {
 	ctx := context.Background()
 
 	contestID := seedContestForParticipant(t, db)
-	createTestParticipant(t, repo, ctx, contestID, "user1", model.ParticipantRoleOwner, 100)
+	createTestParticipant(t, db, contestID, "user1", model.ParticipantRoleOwner, 100)
 
 	found, err := repo.GetByContestAndUser(ctx, contestID, "user1")
 	require.NoError(t, err)
@@ -83,9 +70,9 @@ func TestParticipantRepository_GetAllByContestID(t *testing.T) {
 	ctx := context.Background()
 
 	contestID := seedContestForParticipant(t, db)
-	createTestParticipant(t, repo, ctx, contestID, "owner1", model.ParticipantRoleOwner, 100)
-	createTestParticipant(t, repo, ctx, contestID, "user1", model.ParticipantRoleParticipant, 10)
-	createTestParticipant(t, repo, ctx, contestID, "user2", model.ParticipantRoleViewer, 0)
+	createTestParticipant(t, db, contestID, "owner1", model.ParticipantRoleOwner, 100)
+	createTestParticipant(t, db, contestID, "user1", model.ParticipantRoleParticipant, 10)
+	createTestParticipant(t, db, contestID, "user2", model.ParticipantRoleViewer, 0)
 
 	participants, err := repo.GetAllByContestID(ctx, contestID)
 	require.NoError(t, err)
@@ -100,10 +87,10 @@ func TestParticipantRepository_GetAllByUserID(t *testing.T) {
 	contestID := seedContestForParticipant(t, db)
 
 	// owner role is excluded from GetAllByUserID
-	createTestParticipant(t, repo, ctx, contestID, "user1", model.ParticipantRoleOwner, 100)
+	createTestParticipant(t, db, contestID, "user1", model.ParticipantRoleOwner, 100)
 
 	contestID2 := seedContestForParticipant(t, db)
-	createTestParticipant(t, repo, ctx, contestID2, "user1", model.ParticipantRoleParticipant, 10)
+	createTestParticipant(t, db, contestID2, "user1", model.ParticipantRoleParticipant, 10)
 
 	participants, err := repo.GetAllByUserID(ctx, "user1")
 	require.NoError(t, err)
@@ -118,9 +105,9 @@ func TestParticipantRepository_GetTotalAllocatedSquares(t *testing.T) {
 	ctx := context.Background()
 
 	contestID := seedContestForParticipant(t, db)
-	createTestParticipant(t, repo, ctx, contestID, "owner1", model.ParticipantRoleOwner, 100)
-	createTestParticipant(t, repo, ctx, contestID, "user1", model.ParticipantRoleParticipant, 10)
-	createTestParticipant(t, repo, ctx, contestID, "user2", model.ParticipantRoleParticipant, 15)
+	createTestParticipant(t, db, contestID, "owner1", model.ParticipantRoleOwner, 100)
+	createTestParticipant(t, db, contestID, "user1", model.ParticipantRoleParticipant, 10)
+	createTestParticipant(t, db, contestID, "user2", model.ParticipantRoleParticipant, 15)
 
 	// should only sum non-owner participants
 	total, err := repo.GetTotalAllocatedSquares(ctx, contestID)
@@ -154,7 +141,7 @@ func TestParticipantRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	contestID := seedContestForParticipant(t, db)
-	p := createTestParticipant(t, repo, ctx, contestID, "user1", model.ParticipantRoleParticipant, 10)
+	p := createTestParticipant(t, db, contestID, "user1", model.ParticipantRoleParticipant, 10)
 
 	p.Role = model.ParticipantRoleViewer
 	p.MaxSquares = 0
@@ -172,7 +159,7 @@ func TestParticipantRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	contestID := seedContestForParticipant(t, db)
-	createTestParticipant(t, repo, ctx, contestID, "user1", model.ParticipantRoleParticipant, 10)
+	createTestParticipant(t, db, contestID, "user1", model.ParticipantRoleParticipant, 10)
 
 	require.NoError(t, repo.Delete(ctx, contestID, "user1"))
 

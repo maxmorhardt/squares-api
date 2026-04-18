@@ -94,23 +94,6 @@ func TestInviteRepository_GetAllByContestID_Empty(t *testing.T) {
 	assert.Empty(t, invites)
 }
 
-func TestInviteRepository_IncrementUses(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewInviteRepository(db)
-	ctx := context.Background()
-
-	contestID := seedContest(t, db)
-	invite := createTestInvite(t, repo, ctx, contestID)
-	assert.Equal(t, 0, invite.Uses)
-
-	require.NoError(t, repo.IncrementUses(ctx, invite.ID))
-	require.NoError(t, repo.IncrementUses(ctx, invite.ID))
-
-	found, err := repo.GetByToken(ctx, invite.Token)
-	require.NoError(t, err)
-	assert.Equal(t, 2, found.Uses)
-}
-
 func TestInviteRepository_Delete(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewInviteRepository(db)
@@ -123,6 +106,38 @@ func TestInviteRepository_Delete(t *testing.T) {
 
 	_, err := repo.GetByToken(ctx, invite.Token)
 	assert.Error(t, err)
+}
+
+func TestInviteRepository_RedeemInvite(t *testing.T) {
+	db := setupTestDB(t)
+	inviteRepo := NewInviteRepository(db)
+	pRepo := NewParticipantRepository(db)
+	ctx := context.Background()
+
+	contestID := seedContest(t, db)
+	invite := createTestInvite(t, inviteRepo, ctx, contestID)
+	assert.Equal(t, 0, invite.Uses)
+
+	participant := &model.ContestParticipant{
+		ContestID:  contestID,
+		UserID:     "redeemer1",
+		Role:       invite.Role,
+		MaxSquares: invite.MaxSquares,
+		InviteID:   &invite.ID,
+	}
+
+	require.NoError(t, inviteRepo.RedeemInvite(ctx, invite.ID, participant))
+
+	// verify participant was created
+	p, err := pRepo.GetByContestAndUser(ctx, contestID, "redeemer1")
+	require.NoError(t, err)
+	assert.Equal(t, model.ParticipantRoleParticipant, p.Role)
+	assert.Equal(t, 10, p.MaxSquares)
+
+	// verify invite uses was incremented
+	found, err := inviteRepo.GetByToken(ctx, invite.Token)
+	require.NoError(t, err)
+	assert.Equal(t, 1, found.Uses)
 }
 
 // seedContest creates a minimal contest row needed for invite FK references

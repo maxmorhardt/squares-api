@@ -97,19 +97,6 @@ func (m *mockContestService) ClearSquare(ctx context.Context, contestID, squareI
 	return m.clearSquareFn(ctx, contestID, squareID, user)
 }
 
-// mockAuthService implements service.AuthService
-type mockAuthService struct {
-	isDeclaredUserFn func(ctx context.Context, user string) bool
-	hasGroupFn       func(ctx context.Context, role string) bool
-}
-
-func (m *mockAuthService) IsDeclaredUser(ctx context.Context, user string) bool {
-	return m.isDeclaredUserFn(ctx, user)
-}
-func (m *mockAuthService) HasGroup(ctx context.Context, role string) bool {
-	return m.hasGroupFn(ctx, role)
-}
-
 // mockParticipantService implements service.ParticipantService
 type mockParticipantService struct {
 	getParticipantsFn   func(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error)

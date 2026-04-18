@@ -20,13 +20,6 @@ func defaultMockContestService() *mockContestService {
 	return &mockContestService{}
 }
 
-func defaultMockAuthService() *mockAuthService {
-	return &mockAuthService{
-		isDeclaredUserFn: func(_ context.Context, _ string) bool { return true },
-		hasGroupFn:       func(_ context.Context, _ string) bool { return false },
-	}
-}
-
 // ====================
 // GetContestByOwnerAndName
 // ====================
@@ -38,7 +31,7 @@ func TestGetContestByOwnerAndName_Success(t *testing.T) {
 		return &model.Contest{ID: contestID, Owner: owner, Name: name, Status: model.ContestStatusActive}, nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
@@ -59,7 +52,7 @@ func TestGetContestByOwnerAndName_NotFound(t *testing.T) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
@@ -76,7 +69,7 @@ func TestGetContestByOwnerAndName_Forbidden(t *testing.T) {
 		return nil, errs.ErrNotParticipant
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("stranger"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
@@ -97,7 +90,7 @@ func TestGetContestsByOwner_Success(t *testing.T) {
 		return []model.Contest{{ID: uuid.New(), Name: "C1"}}, 1, nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
@@ -115,7 +108,7 @@ func TestGetContestsByOwner_Success(t *testing.T) {
 
 func TestGetContestsByOwner_MissingPage(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
@@ -128,7 +121,7 @@ func TestGetContestsByOwner_MissingPage(t *testing.T) {
 
 func TestGetContestsByOwner_InvalidLimit(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
@@ -145,7 +138,7 @@ func TestGetContestsByOwner_ServiceError(t *testing.T) {
 		return nil, 0, assert.AnError
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
@@ -167,7 +160,7 @@ func TestCreateContest_Success(t *testing.T) {
 		return &model.Contest{ID: contestID, Name: req.Name, Owner: req.Owner, Status: model.ContestStatusActive}, nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
@@ -186,7 +179,7 @@ func TestCreateContest_Success(t *testing.T) {
 
 func TestCreateContest_InvalidBody(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
@@ -200,7 +193,7 @@ func TestCreateContest_InvalidBody(t *testing.T) {
 
 func TestCreateContest_OwnerMismatch(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("user1"))
 	r.PUT("/contests", h.CreateContest)
@@ -219,7 +212,7 @@ func TestCreateContest_AlreadyExists(t *testing.T) {
 		return nil, errs.ErrContestAlreadyExists
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
@@ -243,7 +236,7 @@ func TestUpdateContest_Success(t *testing.T) {
 		return &model.Contest{ID: id, Name: "Updated", Status: model.ContestStatusActive}, nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id", h.UpdateContest)
@@ -259,7 +252,7 @@ func TestUpdateContest_Success(t *testing.T) {
 
 func TestUpdateContest_InvalidID(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id", h.UpdateContest)
@@ -277,7 +270,7 @@ func TestUpdateContest_NotFound(t *testing.T) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id", h.UpdateContest)
@@ -297,7 +290,7 @@ func TestUpdateContest_Forbidden(t *testing.T) {
 		return nil, errs.ErrUnauthorizedContestEdit
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("stranger"))
 	r.PATCH("/contests/:id", h.UpdateContest)
@@ -321,7 +314,7 @@ func TestDeleteContest_Success(t *testing.T) {
 		return nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id", h.DeleteContest)
@@ -334,7 +327,7 @@ func TestDeleteContest_Success(t *testing.T) {
 
 func TestDeleteContest_InvalidID(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id", h.DeleteContest)
@@ -351,7 +344,7 @@ func TestDeleteContest_NotFound(t *testing.T) {
 		return gorm.ErrRecordNotFound
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id", h.DeleteContest)
@@ -368,7 +361,7 @@ func TestDeleteContest_Forbidden(t *testing.T) {
 		return errs.ErrUnauthorizedContestDelete
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("stranger"))
 	r.DELETE("/contests/:id", h.DeleteContest)
@@ -390,7 +383,7 @@ func TestStartContest_Success(t *testing.T) {
 		return &model.Contest{ID: id, Status: model.ContestStatusQ1}, nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/start", h.StartContest)
@@ -403,7 +396,7 @@ func TestStartContest_Success(t *testing.T) {
 
 func TestStartContest_InvalidID(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/start", h.StartContest)
@@ -420,7 +413,7 @@ func TestStartContest_NotFound(t *testing.T) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/start", h.StartContest)
@@ -442,7 +435,7 @@ func TestRecordQuarterResult_Success(t *testing.T) {
 		return &model.QuarterResult{ContestID: contestID, Quarter: 1, HomeTeamScore: 7, AwayTeamScore: 3}, nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/quarter-result", h.RecordQuarterResult)
@@ -457,7 +450,7 @@ func TestRecordQuarterResult_Success(t *testing.T) {
 
 func TestRecordQuarterResult_InvalidID(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/quarter-result", h.RecordQuarterResult)
@@ -472,7 +465,7 @@ func TestRecordQuarterResult_InvalidID(t *testing.T) {
 
 func TestRecordQuarterResult_InvalidBody(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/quarter-result", h.RecordQuarterResult)
@@ -490,7 +483,7 @@ func TestRecordQuarterResult_AlreadyExists(t *testing.T) {
 		return nil, errs.ErrQuarterResultAlreadyExists
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/quarter-result", h.RecordQuarterResult)
@@ -515,7 +508,7 @@ func TestUpdateSquare_Success(t *testing.T) {
 		return &model.Square{ID: sID, ContestID: contestID, Value: "ABC", Owner: "owner1"}, nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -530,7 +523,7 @@ func TestUpdateSquare_Success(t *testing.T) {
 
 func TestUpdateSquare_InvalidContestID(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -545,7 +538,7 @@ func TestUpdateSquare_InvalidContestID(t *testing.T) {
 
 func TestUpdateSquare_InvalidSquareID(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -564,7 +557,7 @@ func TestUpdateSquare_NotFound(t *testing.T) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -589,7 +582,7 @@ func TestClearSquare_Success(t *testing.T) {
 		return &model.Square{ID: sID, ContestID: contestID, Value: "", Owner: ""}, nil
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
@@ -602,7 +595,7 @@ func TestClearSquare_Success(t *testing.T) {
 
 func TestClearSquare_InvalidContestID(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
@@ -615,7 +608,7 @@ func TestClearSquare_InvalidContestID(t *testing.T) {
 
 func TestClearSquare_InvalidSquareID(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
@@ -632,7 +625,7 @@ func TestClearSquare_NotFound(t *testing.T) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
@@ -649,7 +642,7 @@ func TestClearSquare_Forbidden(t *testing.T) {
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("stranger"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
@@ -670,7 +663,7 @@ func TestGetContestByOwnerAndName_InsufficientRole(t *testing.T) {
 		return nil, errs.ErrInsufficientRole
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("stranger"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
@@ -687,7 +680,7 @@ func TestGetContestByOwnerAndName_InternalError(t *testing.T) {
 		return nil, assert.AnError
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
@@ -700,7 +693,7 @@ func TestGetContestByOwnerAndName_InternalError(t *testing.T) {
 
 func TestGetContestsByOwner_MissingLimit(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
@@ -713,7 +706,7 @@ func TestGetContestsByOwner_MissingLimit(t *testing.T) {
 
 func TestGetContestsByOwner_InvalidPageFormat(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
@@ -726,7 +719,7 @@ func TestGetContestsByOwner_InvalidPageFormat(t *testing.T) {
 
 func TestGetContestsByOwner_ZeroPage(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
@@ -739,7 +732,7 @@ func TestGetContestsByOwner_ZeroPage(t *testing.T) {
 
 func TestGetContestsByOwner_InvalidLimitFormat(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
@@ -756,7 +749,7 @@ func TestCreateContest_DatabaseUnavailable(t *testing.T) {
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
@@ -775,7 +768,7 @@ func TestCreateContest_InternalError(t *testing.T) {
 		return nil, assert.AnError
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
@@ -790,7 +783,7 @@ func TestCreateContest_InternalError(t *testing.T) {
 
 func TestUpdateContest_InvalidBody(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id", h.UpdateContest)
@@ -808,7 +801,7 @@ func TestUpdateContest_DatabaseUnavailable(t *testing.T) {
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id", h.UpdateContest)
@@ -828,7 +821,7 @@ func TestUpdateContest_OtherError(t *testing.T) {
 		return nil, errs.ErrContestNotEditable
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id", h.UpdateContest)
@@ -848,7 +841,7 @@ func TestDeleteContest_InternalError(t *testing.T) {
 		return assert.AnError
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id", h.DeleteContest)
@@ -865,7 +858,7 @@ func TestStartContest_OtherError(t *testing.T) {
 		return nil, errs.ErrContestNotEditable
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/start", h.StartContest)
@@ -882,7 +875,7 @@ func TestRecordQuarterResult_NotFound(t *testing.T) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/quarter-result", h.RecordQuarterResult)
@@ -901,7 +894,7 @@ func TestRecordQuarterResult_InvalidData(t *testing.T) {
 		return nil, gorm.ErrInvalidData
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/quarter-result", h.RecordQuarterResult)
@@ -920,7 +913,7 @@ func TestRecordQuarterResult_InternalError(t *testing.T) {
 		return nil, assert.AnError
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/quarter-result", h.RecordQuarterResult)
@@ -935,7 +928,7 @@ func TestRecordQuarterResult_InternalError(t *testing.T) {
 
 func TestUpdateSquare_InvalidBody(t *testing.T) {
 	svc := defaultMockContestService()
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -953,7 +946,7 @@ func TestUpdateSquare_SquareNotEditable(t *testing.T) {
 		return nil, errs.ErrSquareNotEditable
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -972,7 +965,7 @@ func TestUpdateSquare_UnauthorizedSquareEdit(t *testing.T) {
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("stranger"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -991,7 +984,7 @@ func TestUpdateSquare_ClaimsNotFound(t *testing.T) {
 		return nil, errs.ErrClaimsNotFound
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -1010,7 +1003,7 @@ func TestUpdateSquare_DatabaseUnavailable(t *testing.T) {
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -1029,7 +1022,7 @@ func TestUpdateSquare_OtherError(t *testing.T) {
 		return nil, errs.ErrInvalidSquareValue
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
@@ -1048,7 +1041,7 @@ func TestClearSquare_SquareNotEditable(t *testing.T) {
 		return nil, errs.ErrSquareNotEditable
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
@@ -1065,7 +1058,7 @@ func TestClearSquare_DatabaseUnavailable(t *testing.T) {
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
@@ -1082,7 +1075,7 @@ func TestClearSquare_OtherError(t *testing.T) {
 		return nil, errs.ErrInvalidSquareValue
 	}
 
-	h := NewContestHandler(svc, defaultMockAuthService())
+	h := NewContestHandler(svc)
 	r := newTestRouter()
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)

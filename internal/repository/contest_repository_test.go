@@ -246,20 +246,6 @@ func TestContestRepository_CreateQuarterResult(t *testing.T) {
 	assert.Equal(t, 1, found.QuarterResults[0].Quarter)
 }
 
-func TestContestRepository_GetSquareByID(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewContestRepository(db)
-	ctx := context.Background()
-
-	contest := createTestContest(t, repo, ctx, "Square Contest")
-	full, err := repo.GetByID(ctx, contest.ID)
-	require.NoError(t, err)
-
-	square, err := repo.GetSquareByID(ctx, full.Squares[0].ID)
-	require.NoError(t, err)
-	assert.Equal(t, full.Squares[0].ID, square.ID)
-}
-
 func TestContestRepository_UpdateSquare(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewContestRepository(db)

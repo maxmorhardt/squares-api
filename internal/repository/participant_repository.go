@@ -14,7 +14,6 @@ type ParticipantRepository interface {
 	GetAllByUserID(ctx context.Context, userID string) ([]model.ContestParticipant, error)
 	GetTotalAllocatedSquares(ctx context.Context, contestID uuid.UUID) (int, error)
 	CountSquaresByUser(ctx context.Context, contestID uuid.UUID, userID string) (int, error)
-	Create(ctx context.Context, participant *model.ContestParticipant) error
 	Update(ctx context.Context, participant *model.ContestParticipant) error
 	Delete(ctx context.Context, contestID uuid.UUID, userID string) error
 }
@@ -73,10 +72,6 @@ func (r *participantRepository) CountSquaresByUser(ctx context.Context, contestI
 		Where("contest_id = ? AND owner = ? AND value != ''", contestID, userID).
 		Count(&count).Error
 	return int(count), err
-}
-
-func (r *participantRepository) Create(ctx context.Context, participant *model.ContestParticipant) error {
-	return r.db.WithContext(ctx).Create(participant).Error
 }
 
 func (r *participantRepository) Update(ctx context.Context, participant *model.ContestParticipant) error {

@@ -20,7 +20,6 @@ type ContestRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error
 
-	GetSquareByID(ctx context.Context, squareID uuid.UUID) (*model.Square, error)
 	UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
 	ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error)
 }
@@ -154,12 +153,6 @@ func (r *contestRepository) CreateQuarterResult(ctx context.Context, result *mod
 // ====================
 // Square Actions
 // ====================
-
-func (r *contestRepository) GetSquareByID(ctx context.Context, squareID uuid.UUID) (*model.Square, error) {
-	var square model.Square
-	err := r.db.WithContext(ctx).Where("id = ?", squareID).First(&square).Error
-	return &square, err
-}
 
 func (r *contestRepository) UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error) {
 	var updatedSquare *model.Square
