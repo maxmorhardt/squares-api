@@ -230,9 +230,9 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 		return errs.ErrDatabaseUnavailable
 	}
 
-	if contest.Status.IsTerminal() {
-		log.Warn("cannot remove participant in terminal state", "contest_id", contestID, "status", contest.Status)
-		return errs.ErrContestFinalized
+	if contest.Status != model.ContestStatusActive {
+		log.Warn("cannot remove participant after contest has started", "contest_id", contestID, "status", contest.Status)
+		return errs.ErrContestNotEditable
 	}
 
 	// verify caller is owner
