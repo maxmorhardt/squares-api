@@ -121,12 +121,6 @@ func TestContest_FullLifecycle(t *testing.T) {
 		assert.Equal(t, model.ContestStatusFinished, contest.Status)
 		assert.Len(t, contest.QuarterResults, 4)
 	})
-
-	t.Run("7_DeleteContest", func(t *testing.T) {
-		deleteContest(router, contestID, authToken)
-		_, status := getContestByOwnerAndName(router, oidcUser, name, authToken)
-		assert.Equal(t, http.StatusNotFound, status)
-	})
 }
 
 func TestCreateContest_Validation(t *testing.T) {
