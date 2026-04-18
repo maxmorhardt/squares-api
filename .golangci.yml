@@ -1,0 +1,48 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    - bodyclose
+    - gosec
+    - errname
+    - errorlint
+    - exhaustive
+    - gocritic
+    - gofmt
+    - misspell
+    - nilerr
+    - prealloc
+    - unconvert
+    - unparam
+    - whitespace
+
+linters-settings:
+  govet:
+    shadow: true
+  gosec:
+    excludes:
+      - G104
+  exhaustive:
+    default-signifies-exhaustive: true
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+
+issues:
+  exclude-dirs:
+    - docs
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck

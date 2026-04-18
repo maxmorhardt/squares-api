@@ -21,8 +21,8 @@ const (
 
 func InitDB() {
 	setupPrimary()
-	
-	if (Env().DB.ReadHost != "") {
+
+	if Env().DB.ReadHost != "" {
 		setupReadReplica()
 	}
 }
@@ -49,6 +49,8 @@ func setupPrimary() {
 		&model.Square{},
 		&model.QuarterResult{},
 		&model.ContactSubmission{},
+		&model.ContestParticipant{},
+		&model.ContestInvite{},
 	}
 
 	for _, m := range models {

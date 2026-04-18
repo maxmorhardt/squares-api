@@ -46,15 +46,17 @@ func NewContestHandler(contestService service.ContestService, authService servic
 // ====================
 
 // @Summary Get a contest by Owner and Name
-// @Description Returns a single contest by its owner and name
+// @Description Returns a single contest by its owner and name. Private contests require the user to be a participant
 // @Tags contests
 // @Produce json
 // @Param owner path string true "Owner"
 // @Param name path string true "Name"
 // @Success 200 {object} model.ContestSwagger
 // @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
+// @Security BearerAuth
 // @Router /contests/owner/{owner}/name/{name} [get]
 func (h *contestHandler) GetContestByOwnerAndName(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
@@ -77,12 +79,14 @@ func (h *contestHandler) GetContestByOwnerAndName(c *gin.Context) {
 	// get contest from service
 	contest, err := h.contestService.GetContestByOwnerAndName(c.Request.Context(), owner, name)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-			return
+		case errors.Is(err, errs.ErrNotParticipant), errors.Is(err, errs.ErrInsufficientRole):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(errs.ErrInsufficientRole), c))
+		default:
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
 		}
-
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
 		return
 	}
 
@@ -282,7 +286,7 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 }
 
 // @Summary Delete contest
-// @Description Deletes a contest by id
+// @Description Deletes a contest by id. Only the contest owner can delete
 // @Tags contests
 // @Accept json
 // @Produce json
@@ -292,6 +296,7 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 // @Failure 403 {object} model.APIError "Forbidden - user is not the owner"
 // @Failure 404 {object} model.APIError "Contest not found"
 // @Failure 500 {object} model.APIError "Internal server error"
+// @Security BearerAuth
 // @Router /contests/{id} [delete]
 func (h *contestHandler) DeleteContest(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)

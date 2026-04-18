@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/gorm"
 )
@@ -29,9 +28,9 @@ type contestRepository struct {
 	db *gorm.DB
 }
 
-func NewContestRepository() ContestRepository {
+func NewContestRepository(db *gorm.DB) ContestRepository {
 	return &contestRepository{
-		db: config.DB(),
+		db: db,
 	}
 }
 
