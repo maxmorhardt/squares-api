@@ -114,9 +114,12 @@ func TestWSHandler_ContestNotFound(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	conn, _, err := dialWS(t, server, "/ws/contests/owner/o1/name/missing")
+	conn, resp, err := dialWS(t, server, "/ws/contests/owner/o1/name/missing")
 	require.NoError(t, err)
 	defer conn.Close()
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 
 	_, _, err = conn.ReadMessage()
 	require.Error(t, err)
@@ -142,9 +145,12 @@ func TestWSHandler_ContestRepoError(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	conn, _, err := dialWS(t, server, "/ws/contests/owner/o1/name/err")
+	conn, resp, err := dialWS(t, server, "/ws/contests/owner/o1/name/err")
 	require.NoError(t, err)
 	defer conn.Close()
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 
 	_, _, err = conn.ReadMessage()
 	require.Error(t, err)
@@ -174,9 +180,12 @@ func TestWSHandler_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	conn, _, err := dialWS(t, server, "/ws/contests/owner/owner1/name/test")
+	conn, resp, err := dialWS(t, server, "/ws/contests/owner/owner1/name/test")
 	require.NoError(t, err)
 	defer conn.Close()
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 
 	_, _, err = conn.ReadMessage()
 	require.Error(t, err)
