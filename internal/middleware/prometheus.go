@@ -38,7 +38,6 @@ func init() {
 }
 
 func PrometheusMiddleware(c *gin.Context) {
-	path := c.Request.URL.Path
 	method := c.Request.Method
 
 	// increment active connections
@@ -47,6 +46,10 @@ func PrometheusMiddleware(c *gin.Context) {
 	// start timer for request duration
 	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
 		status := strconv.Itoa(c.Writer.Status())
+		path := c.FullPath()
+		if path == "" {
+			path = "unmatched"
+		}
 		httpRequestDuration.WithLabelValues(method, path, status).Observe(v)
 	}))
 
@@ -54,6 +57,10 @@ func PrometheusMiddleware(c *gin.Context) {
 
 	// record metrics after request completes
 	status := strconv.Itoa(c.Writer.Status())
+	path := c.FullPath()
+	if path == "" {
+		path = "unmatched"
+	}
 	httpRequestsTotal.WithLabelValues(method, path, status).Inc()
 	timer.ObserveDuration()
 	activeConnections.Dec()

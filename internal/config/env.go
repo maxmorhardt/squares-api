@@ -19,7 +19,8 @@ type config struct {
 }
 
 type serverConfig struct {
-	MetricsEnabled bool `env:"METRICS_ENABLED" envDefault:"false"`
+	MetricsEnabled bool     `env:"METRICS_ENABLED" envDefault:"false"`
+	AllowedOrigins []string `env:"ALLOWED_ORIGINS" envDefault:"http://localhost:3000" envSeparator:","`
 }
 
 type databaseConfig struct {

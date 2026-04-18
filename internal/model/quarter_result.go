@@ -8,19 +8,19 @@ import (
 )
 
 type QuarterResult struct {
-	ID              uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
-	ContestID       uuid.UUID `json:"contestId" gorm:"type:uuid;index;not null"`
-	Quarter         int       `json:"quarter" gorm:"type:int;not null"`
-	HomeTeamScore   int       `json:"homeTeamScore"`
-	AwayTeamScore   int       `json:"awayTeamScore"`
-	WinnerRow       int       `json:"winnerRow"`
-	WinnerCol       int       `json:"winnerCol"`
-	Winner          string    `json:"winner"`
-	WinnerName      string    `json:"winnerName"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
-	CreatedBy       string    `json:"createdBy"`
-	UpdatedBy       string    `json:"updatedBy"`
+	ID            uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
+	ContestID     uuid.UUID `json:"contestId" gorm:"type:uuid;index;not null"`
+	Quarter       int       `json:"quarter" gorm:"type:int;not null"`
+	HomeTeamScore int       `json:"homeTeamScore"`
+	AwayTeamScore int       `json:"awayTeamScore"`
+	WinnerRow     int       `json:"winnerRow"`
+	WinnerCol     int       `json:"winnerCol"`
+	Winner        string    `json:"winner"`
+	WinnerName    string    `json:"winnerName"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+	CreatedBy     string    `json:"createdBy"`
+	UpdatedBy     string    `json:"updatedBy"`
 }
 
 func (q *QuarterResult) BeforeCreate(tx *gorm.DB) (err error) {

@@ -17,7 +17,7 @@ func setupValidators() {
 
 func validateContestName(fl validator.FieldLevel) bool {
 	name := fl.Field().String()
-	if len(name) == 0 {
+	if name == "" {
 		return true
 	}
 
@@ -28,7 +28,7 @@ func validateContestName(fl validator.FieldLevel) bool {
 // Blocks: < > { } [ ] \ | ` and other control characters
 func validateSafeString(fl validator.FieldLevel) bool {
 	str := fl.Field().String()
-	if len(str) == 0 {
+	if str == "" {
 		return true
 	}
 

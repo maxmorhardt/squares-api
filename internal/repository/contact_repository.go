@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/gorm"
 )
@@ -19,9 +18,9 @@ type contactRepository struct {
 	db *gorm.DB
 }
 
-func NewContactRepository() ContactRepository {
+func NewContactRepository(db *gorm.DB) ContactRepository {
 	return &contactRepository{
-		db: config.DB(),
+		db: db,
 	}
 }
 

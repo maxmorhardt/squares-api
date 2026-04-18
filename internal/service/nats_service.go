@@ -14,6 +14,8 @@ type NatsService interface {
 	PublishContestUpdate(contestID uuid.UUID, updatedBy string, contest *model.Contest) error
 	PublishQuarterResult(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult) error
 	PublishContestDeleted(contestID uuid.UUID, updatedBy string) error
+	PublishParticipantRemoved(contestID uuid.UUID, updatedBy string, participant *model.ContestParticipant) error
+	PublishParticipantAdded(contestID uuid.UUID, participant *model.ContestParticipant) error
 }
 
 type natsService struct{}
@@ -39,6 +41,16 @@ func (s *natsService) PublishQuarterResult(contestID uuid.UUID, updatedBy string
 
 func (s *natsService) PublishContestDeleted(contestID uuid.UUID, updatedBy string) error {
 	updateMessage := model.NewContestDeletedMessage(contestID, updatedBy)
+	return s.publishToContestSubject(contestID, updateMessage)
+}
+
+func (s *natsService) PublishParticipantRemoved(contestID uuid.UUID, updatedBy string, participant *model.ContestParticipant) error {
+	updateMessage := model.NewParticipantRemovedMessage(contestID, updatedBy, participant)
+	return s.publishToContestSubject(contestID, updateMessage)
+}
+
+func (s *natsService) PublishParticipantAdded(contestID uuid.UUID, participant *model.ContestParticipant) error {
+	updateMessage := model.NewParticipantAddedMessage(contestID, participant)
 	return s.publishToContestSubject(contestID, updateMessage)
 }
 

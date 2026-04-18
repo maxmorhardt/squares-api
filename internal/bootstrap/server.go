@@ -31,7 +31,7 @@ func NewServer() *gin.Engine {
 func setupMiddleware(r *gin.Engine) {
 	r.Use(gin.Recovery())
 	r.Use(middleware.RequestSizeLimitMiddleware())
-	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.CORSMiddleware(config.Env().Server.AllowedOrigins))
 	r.Use(middleware.LoggerMiddleware)
 
 	if config.Env().Server.MetricsEnabled {
@@ -40,26 +40,41 @@ func setupMiddleware(r *gin.Engine) {
 }
 
 func setupRoutes(r *gin.Engine) {
-	contestRepo := repository.NewContestRepository()
-	contactRepo := repository.NewContactRepository()
+	db := config.DB()
+
+	contestRepo := repository.NewContestRepository(db)
+	contactRepo := repository.NewContactRepository(db)
+	inviteRepo := repository.NewInviteRepository(db)
+	participantRepo := repository.NewParticipantRepository(db)
 
 	authService := service.NewAuthService()
 	natsService := service.NewNatsService()
-	contestService := service.NewContestService(contestRepo, natsService, authService)
+	participantService := service.NewParticipantService(participantRepo, contestRepo, natsService)
+	contestService := service.NewContestService(contestRepo, participantRepo, natsService, authService, participantService)
 	wsService := service.NewWebSocketService()
 	contactService := service.NewContactService(contactRepo)
+	inviteService := service.NewInviteService(inviteRepo, participantRepo, contestRepo, participantService, natsService)
 
-	statsRepo := repository.NewStatsRepository()
+	statsRepo := repository.NewStatsRepository(db)
 	statsService := service.NewStatsService(statsRepo)
 
 	contestHandler := handler.NewContestHandler(contestService, authService)
-	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo)
+	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo, participantService)
 	contactHandler := handler.NewContactHandler(contactService)
 	statsHandler := handler.NewStatsHandler(statsService)
+	inviteHandler := handler.NewInviteHandler(inviteService)
+	participantHandler := handler.NewParticipantHandler(participantService)
+	healthHandler := handler.NewHealthHandler(db, config.NATS, config.OIDCVerifier)
 
-	routes.RegisterRootRoutes(r.Group(""))
+	routes.RegisterRootRoutes(r.Group(""), healthHandler)
 	routes.RegisterStatsRoutes(r.Group("/stats"), statsHandler)
 	routes.RegisterContactRoute(r.Group("/contact"), contactHandler)
 	routes.RegisterContestRoutes(r.Group("/contests"), contestHandler)
 	routes.RegisterWebSocketRoutes(r.Group("/ws"), wsHandler)
+
+	routes.RegisterInviteRoutes(r.Group("/invites"), inviteHandler)
+	routes.RegisterContestInviteRoutes(r.Group("/contests/:id/invites"), inviteHandler)
+
+	routes.RegisterMyContestsRoute(r.Group("/contests/me"), participantHandler)
+	routes.RegisterParticipantRoutes(r.Group("/contests/:id/participants"), participantHandler)
 }

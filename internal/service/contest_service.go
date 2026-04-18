@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"encoding/json"
 	"errors"
-	"math/rand"
+	"math/big"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
@@ -24,25 +25,31 @@ type ContestService interface {
 	RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
 
-	UpdateSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error)
-	ClearSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, user string) (*model.Square, error)
+	UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error)
+	ClearSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error)
 }
 
 type contestService struct {
-	repo        repository.ContestRepository
-	natsService NatsService
-	authService AuthService
+	repo               repository.ContestRepository
+	participantRepo    repository.ParticipantRepository
+	natsService        NatsService
+	authService        AuthService
+	participantService ParticipantService
 }
 
 func NewContestService(
 	repo repository.ContestRepository,
+	participantRepo repository.ParticipantRepository,
 	natsService NatsService,
 	authService AuthService,
+	participantService ParticipantService,
 ) ContestService {
 	return &contestService{
-		repo:        repo,
-		natsService: natsService,
-		authService: authService,
+		repo:               repo,
+		participantRepo:    participantRepo,
+		natsService:        natsService,
+		authService:        authService,
+		participantService: participantService,
 	}
 }
 
@@ -57,6 +64,13 @@ func (s *contestService) GetContestByOwnerAndName(ctx context.Context, owner, na
 	contest, err := s.repo.GetByOwnerAndName(ctx, owner, name)
 	if err != nil {
 		log.Error("failed to get contest by owner and name", "owner", owner, "name", name, "error", err)
+		return nil, err
+	}
+
+	// check if user has permission to view
+	user, _ := ctx.Value(model.UserKey).(string)
+	if err := s.participantService.Authorize(ctx, contest.ID, user, ActionView); err != nil {
+		log.Warn("user not authorized to view contest", "owner", owner, "name", name, "user", user)
 		return nil, err
 	}
 
@@ -99,19 +113,36 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 
 	// build contest with initial labels
 	xLabelsJSON, yLabelsJSON := initLabels()
+	visibility := model.ContestVisibilityPrivate
+	if req.Visibility == "public" {
+		visibility = model.ContestVisibilityPublic
+	}
 	contest := model.Contest{
-		Name:     req.Name,
-		XLabels:  xLabelsJSON,
-		YLabels:  yLabelsJSON,
-		HomeTeam: req.HomeTeam,
-		AwayTeam: req.AwayTeam,
-		Owner:    req.Owner,
-		Status:   model.ContestStatusActive,
+		Name:       req.Name,
+		XLabels:    xLabelsJSON,
+		YLabels:    yLabelsJSON,
+		HomeTeam:   req.HomeTeam,
+		AwayTeam:   req.AwayTeam,
+		Owner:      req.Owner,
+		Visibility: visibility,
+		Status:     model.ContestStatusActive,
 	}
 
 	// create contest in repository
 	if err := s.repo.Create(ctx, &contest); err != nil {
 		log.Error("failed to create contest in repository", "error", err)
+		return nil, err
+	}
+
+	// register creator as owner participant with full square access
+	ownerParticipant := &model.ContestParticipant{
+		ContestID:  contest.ID,
+		UserID:     user,
+		Role:       model.ParticipantRoleOwner,
+		MaxSquares: 100,
+	}
+	if err := s.participantRepo.Create(ctx, ownerParticipant); err != nil {
+		log.Error("failed to create owner participant", "contest_id", contest.ID, "error", err)
 		return nil, err
 	}
 
@@ -147,8 +178,13 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
-	if contest.Owner != user {
-		log.Warn("user is not authorized to update contest", "contest_id", contestID, "owner", contest.Owner)
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot update contest in terminal state", "contest_id", contestID, "status", contest.Status)
+		return nil, errs.ErrContestFinalized
+	}
+
+	if err := s.participantService.Authorize(ctx, contestID, user, ActionEditContest); err != nil {
+		log.Warn("user is not authorized to update contest", "contest_id", contestID, "user", user)
 		return nil, errs.ErrUnauthorizedContestEdit
 	}
 
@@ -162,6 +198,14 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 	if req.AwayTeam != nil && *req.AwayTeam != contest.AwayTeam {
 		contest.AwayTeam = *req.AwayTeam
 		needsUpdate = true
+	}
+
+	if req.Visibility != nil {
+		newVisibility := model.ContestVisibility(*req.Visibility)
+		if newVisibility != contest.Visibility {
+			contest.Visibility = newVisibility
+			needsUpdate = true
+		}
 	}
 
 	if !needsUpdate {
@@ -267,7 +311,8 @@ func generateRandomizedLabels() []int8 {
 
 	// fisher-yates shuffle
 	for i := len(labels) - 1; i > 0; i-- {
-		j := rand.Intn(i + 1)
+		n, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(i+1)))
+		j := int(n.Int64())
 		labels[i], labels[j] = labels[j], labels[i]
 	}
 
@@ -306,8 +351,8 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 	}
 
 	// no duplicate quarter results
-	for _, qr := range contest.QuarterResults {
-		if qr.Quarter == quarter {
+	for i := range contest.QuarterResults {
+		if contest.QuarterResults[i].Quarter == quarter {
 			log.Warn("quarter result already exists for given quarter", "quarter", quarter)
 			return nil, errs.ErrQuarterResultAlreadyExists
 		}
@@ -315,13 +360,13 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 
 	// parse labels
 	var xLabels, yLabels []int8
-	if err := json.Unmarshal(contest.XLabels, &xLabels); err != nil {
-		log.Error("failed to unmarshal X labels", "contest_id", contestID, "error", err)
-		return nil, err
+	if unmarshalErr := json.Unmarshal(contest.XLabels, &xLabels); unmarshalErr != nil {
+		log.Error("failed to unmarshal X labels", "contest_id", contestID, "error", unmarshalErr)
+		return nil, unmarshalErr
 	}
-	if err := json.Unmarshal(contest.YLabels, &yLabels); err != nil {
-		log.Error("failed to unmarshal Y labels", "contest_id", contestID, "error", err)
-		return nil, err
+	if unmarshalErr := json.Unmarshal(contest.YLabels, &yLabels); unmarshalErr != nil {
+		log.Error("failed to unmarshal Y labels", "contest_id", contestID, "error", unmarshalErr)
+		return nil, unmarshalErr
 	}
 
 	// calculate winner coordinates
@@ -333,10 +378,10 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 
 	// find the winning square and get owner details
 	var winner, winnerName string
-	for _, square := range contest.Squares {
-		if square.Row == winnerRow && square.Col == winnerCol {
-			winner = square.Owner
-			winnerName = square.OwnerName
+	for i := range contest.Squares {
+		if contest.Squares[i].Row == winnerRow && contest.Squares[i].Col == winnerCol {
+			winner = contest.Squares[i].Owner
+			winnerName = contest.Squares[i].OwnerName
 			break
 		}
 	}
@@ -423,15 +468,24 @@ func calculateWinnerCoordinates(homeScore, awayScore int, xLabels, yLabels []int
 func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error {
 	log := util.LoggerFromContext(ctx)
 
-	// get contest and verify ownership
+	// check contest is not in a terminal state
 	contest, err := s.repo.GetByID(ctx, contestID)
 	if err != nil {
-		log.Error("failed to get contest", "contest_id", contestID, "error", err)
-		return err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		log.Error("failed to get contest for delete", "contest_id", contestID, "error", err)
+		return errs.ErrDatabaseUnavailable
 	}
 
-	if contest.Owner != user {
-		log.Warn("unauthorized delete attempt", "contest_owner", contest.Owner)
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot delete contest in terminal state", "contest_id", contestID, "status", contest.Status)
+		return errs.ErrContestFinalized
+	}
+
+	// verify authorization
+	if err := s.participantService.Authorize(ctx, contestID, user, ActionDeleteContest); err != nil {
+		log.Warn("unauthorized delete attempt", "contest_id", contestID, "user", user)
 		return errs.ErrUnauthorizedContestDelete
 	}
 
@@ -455,7 +509,7 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 // Square Actions
 // ====================
 
-func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error) {
+func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get contest to check status and find square
@@ -499,6 +553,31 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 
+	// enforce square limit for the participant
+	participant, err := s.participantRepo.GetByContestAndUser(ctx, contestID, user)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Warn("user is not a participant", "contest_id", contestID, "user", user)
+			return nil, errs.ErrNotParticipant
+		}
+		log.Error("failed to get participant for square limit check", "error", err)
+		return nil, errs.ErrDatabaseUnavailable
+	}
+
+	// only check limit if claiming a new square (not re-editing own square)
+	if square.Owner == "" {
+		claimed, countErr := s.participantRepo.CountSquaresByUser(ctx, contestID, user)
+		if countErr != nil {
+			log.Error("failed to count user squares", "contest_id", contestID, "user", user, "error", countErr)
+			return nil, errs.ErrDatabaseUnavailable
+		}
+
+		if claimed >= participant.MaxSquares {
+			log.Warn("user has reached square limit", "contest_id", contestID, "user", user, "claimed", claimed, "limit", participant.MaxSquares)
+			return nil, errs.ErrSquareLimitReached
+		}
+	}
+
 	// get claims for first and last name
 	claims := util.ClaimsFromContext(ctx)
 	if claims == nil {
@@ -522,7 +601,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 	return updatedSquare, nil
 }
 
-func (s *contestService) ClearSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, user string) (*model.Square, error) {
+func (s *contestService) ClearSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get contest to check status and find square
@@ -556,11 +635,11 @@ func (s *contestService) ClearSquare(ctx context.Context, contestID uuid.UUID, s
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	// check authorization - allow if user is contest owner or square owner
-	isContestOwner := contest.Owner == user
+	// check authorization - allow if user can edit contest or is the square owner
 	isSquareOwner := square.Owner == user
-	if !isContestOwner && !isSquareOwner {
-		log.Warn("user not authorized to clear square", "square_id", squareID, "square_owner", square.Owner, "contest_owner", contest.Owner, "user", user)
+	editErr := s.participantService.Authorize(ctx, contestID, user, ActionEditContest)
+	if editErr != nil && !isSquareOwner {
+		log.Warn("user not authorized to clear square", "square_id", squareID, "square_owner", square.Owner, "user", user)
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 

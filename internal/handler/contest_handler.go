@@ -46,15 +46,17 @@ func NewContestHandler(contestService service.ContestService, authService servic
 // ====================
 
 // @Summary Get a contest by Owner and Name
-// @Description Returns a single contest by its owner and name
+// @Description Returns a single contest by its owner and name. Private contests require the user to be a participant
 // @Tags contests
 // @Produce json
 // @Param owner path string true "Owner"
 // @Param name path string true "Name"
 // @Success 200 {object} model.ContestSwagger
 // @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
+// @Security BearerAuth
 // @Router /contests/owner/{owner}/name/{name} [get]
 func (h *contestHandler) GetContestByOwnerAndName(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
@@ -77,12 +79,14 @@ func (h *contestHandler) GetContestByOwnerAndName(c *gin.Context) {
 	// get contest from service
 	contest, err := h.contestService.GetContestByOwnerAndName(c.Request.Context(), owner, name)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-			return
+		case errors.Is(err, errs.ErrNotParticipant), errors.Is(err, errs.ErrInsufficientRole):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(errs.ErrInsufficientRole), c))
+		default:
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
 		}
-
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
 		return
 	}
 
@@ -139,7 +143,7 @@ func (h *contestHandler) GetContestsByOwner(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func (h *contestHandler) extractPaginationParams(c *gin.Context) (int, int, error) {
+func (h *contestHandler) extractPaginationParams(c *gin.Context) (page, limit int, err error) {
 	// get page parameter
 	pageStr := c.Query("page")
 	if pageStr == "" {
@@ -153,14 +157,13 @@ func (h *contestHandler) extractPaginationParams(c *gin.Context) (int, int, erro
 	}
 
 	// parse and validate page and limit
-	var page, limit int
-	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+	if p, parseErr := strconv.Atoi(pageStr); parseErr == nil && p > 0 {
 		page = p
 	} else {
 		return 0, 0, errs.ErrInvalidPage
 	}
 
-	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 25 {
+	if l, parseErr := strconv.Atoi(limitStr); parseErr == nil && l > 0 && l <= 25 {
 		limit = l
 	} else {
 		return 0, 0, errs.ErrInvalidLimit
@@ -207,11 +210,12 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 	// create contest via service
 	contest, err := h.contestService.CreateContest(c.Request.Context(), &req, user)
 	if err != nil {
-		if errors.Is(err, errs.ErrDatabaseUnavailable) {
+		switch {
+		case errors.Is(err, errs.ErrDatabaseUnavailable):
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
-		} else if errors.Is(err, errs.ErrContestAlreadyExists) {
+		case errors.Is(err, errs.ErrContestAlreadyExists):
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
-		} else {
+		default:
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to create contest", c))
 		}
 		return
@@ -254,8 +258,8 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 
 	// parse request body
 	var req model.UpdateContestRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Warn("invalid request body", "error", err)
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		log.Warn("invalid request body", "error", bindErr)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}
@@ -266,13 +270,16 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 	// update contest via service
 	updatedContest, err := h.contestService.UpdateContest(c.Request.Context(), contestID, &req, user)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-		} else if errors.Is(err, errs.ErrUnauthorizedContestEdit) {
+		case errors.Is(err, errs.ErrContestFinalized):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		} else if errors.Is(err, errs.ErrDatabaseUnavailable) {
+		case errors.Is(err, errs.ErrUnauthorizedContestEdit):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrDatabaseUnavailable):
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
-		} else {
+		default:
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		}
 		return
@@ -282,7 +289,7 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 }
 
 // @Summary Delete contest
-// @Description Deletes a contest by id
+// @Description Deletes a contest by id. Only the contest owner can delete
 // @Tags contests
 // @Accept json
 // @Produce json
@@ -292,6 +299,7 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 // @Failure 403 {object} model.APIError "Forbidden - user is not the owner"
 // @Failure 404 {object} model.APIError "Contest not found"
 // @Failure 500 {object} model.APIError "Internal server error"
+// @Security BearerAuth
 // @Router /contests/{id} [delete]
 func (h *contestHandler) DeleteContest(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
@@ -314,11 +322,14 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 	// get authenticated user and delete contest
 	user := c.GetString(model.UserKey)
 	if err = h.contestService.DeleteContest(c.Request.Context(), contestID, user); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-		} else if errors.Is(err, errs.ErrUnauthorizedContestDelete) {
+		case errors.Is(err, errs.ErrContestFinalized):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		} else {
+		case errors.Is(err, errs.ErrUnauthorizedContestDelete):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		default:
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to delete contest", c))
 		}
 		return
@@ -399,8 +410,8 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 
 	// parse request body
 	var req model.QuarterResultRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Warn("failed to bind request", "error", err)
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		log.Warn("failed to bind request", "error", bindErr)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}
@@ -416,16 +427,17 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 	// record quarter result
 	result, err := h.contestService.RecordQuarterResult(c.Request.Context(), contestID, req.HomeTeamScore, req.AwayTeamScore, user)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
 			log.Warn("contest not found", "contest_id", contestID)
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-		} else if errors.Is(err, gorm.ErrInvalidData) {
+		case errors.Is(err, gorm.ErrInvalidData):
 			log.Warn("invalid quarter data", "error", err)
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid quarter data", c))
-		} else if errors.Is(err, errs.ErrQuarterResultAlreadyExists) {
+		case errors.Is(err, errs.ErrQuarterResultAlreadyExists):
 			log.Warn("quarter results already exists for given quarter")
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrQuarterResultAlreadyExists), c))
-		} else {
+		default:
 			log.Error("failed to record quarter result", "error", err)
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to record quarter result", c))
 		}
@@ -489,8 +501,8 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 
 	// parse request body
 	var req model.UpdateSquareRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Warn("failed to bind json", "error", err)
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		log.Warn("failed to bind json", "error", bindErr)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}
@@ -504,17 +516,18 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 	// update square via service
 	updatedSquare, err := h.contestService.UpdateSquare(c.Request.Context(), contestID, squareID, &req, user)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrSquareNotFound), c))
-		} else if errors.Is(err, errs.ErrSquareNotEditable) {
+		case errors.Is(err, errs.ErrSquareNotEditable):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		} else if errors.Is(err, errs.ErrUnauthorizedSquareEdit) {
+		case errors.Is(err, errs.ErrUnauthorizedSquareEdit):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		} else if errors.Is(err, errs.ErrClaimsNotFound) {
+		case errors.Is(err, errs.ErrClaimsNotFound):
 			c.JSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, util.CapitalizeFirstLetter(err), c))
-		} else if errors.Is(err, errs.ErrDatabaseUnavailable) {
+		case errors.Is(err, errs.ErrDatabaseUnavailable):
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
-		} else {
+		default:
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		}
 		return
@@ -574,15 +587,16 @@ func (h *contestHandler) ClearSquare(c *gin.Context) {
 	user := c.GetString(model.UserKey)
 	clearedSquare, err := h.contestService.ClearSquare(c.Request.Context(), contestID, squareID, user)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrSquareNotFound), c))
-		} else if errors.Is(err, errs.ErrSquareNotEditable) {
+		case errors.Is(err, errs.ErrSquareNotEditable):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		} else if errors.Is(err, errs.ErrUnauthorizedSquareEdit) {
+		case errors.Is(err, errs.ErrUnauthorizedSquareEdit):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		} else if errors.Is(err, errs.ErrDatabaseUnavailable) {
+		case errors.Is(err, errs.ErrDatabaseUnavailable):
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
-		} else {
+		default:
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		}
 		return

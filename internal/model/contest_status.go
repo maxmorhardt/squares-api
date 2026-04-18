@@ -25,8 +25,12 @@ func (cs ContestStatus) IsValid() bool {
 		ContestStatusFinished, ContestStatusDeleted:
 		return true
 	}
-	
+
 	return false
+}
+
+func (cs ContestStatus) IsTerminal() bool {
+	return cs == ContestStatusFinished || cs == ContestStatusDeleted
 }
 
 func (cs ContestStatus) CanTransitionTo(target ContestStatus) bool {

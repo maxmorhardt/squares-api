@@ -15,12 +15,12 @@ func InitOIDC() {
 		slog.Error("failed to create oidc provider", "error", err)
 		panic(err)
 	}
-	
+
 	oidcConfig := &oidc.Config{
 		ClientID: Env().OIDC.ClientID,
 	}
 	oidcVerifier = provider.Verifier(oidcConfig)
-	
+
 	slog.Info("oidc configuration initialized")
 }
 
