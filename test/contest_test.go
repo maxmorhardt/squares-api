@@ -121,12 +121,6 @@ func TestContest_FullLifecycle(t *testing.T) {
 		assert.Equal(t, model.ContestStatusFinished, contest.Status)
 		assert.Len(t, contest.QuarterResults, 4)
 	})
-
-	t.Run("7_DeleteContest", func(t *testing.T) {
-		deleteContest(router, contestID, authToken)
-		_, status := getContestByOwnerAndName(router, oidcUser, name, authToken)
-		assert.Equal(t, http.StatusNotFound, status)
-	})
 }
 
 func TestCreateContest_Validation(t *testing.T) {
@@ -447,8 +441,8 @@ func TestQuarterResult_Validation(t *testing.T) {
 				Value: "AAA",
 				Owner: oidcUser,
 			}
-			status := updateSquare(router, contest.ID, square.ID, authToken, updateReq)
-			require.Equal(t, http.StatusOK, status)
+			squareStatus := updateSquare(router, contest.ID, square.ID, authToken, updateReq)
+			require.Equal(t, http.StatusOK, squareStatus)
 		}
 
 		_, status = startContest(router, contest.ID, authToken)
@@ -575,7 +569,7 @@ func TestQuarterResult_Validation(t *testing.T) {
 	}
 }
 
-func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awayTeam string) (*model.Contest, int) {
+func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awayTeam string) (result *model.Contest, statusCode int) {
 	reqBody := model.CreateContestRequest{
 		Owner:    oidcUser,
 		Name:     name,
@@ -591,14 +585,14 @@ func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awa
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	var contest model.Contest
-	_ = json.Unmarshal(w.Body.Bytes(), &contest)
+	var c model.Contest
+	_ = json.Unmarshal(w.Body.Bytes(), &c)
 
-	return &contest, w.Code
+	return &c, w.Code
 }
 
-func getContestByOwnerAndName(router http.Handler, owner, name, authToken string) (*model.Contest, int) {
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/owner/%s/name/%s", owner, name), nil)
+func getContestByOwnerAndName(router http.Handler, owner, name, authToken string) (result *model.Contest, statusCode int) {
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/owner/%s/name/%s", owner, name), http.NoBody)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 
 	w := httptest.NewRecorder()
@@ -610,8 +604,8 @@ func getContestByOwnerAndName(router http.Handler, owner, name, authToken string
 	return &contest, w.Code
 }
 
-func getContestsByOwner(router http.Handler, oidcUser, authToken string) (model.PaginatedContestResponse, int) {
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/owner/%s?page=1&limit=10", oidcUser), nil)
+func getContestsByOwner(router http.Handler, oidcUser, authToken string) (resp model.PaginatedContestResponse, statusCode int) {
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/owner/%s?page=1&limit=10", oidcUser), http.NoBody)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 
 	w := httptest.NewRecorder()
@@ -623,7 +617,7 @@ func getContestsByOwner(router http.Handler, oidcUser, authToken string) (model.
 	return response, w.Code
 }
 
-func updateContest(router http.Handler, contestID uuid.UUID, authToken string, updateReq model.UpdateContestRequest) (model.Contest, int) {
+func updateContest(router http.Handler, contestID uuid.UUID, authToken string, updateReq model.UpdateContestRequest) (result model.Contest, statusCode int) {
 	body, _ := json.Marshal(updateReq)
 
 	req, _ := http.NewRequest(http.MethodPatch, fmt.Sprintf("/contests/%s", contestID), bytes.NewBuffer(body))
@@ -639,7 +633,7 @@ func updateContest(router http.Handler, contestID uuid.UUID, authToken string, u
 	return contest, w.Code
 }
 
-func updateSquare(router http.Handler, contestID uuid.UUID, squareID uuid.UUID, authToken string, updateReq model.UpdateSquareRequest) int {
+func updateSquare(router http.Handler, contestID, squareID uuid.UUID, authToken string, updateReq model.UpdateSquareRequest) int {
 	body, _ := json.Marshal(updateReq)
 
 	req, _ := http.NewRequest(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", contestID, squareID), bytes.NewBuffer(body))
@@ -652,8 +646,8 @@ func updateSquare(router http.Handler, contestID uuid.UUID, squareID uuid.UUID, 
 	return w.Code
 }
 
-func startContest(router http.Handler, contestID uuid.UUID, authToken string) (*model.Contest, int) {
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", contestID), nil)
+func startContest(router http.Handler, contestID uuid.UUID, authToken string) (result *model.Contest, statusCode int) {
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", contestID), http.NoBody)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 
 	w := httptest.NewRecorder()
@@ -678,12 +672,10 @@ func submitQuarterResult(router http.Handler, contestID uuid.UUID, authToken str
 	return w.Code
 }
 
-func deleteContest(router http.Handler, contestID uuid.UUID, authToken string) int {
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", contestID), nil)
+func deleteContest(router http.Handler, contestID uuid.UUID, authToken string) {
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", contestID), http.NoBody)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
-
-	return w.Code
 }

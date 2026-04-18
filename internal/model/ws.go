@@ -11,6 +11,8 @@ const (
 	ContestUpdateType       string = "contest_update"
 	QuarterResultUpdateType string = "quarter_result_update"
 	ContestDeletedType      string = "contest_deleted"
+	ParticipantRemovedType  string = "participant_removed"
+	ParticipantAddedType    string = "participant_added"
 	ChatMessageType         string = "chat_message"
 	ConnectedType           string = "connected"
 	DisconnectType          string = "disconnected"
@@ -22,18 +24,19 @@ type WSChatMessage struct {
 }
 
 type WSUpdate struct {
-	Type          string         `json:"type"`
-	ContestID     uuid.UUID      `json:"contestId"`
-	ConnectionID  uuid.UUID      `json:"connectionId,omitempty"`
-	UpdatedBy     string         `json:"updatedBy"`
-	Timestamp     time.Time      `json:"timestamp"`
-	Square        *Square        `json:"square,omitempty"`
-	Contest       *Contest       `json:"contest,omitempty"`
-	QuarterResult *QuarterResult `json:"quarterResult,omitempty"`
-	Message       string         `json:"message,omitempty"`
+	Type          string              `json:"type"`
+	ContestID     uuid.UUID           `json:"contestId"`
+	ConnectionID  uuid.UUID           `json:"connectionId,omitempty"`
+	UpdatedBy     string              `json:"updatedBy"`
+	Timestamp     time.Time           `json:"timestamp"`
+	Square        *Square             `json:"square,omitempty"`
+	Contest       *Contest            `json:"contest,omitempty"`
+	QuarterResult *QuarterResult      `json:"quarterResult,omitempty"`
+	Participant   *ContestParticipant `json:"participant,omitempty"`
+	Message       string              `json:"message,omitempty"`
 }
 
-func NewConnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate {
+func NewConnectedMessage(contestID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
 		Type:         ConnectedType,
 		ContestID:    contestID,
@@ -43,7 +46,7 @@ func NewConnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate 
 	}
 }
 
-func NewDisconnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate {
+func NewDisconnectedMessage(contestID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
 		Type:         DisconnectType,
 		ContestID:    contestID,
@@ -92,12 +95,32 @@ func NewContestDeletedMessage(contestID uuid.UUID, updatedBy string) *WSUpdate {
 	}
 }
 
-func NewChatMessage(contestID uuid.UUID, sender string, message string) *WSUpdate {
+func NewChatMessage(contestID uuid.UUID, sender, message string) *WSUpdate {
 	return &WSUpdate{
 		Type:      ChatMessageType,
 		ContestID: contestID,
 		UpdatedBy: sender,
 		Timestamp: time.Now(),
 		Message:   message,
+	}
+}
+
+func NewParticipantRemovedMessage(contestID uuid.UUID, updatedBy string, participant *ContestParticipant) *WSUpdate {
+	return &WSUpdate{
+		Type:        ParticipantRemovedType,
+		ContestID:   contestID,
+		UpdatedBy:   updatedBy,
+		Participant: participant,
+		Timestamp:   time.Now(),
+	}
+}
+
+func NewParticipantAddedMessage(contestID uuid.UUID, participant *ContestParticipant) *WSUpdate {
+	return &WSUpdate{
+		Type:        ParticipantAddedType,
+		ContestID:   contestID,
+		UpdatedBy:   participant.UserID,
+		Participant: participant,
+		Timestamp:   time.Now(),
 	}
 }

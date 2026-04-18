@@ -34,4 +34,4 @@ This application requires the following services to be deployed:
 1. Set up environment variables
 2. Start required services (PostgreSQL, NATS, OIDC provider)
 3. Run `go run cmd/main.go`
-4. Upgrade packages `go get -u ./... && go mod tidy`
+4. Upgrade packages `go get -u -t ./... && go mod tidy`

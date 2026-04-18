@@ -47,6 +47,52 @@ definitions:
       message:
         type: string
     type: object
+  model.ContestInvite:
+    properties:
+      contestId:
+        type: string
+      createdAt:
+        type: string
+      createdBy:
+        type: string
+      expiresAt:
+        type: string
+      id:
+        type: string
+      maxSquares:
+        type: integer
+      maxUses:
+        type: integer
+      role:
+        $ref: '#/definitions/model.ParticipantRole'
+      token:
+        type: string
+      updatedAt:
+        type: string
+      uses:
+        type: integer
+    type: object
+  model.ContestParticipant:
+    properties:
+      contestId:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      inviteId:
+        type: string
+      joinedAt:
+        type: string
+      maxSquares:
+        type: integer
+      role:
+        $ref: '#/definitions/model.ParticipantRole'
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
   model.ContestSwagger:
     properties:
       awayTeam:
@@ -101,14 +147,53 @@ definitions:
       owner:
         maxLength: 255
         type: string
+      visibility:
+        enum:
+        - private
+        - public
+        type: string
     required:
     - name
     - owner
     type: object
-  model.HealthResponse:
+  model.CreateInviteRequest:
     properties:
-      status:
-        example: UP
+      expiresIn:
+        description: minutes, 0 = no expiry
+        minimum: 0
+        type: integer
+      maxSquares:
+        maximum: 100
+        minimum: 1
+        type: integer
+      maxUses:
+        minimum: 0
+        type: integer
+      role:
+        enum:
+        - participant
+        - viewer
+        type: string
+    required:
+    - maxSquares
+    - role
+    type: object
+  model.InvitePreviewResponse:
+    properties:
+      contestName:
+        type: string
+      maxSquares:
+        type: integer
+      owner:
+        type: string
+      role:
+        type: string
+    type: object
+  model.InviteResponse:
+    properties:
+      inviteUrl:
+        type: string
+      token:
         type: string
     type: object
   model.PaginatedContestResponseSwagger:
@@ -130,6 +215,16 @@ definitions:
       totalPages:
         type: integer
     type: object
+  model.ParticipantRole:
+    enum:
+    - owner
+    - participant
+    - viewer
+    type: string
+    x-enum-varnames:
+    - ParticipantRoleOwner
+    - ParticipantRoleParticipant
+    - ParticipantRoleViewer
   model.QuarterResult:
     properties:
       awayTeamScore:
@@ -215,6 +310,23 @@ definitions:
       homeTeam:
         maxLength: 20
         type: string
+      visibility:
+        enum:
+        - private
+        - public
+        type: string
+    type: object
+  model.UpdateParticipantRequest:
+    properties:
+      maxSquares:
+        maximum: 100
+        minimum: 0
+        type: integer
+      role:
+        enum:
+        - participant
+        - viewer
+        type: string
     type: object
   model.UpdateSquareRequest:
     properties:
@@ -296,7 +408,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Deletes a contest by id
+      description: Deletes a contest by id. Only the contest owner can delete
       parameters:
       - description: Contest ID
         in: path
@@ -324,6 +436,8 @@ paths:
           description: Internal server error
           schema:
             $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
       summary: Delete contest
       tags:
       - contests
@@ -371,6 +485,218 @@ paths:
       summary: Update contest
       tags:
       - contests
+  /contests/{id}/invites:
+    get:
+      description: Owner gets all invite links for a contest
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.ContestInvite'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get all invites for a contest
+      tags:
+      - invites
+    post:
+      consumes:
+      - application/json
+      description: Owner creates an invite link with specified role and square limit
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invite details
+        in: body
+        name: invite
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateInviteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.InviteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Create an invite link for a contest
+      tags:
+      - invites
+  /contests/{id}/invites/{inviteId}:
+    delete:
+      description: Owner deletes an invite link
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invite ID
+        in: path
+        name: inviteId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Delete an invite link
+      tags:
+      - invites
+  /contests/{id}/participants:
+    get:
+      description: Returns all participants and their roles. Any participant can view.
+        Public contests allow any authenticated user
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.ContestParticipant'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get all participants for a contest
+      tags:
+      - participants
+  /contests/{id}/participants/{userId}:
+    delete:
+      description: Owner removes a participant and clears their squares
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Target user ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Remove a participant from a contest
+      tags:
+      - participants
+    patch:
+      consumes:
+      - application/json
+      description: Owner updates a participant's role or max squares
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Target user ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Update details
+        in: body
+        name: participant
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateParticipantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ContestParticipant'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Update a participant's role or square limit
+      tags:
+      - participants
   /contests/{id}/quarter-result:
     post:
       consumes:
@@ -543,6 +869,23 @@ paths:
       summary: Start contest
       tags:
       - contests
+  /contests/me:
+    get:
+      description: Returns all contests where the authenticated user is a participant
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.ContestSwagger'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all contests the user participates in
+      tags:
+      - participants
   /contests/owner/{owner}:
     get:
       description: Returns all contests created by a specific owner with pagination
@@ -587,7 +930,8 @@ paths:
       - contests
   /contests/owner/{owner}/name/{name}:
     get:
-      description: Returns a single contest by its owner and name
+      description: Returns a single contest by its owner and name. Private contests
+        require the user to be a participant
       parameters:
       - description: Owner
         in: path
@@ -610,6 +954,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
         "404":
           description: Not Found
           schema:
@@ -618,22 +966,111 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
       summary: Get a contest by Owner and Name
       tags:
       - contests
-  /health:
+  /health/live:
     get:
-      description: Returns UP if service is running
+      description: Returns UP if the service process is running
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.HealthResponse'
-      summary: Health check
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness check
       tags:
       - health
+  /health/ready:
+    get:
+      description: Checks database, NATS, and OIDC provider connectivity
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Readiness check
+      tags:
+      - health
+  /invites/{token}:
+    get:
+      description: Returns contest name and invite details without authentication
+      parameters:
+      - description: Invite token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.InvitePreviewResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/model.APIError'
+      summary: Preview an invite link
+      tags:
+      - invites
+  /invites/{token}/redeem:
+    post:
+      description: Authenticated user joins a contest via invite token
+      parameters:
+      - description: Invite token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.ContestParticipant'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Redeem an invite link
+      tags:
+      - invites
   /stats:
     get:
       description: Returns public stats including contests created today, squares

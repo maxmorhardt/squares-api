@@ -106,3 +106,28 @@ func TestLoadEnv_MissingRequired_Panics(t *testing.T) {
 		LoadEnv()
 	})
 }
+
+func TestLoadEnv_AllowedOrigins_Default(t *testing.T) {
+	setRequiredEnv(t)
+
+	LoadEnv()
+
+	assert.Equal(t, []string{"http://localhost:3000"}, Env().Server.AllowedOrigins)
+}
+
+func TestLoadEnv_AllowedOrigins_Custom(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("ALLOWED_ORIGINS", "https://app.example.com,https://admin.example.com")
+
+	LoadEnv()
+
+	assert.Equal(t, []string{"https://app.example.com", "https://admin.example.com"}, Env().Server.AllowedOrigins)
+}
+
+func TestEnv_ReturnsNilBeforeLoad(t *testing.T) {
+	original := cfg
+	cfg = nil
+	defer func() { cfg = original }()
+
+	assert.Nil(t, Env())
+}

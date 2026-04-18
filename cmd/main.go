@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	_ "github.com/maxmorhardt/squares-api/docs"
 	"github.com/maxmorhardt/squares-api/internal/bootstrap"
+	"github.com/maxmorhardt/squares-api/internal/config"
 )
 
 func init() {
@@ -35,8 +41,42 @@ func init() {
 // @in header
 // @name Authorization
 func main() {
-	if err := bootstrap.NewServer().Run(":8080"); err != nil {
-		slog.Error("failed to start server", "error", err)
-		panic(err)
+	// initialize server with all routes and middleware
+	router := bootstrap.NewServer()
+
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
+
+	// start server in a goroutine so it doesn't block signal handling
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("failed to start server", "error", err)
+			panic(err)
+		}
+	}()
+
+	slog.Info("server started", "addr", srv.Addr)
+
+	// wait for interrupt or termination signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	slog.Info("shutting down server...")
+
+	// give active connections time to finish
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		slog.Error("server forced to shutdown", "error", err)
+	}
+
+	// cleanup external connections
+	config.CloseNATS()
+
+	slog.Info("server exited")
 }

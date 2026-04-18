@@ -8,7 +8,8 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func RegisterRootRoutes(rg *gin.RouterGroup) {
-	rg.GET("/health", handler.HealthCheck)
+func RegisterRootRoutes(rg *gin.RouterGroup, healthHandler handler.HealthHandler) {
+	rg.GET("/health/live", healthHandler.Liveness)
+	rg.GET("/health/ready", healthHandler.Readiness)
 	rg.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 }

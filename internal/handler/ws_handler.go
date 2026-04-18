@@ -14,11 +14,17 @@ import (
 	"gorm.io/gorm"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		return origin == "http://localhost:3000" || origin == "https://squares.maxstash.io"
-	},
+func newUpgrader() websocket.Upgrader {
+	originSet := make(map[string]bool, len(config.Env().Server.AllowedOrigins))
+	for _, o := range config.Env().Server.AllowedOrigins {
+		originSet[o] = true
+	}
+
+	return websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return originSet[r.Header.Get("Origin")]
+		},
+	}
 }
 
 type WebSocketHandler interface {
@@ -26,14 +32,18 @@ type WebSocketHandler interface {
 }
 
 type websocketHandler struct {
-	websocketService service.WebSocketService
-	contestRepo      repository.ContestRepository
+	websocketService   service.WebSocketService
+	contestRepo        repository.ContestRepository
+	participantService service.ParticipantService
+	upgrader           websocket.Upgrader
 }
 
-func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo repository.ContestRepository) WebSocketHandler {
+func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo repository.ContestRepository, participantService service.ParticipantService) WebSocketHandler {
 	return &websocketHandler{
-		websocketService: websocketService,
-		contestRepo:      contestRepo,
+		websocketService:   websocketService,
+		contestRepo:        contestRepo,
+		participantService: participantService,
+		upgrader:           newUpgrader(),
 	}
 }
 
@@ -72,7 +82,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	responseHeader.Set("Sec-WebSocket-Protocol", token)
 
 	// upgrade http connection to websocket
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, responseHeader)
+	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, responseHeader)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to upgrade connection", c))
 		return
@@ -90,6 +100,15 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 
 		log.Warn("failed to validate websocket request", "error", err)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4500, "Failed to get contest"))
+		_ = conn.Close()
+		return
+	}
+
+	// check if user has permission to view this contest
+	user := c.GetString(model.UserKey)
+	if err := h.participantService.Authorize(c.Request.Context(), contest.ID, user, service.ActionView); err != nil {
+		log.Warn("user not authorized for websocket", "user", user, "contest_id", contest.ID)
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4403, "Not authorized"))
 		_ = conn.Close()
 		return
 	}

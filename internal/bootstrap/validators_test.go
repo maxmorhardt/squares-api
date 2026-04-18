@@ -3,11 +3,33 @@ package bootstrap
 import (
 	"testing"
 
+	"github.com/gin-gonic/gin/binding"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-playground/validator/v10"
 )
+
+func TestSetupValidators(t *testing.T) {
+	setupValidators()
+
+	v, ok := binding.Validator.Engine().(*validator.Validate)
+	require.True(t, ok)
+
+	// verify contestname validator is registered and works (gin uses "binding" tag)
+	type cnField struct {
+		Name string `binding:"contestname"`
+	}
+	assert.NoError(t, v.Struct(cnField{Name: "Valid-Name_1"}))
+	assert.Error(t, v.Struct(cnField{Name: "<script>"}))
+
+	// verify safestring validator is registered and works
+	type ssField struct {
+		Value string `binding:"safestring"`
+	}
+	assert.NoError(t, v.Struct(ssField{Value: "hello world"}))
+	assert.Error(t, v.Struct(ssField{Value: "<bad>"}))
+}
 
 func newValidatorWithCustomRules(t *testing.T) *validator.Validate {
 	t.Helper()

@@ -7,20 +7,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CORSMiddleware() gin.HandlerFunc {
-	return cors.New(cors.Config{
-		// allow localhost for development and production domain
-		AllowOriginFunc: func(origin string) bool {
-			if origin == "http://localhost:3000" || origin == "https://squares.maxstash.io" {
-				return true
-			}
+func CORSMiddleware(allowedOrigins []string) gin.HandlerFunc {
+	originSet := make(map[string]bool, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		originSet[o] = true
+	}
 
-			return false
+	return cors.New(cors.Config{
+		AllowOriginFunc: func(origin string) bool {
+			return originSet[origin]
 		},
-		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders: []string{"Origin", "Content-Type", "Authorization", "Cache-Control"},
-		ExposeHeaders: []string{"Content-Length", "Content-Type"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Cache-Control"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
 		AllowCredentials: true,
-		MaxAge: 12 * time.Hour,
+		MaxAge:           12 * time.Hour,
 	})
 }

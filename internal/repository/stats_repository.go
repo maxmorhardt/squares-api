@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/gorm"
 )
@@ -16,9 +15,9 @@ type statsRepository struct {
 	db *gorm.DB
 }
 
-func NewStatsRepository() StatsRepository {
+func NewStatsRepository(db *gorm.DB) StatsRepository {
 	return &statsRepository{
-		db: config.DB(),
+		db: db,
 	}
 }
 
