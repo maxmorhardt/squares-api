@@ -21,7 +21,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func startTestNATS(t *testing.T) (string, func()) {
+func startTestNATS(t *testing.T) (url string, cleanup func()) {
 	t.Helper()
 	opts := &natsserver.Options{Port: -1}
 	server, err := natsserver.NewServer(opts)
@@ -36,7 +36,7 @@ func TestLiveness(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/health/live", h.Liveness)
 
-	req, _ := http.NewRequest(http.MethodGet, "/health/live", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/health/live", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -62,7 +62,7 @@ func TestReadiness_AllUp(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/health/ready", h.Readiness)
 
-	req, _ := http.NewRequest(http.MethodGet, "/health/ready", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/health/ready", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -89,7 +89,7 @@ func TestReadiness_NilDB(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/health/ready", h.Readiness)
 
-	req, _ := http.NewRequest(http.MethodGet, "/health/ready", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/health/ready", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
@@ -108,7 +108,7 @@ func TestReadiness_NATSDown(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/health/ready", h.Readiness)
 
-	req, _ := http.NewRequest(http.MethodGet, "/health/ready", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/health/ready", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
@@ -132,7 +132,7 @@ func TestReadiness_OIDCDown(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/health/ready", h.Readiness)
 
-	req, _ := http.NewRequest(http.MethodGet, "/health/ready", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/health/ready", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
@@ -147,7 +147,7 @@ func TestReadiness_AllDown(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/health/ready", h.Readiness)
 
-	req, _ := http.NewRequest(http.MethodGet, "/health/ready", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/health/ready", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)

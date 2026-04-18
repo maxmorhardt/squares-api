@@ -39,7 +39,7 @@ func TestGetParticipants_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/:id/participants", h.GetParticipants)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", contestID), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", contestID), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -56,7 +56,7 @@ func TestGetParticipants_InvalidID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/:id/participants", h.GetParticipants)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/bad-id/participants", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/bad-id/participants", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -73,7 +73,7 @@ func TestGetParticipants_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/contests/:id/participants", h.GetParticipants)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -90,7 +90,7 @@ func TestGetParticipants_Forbidden(t *testing.T) {
 	r.Use(authenticatedMiddleware("stranger"))
 	r.GET("/contests/:id/participants", h.GetParticipants)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -111,7 +111,7 @@ func TestGetMyContests_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/contests/me", h.GetMyContests)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/me", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/me", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -132,7 +132,7 @@ func TestGetMyContests_Error(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/contests/me", h.GetMyContests)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/me", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/me", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -266,7 +266,7 @@ func TestRemoveParticipant_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/participants/:userId", h.RemoveParticipant)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/user1", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/user1", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
@@ -279,7 +279,7 @@ func TestRemoveParticipant_InvalidID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/participants/:userId", h.RemoveParticipant)
 
-	req, _ := http.NewRequest(http.MethodDelete, "/contests/bad/participants/user1", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/contests/bad/participants/user1", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -296,7 +296,7 @@ func TestRemoveParticipant_Forbidden(t *testing.T) {
 	r.Use(authenticatedMiddleware("stranger"))
 	r.DELETE("/contests/:id/participants/:userId", h.RemoveParticipant)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/user1", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/user1", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -313,7 +313,7 @@ func TestRemoveParticipant_CannotRemoveOwner(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/participants/:userId", h.RemoveParticipant)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/owner1", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/owner1", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -330,7 +330,7 @@ func TestRemoveParticipant_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/participants/:userId", h.RemoveParticipant)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/nobody", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/nobody", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -351,7 +351,7 @@ func TestGetParticipants_InsufficientRole(t *testing.T) {
 	r.Use(authenticatedMiddleware("viewer"))
 	r.GET("/contests/:id/participants", h.GetParticipants)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -368,7 +368,7 @@ func TestGetParticipants_InternalError(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/contests/:id/participants", h.GetParticipants)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/participants", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -425,7 +425,7 @@ func TestRemoveParticipant_InternalError(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/participants/:userId", h.RemoveParticipant)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/user1", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/participants/user1", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)

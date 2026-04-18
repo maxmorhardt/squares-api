@@ -36,7 +36,7 @@ type WSUpdate struct {
 	Message       string              `json:"message,omitempty"`
 }
 
-func NewConnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate {
+func NewConnectedMessage(contestID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
 		Type:         ConnectedType,
 		ContestID:    contestID,
@@ -46,7 +46,7 @@ func NewConnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate 
 	}
 }
 
-func NewDisconnectedMessage(contestID uuid.UUID, connectionID uuid.UUID) *WSUpdate {
+func NewDisconnectedMessage(contestID, connectionID uuid.UUID) *WSUpdate {
 	return &WSUpdate{
 		Type:         DisconnectType,
 		ContestID:    contestID,
@@ -95,7 +95,7 @@ func NewContestDeletedMessage(contestID uuid.UUID, updatedBy string) *WSUpdate {
 	}
 }
 
-func NewChatMessage(contestID uuid.UUID, sender string, message string) *WSUpdate {
+func NewChatMessage(contestID uuid.UUID, sender, message string) *WSUpdate {
 	return &WSUpdate{
 		Type:      ChatMessageType,
 		ContestID: contestID,

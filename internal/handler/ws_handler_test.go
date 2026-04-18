@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -90,7 +91,7 @@ func TestWSHandler_UpgradeFails(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/ws/contests/owner/:owner/name/:name", h.ContestWSConnection)
 
-	req, _ := http.NewRequest(http.MethodGet, "/ws/contests/owner/o1/name/n1", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/ws/contests/owner/o1/name/n1", http.NoBody)
 	w := doRequest(r, req)
 
 	// Upgrader writes 400, handler may also attempt 500
@@ -114,17 +115,14 @@ func TestWSHandler_ContestNotFound(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	conn, resp, err := dialWS(t, server, "/ws/contests/owner/o1/name/missing")
+	conn, _, err := dialWS(t, server, "/ws/contests/owner/o1/name/missing")
 	require.NoError(t, err)
 	defer conn.Close()
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
 
 	_, _, err = conn.ReadMessage()
 	require.Error(t, err)
-	closeErr, ok := err.(*websocket.CloseError)
-	require.True(t, ok)
+	var closeErr *websocket.CloseError
+	require.True(t, errors.As(err, &closeErr))
 	assert.Equal(t, 4404, closeErr.Code)
 }
 
@@ -145,17 +143,14 @@ func TestWSHandler_ContestRepoError(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	conn, resp, err := dialWS(t, server, "/ws/contests/owner/o1/name/err")
+	conn, _, err := dialWS(t, server, "/ws/contests/owner/o1/name/err")
 	require.NoError(t, err)
 	defer conn.Close()
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
 
 	_, _, err = conn.ReadMessage()
 	require.Error(t, err)
-	closeErr, ok := err.(*websocket.CloseError)
-	require.True(t, ok)
+	var closeErr *websocket.CloseError
+	require.True(t, errors.As(err, &closeErr))
 	assert.Equal(t, 4500, closeErr.Code)
 }
 
@@ -180,17 +175,14 @@ func TestWSHandler_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	conn, resp, err := dialWS(t, server, "/ws/contests/owner/owner1/name/test")
+	conn, _, err := dialWS(t, server, "/ws/contests/owner/owner1/name/test")
 	require.NoError(t, err)
 	defer conn.Close()
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
 
 	_, _, err = conn.ReadMessage()
 	require.Error(t, err)
-	closeErr, ok := err.(*websocket.CloseError)
-	require.True(t, ok)
+	var closeErr *websocket.CloseError
+	require.True(t, errors.As(err, &closeErr))
 	assert.Equal(t, 4403, closeErr.Code)
 }
 
@@ -221,7 +213,7 @@ func TestWSHandler_NATSUnavailable(t *testing.T) {
 
 	_, _, err = conn.ReadMessage()
 	require.Error(t, err)
-	closeErr, ok := err.(*websocket.CloseError)
-	require.True(t, ok)
+	var closeErr *websocket.CloseError
+	require.True(t, errors.As(err, &closeErr))
 	assert.Equal(t, 4503, closeErr.Code)
 }

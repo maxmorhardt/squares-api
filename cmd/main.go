@@ -45,8 +45,9 @@ func main() {
 	router := bootstrap.NewServer()
 
 	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: router,
+		Addr:              ":8080",
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// start server in a goroutine so it doesn't block signal handling

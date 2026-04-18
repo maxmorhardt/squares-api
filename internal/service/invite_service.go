@@ -16,9 +16,9 @@ import (
 type InviteService interface {
 	CreateInvite(ctx context.Context, contestID uuid.UUID, req *model.CreateInviteRequest, user string) (*model.ContestInvite, error)
 	GetInvitePreview(ctx context.Context, token string) (*model.InvitePreviewResponse, error)
-	RedeemInvite(ctx context.Context, token string, user string) (*model.ContestParticipant, error)
+	RedeemInvite(ctx context.Context, token, user string) (*model.ContestParticipant, error)
 	GetInvitesByContestID(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestInvite, error)
-	DeleteInvite(ctx context.Context, contestID uuid.UUID, inviteID uuid.UUID, user string) error
+	DeleteInvite(ctx context.Context, contestID, inviteID uuid.UUID, user string) error
 }
 
 type inviteService struct {
@@ -125,7 +125,7 @@ func (s *inviteService) GetInvitePreview(ctx context.Context, token string) (*mo
 	}, nil
 }
 
-func (s *inviteService) RedeemInvite(ctx context.Context, token string, user string) (*model.ContestParticipant, error) {
+func (s *inviteService) RedeemInvite(ctx context.Context, token, user string) (*model.ContestParticipant, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get and validate invite
@@ -229,7 +229,7 @@ func (s *inviteService) GetInvitesByContestID(ctx context.Context, contestID uui
 	return invites, nil
 }
 
-func (s *inviteService) DeleteInvite(ctx context.Context, contestID uuid.UUID, inviteID uuid.UUID, user string) error {
+func (s *inviteService) DeleteInvite(ctx context.Context, contestID, inviteID uuid.UUID, user string) error {
 	log := util.LoggerFromContext(ctx)
 
 	// check contest is not in a terminal state

@@ -43,7 +43,7 @@ func TestGetContestByOwnerAndName_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/TestContest", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/TestContest", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -64,7 +64,7 @@ func TestGetContestByOwnerAndName_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Missing", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Missing", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -81,7 +81,7 @@ func TestGetContestByOwnerAndName_Forbidden(t *testing.T) {
 	r.Use(authenticatedMiddleware("stranger"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Private", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Private", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -102,7 +102,7 @@ func TestGetContestsByOwner_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=10", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=10", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -120,7 +120,7 @@ func TestGetContestsByOwner_MissingPage(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?limit=10", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?limit=10", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -133,7 +133,7 @@ func TestGetContestsByOwner_InvalidLimit(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=50", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=50", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -150,7 +150,7 @@ func TestGetContestsByOwner_ServiceError(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=10", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=10", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -326,7 +326,7 @@ func TestDeleteContest_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id", h.DeleteContest)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
@@ -339,7 +339,7 @@ func TestDeleteContest_InvalidID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id", h.DeleteContest)
 
-	req, _ := http.NewRequest(http.MethodDelete, "/contests/bad-id", nil)
+	req, _ := http.NewRequest(http.MethodDelete, "/contests/bad-id", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -356,7 +356,7 @@ func TestDeleteContest_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id", h.DeleteContest)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -373,7 +373,7 @@ func TestDeleteContest_Forbidden(t *testing.T) {
 	r.Use(authenticatedMiddleware("stranger"))
 	r.DELETE("/contests/:id", h.DeleteContest)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -395,7 +395,7 @@ func TestStartContest_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/start", h.StartContest)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", contestID), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", contestID), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -408,7 +408,7 @@ func TestStartContest_InvalidID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/start", h.StartContest)
 
-	req, _ := http.NewRequest(http.MethodPost, "/contests/not-valid/start", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/contests/not-valid/start", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -425,7 +425,7 @@ func TestStartContest_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/start", h.StartContest)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -594,7 +594,7 @@ func TestClearSquare_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", contestID, squareID), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", contestID, squareID), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -607,7 +607,7 @@ func TestClearSquare_InvalidContestID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/bad/squares/%s/clear", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/bad/squares/%s/clear", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -620,7 +620,7 @@ func TestClearSquare_InvalidSquareID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/bad/clear", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/bad/clear", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -637,7 +637,7 @@ func TestClearSquare_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -654,7 +654,7 @@ func TestClearSquare_Forbidden(t *testing.T) {
 	r.Use(authenticatedMiddleware("stranger"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -675,7 +675,7 @@ func TestGetContestByOwnerAndName_InsufficientRole(t *testing.T) {
 	r.Use(authenticatedMiddleware("stranger"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Private", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Private", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -692,7 +692,7 @@ func TestGetContestByOwnerAndName_InternalError(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Test", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Test", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -705,7 +705,7 @@ func TestGetContestsByOwner_MissingLimit(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -718,7 +718,7 @@ func TestGetContestsByOwner_InvalidPageFormat(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=abc&limit=10", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=abc&limit=10", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -731,7 +731,7 @@ func TestGetContestsByOwner_ZeroPage(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=0&limit=10", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=0&limit=10", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -744,7 +744,7 @@ func TestGetContestsByOwner_InvalidLimitFormat(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=abc", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=abc", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -853,7 +853,7 @@ func TestDeleteContest_InternalError(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id", h.DeleteContest)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -870,7 +870,7 @@ func TestStartContest_OtherError(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/start", h.StartContest)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/start", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -1053,7 +1053,7 @@ func TestClearSquare_SquareNotEditable(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -1070,7 +1070,7 @@ func TestClearSquare_DatabaseUnavailable(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -1087,7 +1087,7 @@ func TestClearSquare_OtherError(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
-	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)

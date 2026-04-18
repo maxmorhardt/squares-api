@@ -128,7 +128,7 @@ func TestGetInvitePreview_Success(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/invites/:token", h.GetInvitePreview)
 
-	req, _ := http.NewRequest(http.MethodGet, "/invites/abc123", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/invites/abc123", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -148,7 +148,7 @@ func TestGetInvitePreview_NotFound(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/invites/:token", h.GetInvitePreview)
 
-	req, _ := http.NewRequest(http.MethodGet, "/invites/missing", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/invites/missing", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -164,7 +164,7 @@ func TestGetInvitePreview_Expired(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/invites/:token", h.GetInvitePreview)
 
-	req, _ := http.NewRequest(http.MethodGet, "/invites/expired-token", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/invites/expired-token", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusGone, w.Code)
@@ -180,7 +180,7 @@ func TestGetInvitePreview_MaxUsesReached(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/invites/:token", h.GetInvitePreview)
 
-	req, _ := http.NewRequest(http.MethodGet, "/invites/used-up-token", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/invites/used-up-token", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusGone, w.Code)
@@ -201,7 +201,7 @@ func TestRedeemInvite_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.POST("/invites/:token/redeem", h.RedeemInvite)
 
-	req, _ := http.NewRequest(http.MethodPost, "/invites/valid-token/redeem", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/invites/valid-token/redeem", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -218,7 +218,7 @@ func TestRedeemInvite_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.POST("/invites/:token/redeem", h.RedeemInvite)
 
-	req, _ := http.NewRequest(http.MethodPost, "/invites/missing/redeem", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/invites/missing/redeem", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -235,7 +235,7 @@ func TestRedeemInvite_AlreadyParticipant(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.POST("/invites/:token/redeem", h.RedeemInvite)
 
-	req, _ := http.NewRequest(http.MethodPost, "/invites/valid-token/redeem", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/invites/valid-token/redeem", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
@@ -252,7 +252,7 @@ func TestRedeemInvite_Expired(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.POST("/invites/:token/redeem", h.RedeemInvite)
 
-	req, _ := http.NewRequest(http.MethodPost, "/invites/expired-token/redeem", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/invites/expired-token/redeem", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusGone, w.Code)
@@ -269,7 +269,7 @@ func TestRedeemInvite_NotEnoughSquares(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.POST("/invites/:token/redeem", h.RedeemInvite)
 
-	req, _ := http.NewRequest(http.MethodPost, "/invites/full-token/redeem", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/invites/full-token/redeem", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
@@ -291,7 +291,7 @@ func TestGetInvites_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/:id/invites", h.GetInvites)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/invites", contestID), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/invites", contestID), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -308,7 +308,7 @@ func TestGetInvites_InvalidContestID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/:id/invites", h.GetInvites)
 
-	req, _ := http.NewRequest(http.MethodGet, "/contests/bad/invites", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/contests/bad/invites", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -325,7 +325,7 @@ func TestGetInvites_Forbidden(t *testing.T) {
 	r.Use(authenticatedMiddleware("stranger"))
 	r.GET("/contests/:id/invites", h.GetInvites)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/invites", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/invites", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -346,7 +346,7 @@ func TestDeleteInvite_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/invites/:inviteId", h.DeleteInvite)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/%s", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/%s", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
@@ -359,7 +359,7 @@ func TestDeleteInvite_InvalidContestID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/invites/:inviteId", h.DeleteInvite)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/bad/invites/%s", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/bad/invites/%s", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -372,7 +372,7 @@ func TestDeleteInvite_InvalidInviteID(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/invites/:inviteId", h.DeleteInvite)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/bad", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/bad", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -389,7 +389,7 @@ func TestDeleteInvite_Forbidden(t *testing.T) {
 	r.Use(authenticatedMiddleware("stranger"))
 	r.DELETE("/contests/:id/invites/:inviteId", h.DeleteInvite)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/%s", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/%s", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -428,7 +428,7 @@ func TestGetInvitePreview_InternalError(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/invites/:token", h.GetInvitePreview)
 
-	req, _ := http.NewRequest(http.MethodGet, "/invites/some-token", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/invites/some-token", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -445,7 +445,7 @@ func TestRedeemInvite_MaxUsesReached(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.POST("/invites/:token/redeem", h.RedeemInvite)
 
-	req, _ := http.NewRequest(http.MethodPost, "/invites/used-up/redeem", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/invites/used-up/redeem", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusGone, w.Code)
@@ -462,7 +462,7 @@ func TestRedeemInvite_InternalError(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.POST("/invites/:token/redeem", h.RedeemInvite)
 
-	req, _ := http.NewRequest(http.MethodPost, "/invites/token/redeem", nil)
+	req, _ := http.NewRequest(http.MethodPost, "/invites/token/redeem", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -479,7 +479,7 @@ func TestGetInvites_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/:id/invites", h.GetInvites)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/invites", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/invites", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -496,7 +496,7 @@ func TestGetInvites_InternalError(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.GET("/contests/:id/invites", h.GetInvites)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/invites", uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/%s/invites", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -513,7 +513,7 @@ func TestDeleteInvite_NotFound(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/invites/:inviteId", h.DeleteInvite)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/%s", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/%s", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -530,7 +530,7 @@ func TestDeleteInvite_InternalError(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.DELETE("/contests/:id/invites/:inviteId", h.DeleteInvite)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/%s", uuid.New(), uuid.New()), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s/invites/%s", uuid.New(), uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)

@@ -16,7 +16,7 @@ type ParticipantService interface {
 	GetParticipants(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error)
 	GetMyContests(ctx context.Context, user string) ([]model.Contest, error)
 	UpdateParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error)
-	RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, user string) error
+	RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID, user string) error
 	Authorize(ctx context.Context, contestID uuid.UUID, userID string, act Action) error
 }
 
@@ -136,13 +136,13 @@ func (s *participantService) GetMyContests(ctx context.Context, user string) ([]
 	}
 
 	var contests []model.Contest
-	for _, p := range participants {
-		contest, err := s.contestRepo.GetByID(ctx, p.ContestID)
+	for i := range participants {
+		contest, err := s.contestRepo.GetByID(ctx, participants[i].ContestID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				continue
 			}
-			log.Error("failed to get contest", "contest_id", p.ContestID, "error", err)
+			log.Error("failed to get contest", "contest_id", participants[i].ContestID, "error", err)
 			continue
 		}
 		contests = append(contests, *contest)
@@ -217,7 +217,7 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 	return participant, nil
 }
 
-func (s *participantService) RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, user string) error {
+func (s *participantService) RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID, user string) error {
 	log := util.LoggerFromContext(ctx)
 
 	// check contest is not in a terminal state

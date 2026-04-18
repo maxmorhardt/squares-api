@@ -19,7 +19,7 @@ func init() {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		_ = v.RegisterValidation("safestring", func(fl validator.FieldLevel) bool {
 			s := fl.Field().String()
-			return len(s) == 0 || util.IsSafeString(s)
+			return s == "" || util.IsSafeString(s)
 		})
 	}
 }
@@ -115,7 +115,7 @@ type mockParticipantService struct {
 	getParticipantsFn   func(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error)
 	getMyContestsFn     func(ctx context.Context, user string) ([]model.Contest, error)
 	updateParticipantFn func(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error)
-	removeParticipantFn func(ctx context.Context, contestID uuid.UUID, targetUserID string, user string) error
+	removeParticipantFn func(ctx context.Context, contestID uuid.UUID, targetUserID, user string) error
 	authorizeFn         func(ctx context.Context, contestID uuid.UUID, userID string, act service.Action) error
 }
 
@@ -128,7 +128,7 @@ func (m *mockParticipantService) GetMyContests(ctx context.Context, user string)
 func (m *mockParticipantService) UpdateParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error) {
 	return m.updateParticipantFn(ctx, contestID, targetUserID, req, user)
 }
-func (m *mockParticipantService) RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, user string) error {
+func (m *mockParticipantService) RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID, user string) error {
 	return m.removeParticipantFn(ctx, contestID, targetUserID, user)
 }
 func (m *mockParticipantService) Authorize(ctx context.Context, contestID uuid.UUID, userID string, act service.Action) error {
@@ -137,11 +137,11 @@ func (m *mockParticipantService) Authorize(ctx context.Context, contestID uuid.U
 
 // mockInviteService implements service.InviteService
 type mockInviteService struct {
-	createInviteFn         func(ctx context.Context, contestID uuid.UUID, req *model.CreateInviteRequest, user string) (*model.ContestInvite, error)
-	getInvitePreviewFn     func(ctx context.Context, token string) (*model.InvitePreviewResponse, error)
-	redeemInviteFn         func(ctx context.Context, token string, user string) (*model.ContestParticipant, error)
+	createInviteFn          func(ctx context.Context, contestID uuid.UUID, req *model.CreateInviteRequest, user string) (*model.ContestInvite, error)
+	getInvitePreviewFn      func(ctx context.Context, token string) (*model.InvitePreviewResponse, error)
+	redeemInviteFn          func(ctx context.Context, token, user string) (*model.ContestParticipant, error)
 	getInvitesByContestIDFn func(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestInvite, error)
-	deleteInviteFn         func(ctx context.Context, contestID, inviteID uuid.UUID, user string) error
+	deleteInviteFn          func(ctx context.Context, contestID, inviteID uuid.UUID, user string) error
 }
 
 func (m *mockInviteService) CreateInvite(ctx context.Context, contestID uuid.UUID, req *model.CreateInviteRequest, user string) (*model.ContestInvite, error) {
@@ -150,7 +150,7 @@ func (m *mockInviteService) CreateInvite(ctx context.Context, contestID uuid.UUI
 func (m *mockInviteService) GetInvitePreview(ctx context.Context, token string) (*model.InvitePreviewResponse, error) {
 	return m.getInvitePreviewFn(ctx, token)
 }
-func (m *mockInviteService) RedeemInvite(ctx context.Context, token string, user string) (*model.ContestParticipant, error) {
+func (m *mockInviteService) RedeemInvite(ctx context.Context, token, user string) (*model.ContestParticipant, error) {
 	return m.redeemInviteFn(ctx, token, user)
 }
 func (m *mockInviteService) GetInvitesByContestID(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestInvite, error) {

@@ -10,7 +10,7 @@ import (
 
 const (
 	maxRequestSize = 1 << 20
-	errorMessage    = "Request body too large. Maximum size is 1MB"
+	errorMessage   = "Request body too large. Maximum size is 1MB"
 )
 
 func RequestSizeLimitMiddleware() gin.HandlerFunc {

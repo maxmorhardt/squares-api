@@ -24,8 +24,8 @@ type ContestService interface {
 	RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
 
-	UpdateSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error)
-	ClearSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, user string) (*model.Square, error)
+	UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error)
+	ClearSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error)
 }
 
 type contestService struct {
@@ -349,8 +349,8 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 	}
 
 	// no duplicate quarter results
-	for _, qr := range contest.QuarterResults {
-		if qr.Quarter == quarter {
+	for i := range contest.QuarterResults {
+		if contest.QuarterResults[i].Quarter == quarter {
 			log.Warn("quarter result already exists for given quarter", "quarter", quarter)
 			return nil, errs.ErrQuarterResultAlreadyExists
 		}
@@ -376,10 +376,10 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 
 	// find the winning square and get owner details
 	var winner, winnerName string
-	for _, square := range contest.Squares {
-		if square.Row == winnerRow && square.Col == winnerCol {
-			winner = square.Owner
-			winnerName = square.OwnerName
+	for i := range contest.Squares {
+		if contest.Squares[i].Row == winnerRow && contest.Squares[i].Col == winnerCol {
+			winner = contest.Squares[i].Owner
+			winnerName = contest.Squares[i].OwnerName
 			break
 		}
 	}
@@ -507,7 +507,7 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 // Square Actions
 // ====================
 
-func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error) {
+func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get contest to check status and find square
@@ -599,7 +599,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, 
 	return updatedSquare, nil
 }
 
-func (s *contestService) ClearSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, user string) (*model.Square, error) {
+func (s *contestService) ClearSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get contest to check status and find square

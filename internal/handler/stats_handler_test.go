@@ -22,7 +22,7 @@ func TestGetStats_Success(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/stats", h.GetStats)
 
-	req, _ := http.NewRequest(http.MethodGet, "/stats", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/stats", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -45,7 +45,7 @@ func TestGetStats_Error(t *testing.T) {
 	r := newTestRouter()
 	r.GET("/stats", h.GetStats)
 
-	req, _ := http.NewRequest(http.MethodGet, "/stats", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/stats", http.NoBody)
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
