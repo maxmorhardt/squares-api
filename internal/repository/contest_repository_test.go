@@ -25,13 +25,19 @@ func createTestContest(t *testing.T, repo ContestRepository, ctx context.Context
 		Visibility: model.ContestVisibilityPrivate,
 		Status:     model.ContestStatusActive,
 	}
-	require.NoError(t, repo.Create(ctx, contest))
+	owner := &model.ContestParticipant{
+		UserID:     "owner1",
+		Role:       model.ParticipantRoleOwner,
+		MaxSquares: 100,
+	}
+	require.NoError(t, repo.Create(ctx, contest, owner))
 	return contest
 }
 
 func TestContestRepository_Create(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewContestRepository(db)
+	pRepo := NewParticipantRepository(db)
 	ctx := context.Background()
 
 	contest := createTestContest(t, repo, ctx, "Test Contest")
@@ -43,6 +49,13 @@ func TestContestRepository_Create(t *testing.T) {
 	found, err := repo.GetByID(ctx, contest.ID)
 	require.NoError(t, err)
 	assert.Len(t, found.Squares, 100)
+
+	// verify owner participant was created atomically
+	p, err := pRepo.GetByContestAndUser(ctx, contest.ID, "owner1")
+	require.NoError(t, err)
+	assert.Equal(t, model.ParticipantRoleOwner, p.Role)
+	assert.Equal(t, 100, p.MaxSquares)
+	assert.Equal(t, contest.ID, p.ContestID)
 }
 
 func TestContestRepository_GetByID(t *testing.T) {
@@ -77,6 +90,27 @@ func TestContestRepository_GetByID_ExcludesDeleted(t *testing.T) {
 	require.NoError(t, repo.Delete(ctx, contest.ID))
 
 	_, err := repo.GetByID(ctx, contest.ID)
+	assert.Error(t, err)
+}
+
+func TestContestRepository_GetVisibilityByID(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewContestRepository(db)
+	ctx := context.Background()
+
+	contest := createTestContest(t, repo, ctx, "Vis Contest")
+
+	visibility, err := repo.GetVisibilityByID(ctx, contest.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.ContestVisibilityPrivate, visibility)
+}
+
+func TestContestRepository_GetVisibilityByID_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewContestRepository(db)
+	ctx := context.Background()
+
+	_, err := repo.GetVisibilityByID(ctx, uuid.New())
 	assert.Error(t, err)
 }
 

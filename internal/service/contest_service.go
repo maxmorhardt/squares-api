@@ -128,21 +128,14 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 		Status:     model.ContestStatusActive,
 	}
 
-	// create contest in repository
-	if err := s.repo.Create(ctx, &contest); err != nil {
-		log.Error("failed to create contest in repository", "error", err)
-		return nil, err
-	}
-
-	// register creator as owner participant with full square access
+	// atomically create contest, squares, and owner participant
 	ownerParticipant := &model.ContestParticipant{
-		ContestID:  contest.ID,
 		UserID:     user,
 		Role:       model.ParticipantRoleOwner,
 		MaxSquares: 100,
 	}
-	if err := s.participantRepo.Create(ctx, ownerParticipant); err != nil {
-		log.Error("failed to create owner participant", "contest_id", contest.ID, "error", err)
+	if err := s.repo.Create(ctx, &contest, ownerParticipant); err != nil {
+		log.Error("failed to create contest with owner participant", "error", err)
 		return nil, err
 	}
 
@@ -265,8 +258,16 @@ func (s *contestService) transitionToQ1(ctx context.Context, contest *model.Cont
 	log := util.LoggerFromContext(ctx)
 
 	// randomize the x and y labels
-	xLabels := generateRandomizedLabels()
-	yLabels := generateRandomizedLabels()
+	xLabels, err := generateRandomizedLabels()
+	if err != nil {
+		log.Error("failed to generate randomized X labels", "contest_id", contest.ID, "error", err)
+		return err
+	}
+	yLabels, err := generateRandomizedLabels()
+	if err != nil {
+		log.Error("failed to generate randomized Y labels", "contest_id", contest.ID, "error", err)
+		return err
+	}
 
 	xLabelsJSON, err := json.Marshal(xLabels)
 	if err != nil {
@@ -302,7 +303,7 @@ func (s *contestService) transitionToQ1(ctx context.Context, contest *model.Cont
 	return nil
 }
 
-func generateRandomizedLabels() []int8 {
+func generateRandomizedLabels() ([]int8, error) {
 	// create labels 0-9
 	labels := make([]int8, 10)
 	for i := range int8(10) {
@@ -311,12 +312,15 @@ func generateRandomizedLabels() []int8 {
 
 	// fisher-yates shuffle
 	for i := len(labels) - 1; i > 0; i-- {
-		n, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(i+1)))
+		n, err := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(i+1)))
+		if err != nil {
+			return nil, err
+		}
 		j := int(n.Int64())
 		labels[i], labels[j] = labels[j], labels[i]
 	}
 
-	return labels
+	return labels, nil
 }
 
 func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error) {
@@ -526,6 +530,12 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 	if contest.Status != model.ContestStatusActive {
 		log.Warn("cannot update square when contest is not active", "square_id", squareID, "contest_status", contest.Status)
 		return nil, errs.ErrSquareNotEditable
+	}
+
+	// check role-based permission to claim squares
+	if err := s.participantService.Authorize(ctx, contestID, user, ActionClaimSquare); err != nil {
+		log.Warn("user not authorized to claim squares", "contest_id", contestID, "user", user)
+		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 
 	// find square in contest

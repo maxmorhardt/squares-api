@@ -74,16 +74,16 @@ func (s *participantService) Authorize(ctx context.Context, contestID uuid.UUID,
 
 	// for view actions, check if contest is public first
 	if act == ActionView {
-		contest, err := s.contestRepo.GetByID(ctx, contestID)
+		visibility, err := s.contestRepo.GetVisibilityByID(ctx, contestID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
-			log.Error("failed to get contest for authorization", "contest_id", contestID, "error", err)
+			log.Error("failed to get contest visibility for authorization", "contest_id", contestID, "error", err)
 			return errs.ErrDatabaseUnavailable
 		}
 
-		if contest.Visibility == model.ContestVisibilityPublic {
+		if visibility == model.ContestVisibilityPublic {
 			return nil
 		}
 	}
