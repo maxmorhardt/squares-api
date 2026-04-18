@@ -55,8 +55,8 @@ func (h *inviteHandler) CreateInvite(c *gin.Context) {
 	}
 
 	var req model.CreateInviteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Warn("failed to bind create invite json", "error", err)
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		log.Warn("failed to bind create invite json", "error", bindErr)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}

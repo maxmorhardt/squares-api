@@ -170,8 +170,8 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 	}
 
 	// verify caller is owner
-	if err := s.Authorize(ctx, contestID, user, ActionManageInvites); err != nil {
-		return nil, err
+	if authErr := s.Authorize(ctx, contestID, user, ActionManageInvites); authErr != nil {
+		return nil, authErr
 	}
 
 	// get the target participant
@@ -236,8 +236,8 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 	}
 
 	// verify caller is owner
-	if err := s.Authorize(ctx, contestID, user, ActionManageInvites); err != nil {
-		return err
+	if authErr := s.Authorize(ctx, contestID, user, ActionManageInvites); authErr != nil {
+		return authErr
 	}
 
 	// get the target participant

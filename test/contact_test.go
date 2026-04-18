@@ -21,7 +21,7 @@ func TestSubmitContact(t *testing.T) {
 		TurnstileToken: "test-token",
 	}
 
-	resp, _, _ := submitContact(router, &req)
+	resp := submitContact(router, &req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
@@ -355,13 +355,13 @@ func TestSubmitContact_Validation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			resp, _, _ := submitContact(router, &tc.request)
+			resp := submitContact(router, &tc.request)
 			assert.Equal(t, tc.expectedStatus, resp.StatusCode, "Test case: %s", tc.name)
 		})
 	}
 }
 
-func submitContact(router http.Handler, reqBody *model.ContactRequest) (*http.Response, []byte, error) {
+func submitContact(router http.Handler, reqBody *model.ContactRequest) *http.Response {
 	body, _ := json.Marshal(reqBody)
 
 	req, _ := http.NewRequest(http.MethodPost, "/contact", bytes.NewBuffer(body))
@@ -370,5 +370,5 @@ func submitContact(router http.Handler, reqBody *model.ContactRequest) (*http.Re
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	return w.Result(), w.Body.Bytes(), nil
+	return w.Result()
 }

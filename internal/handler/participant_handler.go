@@ -121,8 +121,8 @@ func (h *participantHandler) UpdateParticipant(c *gin.Context) {
 	}
 
 	var req model.UpdateParticipantRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Warn("failed to bind update participant json", "error", err)
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		log.Warn("failed to bind update participant json", "error", bindErr)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}

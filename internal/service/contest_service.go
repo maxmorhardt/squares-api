@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"encoding/json"
 	"errors"
-	"math/rand"
+	"math/big"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
@@ -310,7 +311,8 @@ func generateRandomizedLabels() []int8 {
 
 	// fisher-yates shuffle
 	for i := len(labels) - 1; i > 0; i-- {
-		j := rand.Intn(i + 1)
+		n, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(i+1)))
+		j := int(n.Int64())
 		labels[i], labels[j] = labels[j], labels[i]
 	}
 
@@ -358,13 +360,13 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 
 	// parse labels
 	var xLabels, yLabels []int8
-	if err := json.Unmarshal(contest.XLabels, &xLabels); err != nil {
-		log.Error("failed to unmarshal X labels", "contest_id", contestID, "error", err)
-		return nil, err
+	if unmarshalErr := json.Unmarshal(contest.XLabels, &xLabels); unmarshalErr != nil {
+		log.Error("failed to unmarshal X labels", "contest_id", contestID, "error", unmarshalErr)
+		return nil, unmarshalErr
 	}
-	if err := json.Unmarshal(contest.YLabels, &yLabels); err != nil {
-		log.Error("failed to unmarshal Y labels", "contest_id", contestID, "error", err)
-		return nil, err
+	if unmarshalErr := json.Unmarshal(contest.YLabels, &yLabels); unmarshalErr != nil {
+		log.Error("failed to unmarshal Y labels", "contest_id", contestID, "error", unmarshalErr)
+		return nil, unmarshalErr
 	}
 
 	// calculate winner coordinates
@@ -564,9 +566,9 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 
 	// only check limit if claiming a new square (not re-editing own square)
 	if square.Owner == "" {
-		claimed, err := s.participantRepo.CountSquaresByUser(ctx, contestID, user)
-		if err != nil {
-			log.Error("failed to count user squares", "contest_id", contestID, "user", user, "error", err)
+		claimed, countErr := s.participantRepo.CountSquaresByUser(ctx, contestID, user)
+		if countErr != nil {
+			log.Error("failed to count user squares", "contest_id", contestID, "user", user, "error", countErr)
 			return nil, errs.ErrDatabaseUnavailable
 		}
 

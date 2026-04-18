@@ -258,8 +258,8 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 
 	// parse request body
 	var req model.UpdateContestRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Warn("invalid request body", "error", err)
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		log.Warn("invalid request body", "error", bindErr)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}
@@ -410,8 +410,8 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 
 	// parse request body
 	var req model.QuarterResultRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Warn("failed to bind request", "error", err)
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		log.Warn("failed to bind request", "error", bindErr)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}
@@ -501,8 +501,8 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 
 	// parse request body
 	var req model.UpdateSquareRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Warn("failed to bind json", "error", err)
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		log.Warn("failed to bind json", "error", bindErr)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
 		return
 	}

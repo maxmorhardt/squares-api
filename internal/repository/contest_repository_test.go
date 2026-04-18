@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createTestContest(t *testing.T, repo ContestRepository, ctx context.Context, name, owner string) *model.Contest {
+func createTestContest(t *testing.T, repo ContestRepository, ctx context.Context, name string) *model.Contest {
 	t.Helper()
 
 	labels, _ := json.Marshal([]int8{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1})
 	contest := &model.Contest{
 		Name:       name,
-		Owner:      owner,
+		Owner:      "owner1",
 		HomeTeam:   "Team A",
 		AwayTeam:   "Team B",
 		XLabels:    labels,
@@ -34,7 +34,7 @@ func TestContestRepository_Create(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "Test Contest", "owner1")
+	contest := createTestContest(t, repo, ctx, "Test Contest")
 
 	assert.NotEqual(t, uuid.Nil, contest.ID)
 	assert.Equal(t, "Test Contest", contest.Name)
@@ -50,7 +50,7 @@ func TestContestRepository_GetByID(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "Test Contest", "owner1")
+	contest := createTestContest(t, repo, ctx, "Test Contest")
 
 	found, err := repo.GetByID(ctx, contest.ID)
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestContestRepository_GetByID_ExcludesDeleted(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "To Delete", "owner1")
+	contest := createTestContest(t, repo, ctx, "To Delete")
 	require.NoError(t, repo.Delete(ctx, contest.ID))
 
 	_, err := repo.GetByID(ctx, contest.ID)
@@ -85,7 +85,7 @@ func TestContestRepository_GetByOwnerAndName(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	createTestContest(t, repo, ctx, "My Contest", "owner1")
+	createTestContest(t, repo, ctx, "My Contest")
 
 	found, err := repo.GetByOwnerAndName(ctx, "owner1", "My Contest")
 	require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestContestRepository_ExistsByOwnerAndName(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	createTestContest(t, repo, ctx, "Exists", "owner1")
+	createTestContest(t, repo, ctx, "Exists")
 
 	exists, err := repo.ExistsByOwnerAndName(ctx, "owner1", "Exists")
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestContestRepository_ExistsByOwnerAndName_ExcludesDeleted(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "DeleteMe", "owner1")
+	contest := createTestContest(t, repo, ctx, "DeleteMe")
 	require.NoError(t, repo.Delete(ctx, contest.ID))
 
 	exists, err := repo.ExistsByOwnerAndName(ctx, "owner1", "DeleteMe")
@@ -137,7 +137,7 @@ func TestContestRepository_GetAllByOwnerPaginated(t *testing.T) {
 	ctx := context.WithValue(context.Background(), model.UserKey, "owner1")
 
 	for i := range 5 {
-		createTestContest(t, repo, ctx, "Contest"+string(rune('A'+i)), "owner1")
+		createTestContest(t, repo, ctx, "Contest"+string(rune('A'+i)))
 	}
 
 	// page 1, limit 2
@@ -158,7 +158,7 @@ func TestContestRepository_Update(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "Original", "owner1")
+	contest := createTestContest(t, repo, ctx, "Original")
 	contest.HomeTeam = "Updated Team"
 	require.NoError(t, repo.Update(ctx, contest))
 
@@ -172,7 +172,7 @@ func TestContestRepository_Delete(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "Delete Me", "owner1")
+	contest := createTestContest(t, repo, ctx, "Delete Me")
 	require.NoError(t, repo.Delete(ctx, contest.ID))
 
 	// should not be found via GetByID (excludes deleted)
@@ -190,7 +190,7 @@ func TestContestRepository_CreateQuarterResult(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "QR Contest", "owner1")
+	contest := createTestContest(t, repo, ctx, "QR Contest")
 
 	result := &model.QuarterResult{
 		ContestID:     contest.ID,
@@ -217,7 +217,7 @@ func TestContestRepository_GetSquareByID(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "Square Contest", "owner1")
+	contest := createTestContest(t, repo, ctx, "Square Contest")
 	full, err := repo.GetByID(ctx, contest.ID)
 	require.NoError(t, err)
 
@@ -231,7 +231,7 @@ func TestContestRepository_UpdateSquare(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "Update Square", "owner1")
+	contest := createTestContest(t, repo, ctx, "Update Square")
 	full, err := repo.GetByID(ctx, contest.ID)
 	require.NoError(t, err)
 
@@ -248,7 +248,7 @@ func TestContestRepository_ClearSquare(t *testing.T) {
 	repo := NewContestRepository(db)
 	ctx := context.Background()
 
-	contest := createTestContest(t, repo, ctx, "Clear Square", "owner1")
+	contest := createTestContest(t, repo, ctx, "Clear Square")
 	full, err := repo.GetByID(ctx, contest.ID)
 	require.NoError(t, err)
 

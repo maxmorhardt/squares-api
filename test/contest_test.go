@@ -447,8 +447,8 @@ func TestQuarterResult_Validation(t *testing.T) {
 				Value: "AAA",
 				Owner: oidcUser,
 			}
-			status := updateSquare(router, contest.ID, square.ID, authToken, updateReq)
-			require.Equal(t, http.StatusOK, status)
+			squareStatus := updateSquare(router, contest.ID, square.ID, authToken, updateReq)
+			require.Equal(t, http.StatusOK, squareStatus)
 		}
 
 		_, status = startContest(router, contest.ID, authToken)
@@ -678,12 +678,10 @@ func submitQuarterResult(router http.Handler, contestID uuid.UUID, authToken str
 	return w.Code
 }
 
-func deleteContest(router http.Handler, contestID uuid.UUID, authToken string) int {
+func deleteContest(router http.Handler, contestID uuid.UUID, authToken string) {
 	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/contests/%s", contestID), http.NoBody)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
-
-	return w.Code
 }
