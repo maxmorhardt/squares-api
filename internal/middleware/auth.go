@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/maxmorhardt/squares-api/internal/config"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
@@ -57,6 +58,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 		wsProtocol := c.Request.Header.Get("Sec-WebSocket-Protocol")
 		if wsProtocol == "" {
 			log.Warn("missing sec-websocket-protocol header")
+			metrics.RecordAuthFailure(model.AuthFailureMissingHeader)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 			return nil
 		}
@@ -67,6 +69,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			log.Warn("missing authorization header")
+			metrics.RecordAuthFailure(model.AuthFailureMissingHeader)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 			return nil
 		}
@@ -78,6 +81,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 	idToken, err := config.OIDCVerifier().Verify(c.Request.Context(), token)
 	if err != nil {
 		log.Warn("failed to verify token", "error", err)
+		metrics.RecordAuthFailure(model.AuthFailureVerifyFailed)
 		if !isWebSocket {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}
@@ -89,6 +93,7 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 	claims := model.Claims{}
 	if err := idToken.Claims(&claims); err != nil {
 		log.Warn("failed to parse claims", "err", err)
+		metrics.RecordAuthFailure(model.AuthFailureClaimsParse)
 		if !isWebSocket {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}

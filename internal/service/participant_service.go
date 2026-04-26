@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -266,6 +267,8 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 		log.Error("failed to delete participant", "contest_id", contestID, "user_id", targetUserID, "error", err)
 		return err
 	}
+
+	metrics.IncParticipantRemoved()
 
 	go func() {
 		if err := s.natsService.PublishParticipantRemoved(contestID, user, participant); err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/maxmorhardt/squares-api/internal/config"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/service"
@@ -65,6 +66,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	owner := c.Param("owner")
 	if owner == "" {
 		log.Warn("contest owner not provided")
+		metrics.RecordWSConnectionResult(model.WSResultBadRequest)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Owner is required", c))
 		return
 	}
@@ -72,6 +74,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	name := c.Param("name")
 	if name == "" {
 		log.Warn("contest name not provided")
+		metrics.RecordWSConnectionResult(model.WSResultBadRequest)
 		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Name is required", c))
 		return
 	}
@@ -84,6 +87,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	// upgrade http connection to websocket
 	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, responseHeader)
 	if err != nil {
+		metrics.RecordWSConnectionResult(model.WSResultUpgradeFailed)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to upgrade connection", c))
 		return
 	}
@@ -93,12 +97,14 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Warn("contest not found, closing websocket")
+			metrics.RecordWSConnectionResult(model.WSResultNotFound)
 			_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4404, "Contest not found"))
 			_ = conn.Close()
 			return
 		}
 
 		log.Warn("failed to validate websocket request", "error", err)
+		metrics.RecordWSConnectionResult(model.WSResultInternalError)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4500, "Failed to get contest"))
 		_ = conn.Close()
 		return
@@ -108,6 +114,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	user := c.GetString(model.UserKey)
 	if err := h.participantService.Authorize(c.Request.Context(), contest.ID, user, service.ActionView); err != nil {
 		log.Warn("user not authorized for websocket", "user", user, "contest_id", contest.ID)
+		metrics.RecordWSConnectionResult(model.WSResultUnauthorized)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4403, "Not authorized"))
 		_ = conn.Close()
 		return
@@ -120,11 +127,13 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	natsConn := config.NATS()
 	if natsConn == nil || !natsConn.IsConnected() {
 		log.Error("NATS connection not available, rejecting websocket")
+		metrics.RecordWSConnectionResult(model.WSResultUnavailable)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4503, "Real-time updates unavailable"))
 		_ = conn.Close()
 		return
 	}
 
 	// handle websocket connection lifecycle
+	metrics.RecordWSConnectionResult(model.WSResultSuccess)
 	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contest.ID, conn)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/maxmorhardt/squares-api/internal/config"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
 	"github.com/nats-io/nats.go"
@@ -43,6 +44,13 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	log = log.With("connection_id", connectionID)
 	ctx = context.WithValue(ctx, model.ConnectionIDKey, connectionID)
 
+	connectedAt := time.Now()
+	metrics.IncWSActiveConnections()
+	defer func() {
+		metrics.DecWSActiveConnections()
+		metrics.ObserveWSConnectionDuration(time.Since(connectedAt))
+	}()
+
 	// subscribe to NATS subject for contest updates before notifying client
 	log.Info("subscribing to NATS subject")
 	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
@@ -51,6 +59,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	natsConn := config.NATS()
 	if natsConn == nil || !natsConn.IsConnected() {
 		log.Error("NATS connection not available")
+		metrics.RecordWSDisconnect(model.WSDisconnectServerError)
 		_ = conn.Close()
 		return
 	}
@@ -58,6 +67,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	sub, err := natsConn.ChanSubscribe(contestSubject, natsChan)
 	if err != nil {
 		log.Error("failed to subscribe to NATS", "error", err)
+		metrics.RecordWSDisconnect(model.WSDisconnectServerError)
 		return
 	}
 
@@ -109,6 +119,8 @@ func (s *websocketService) handleIncomingMessages(ctx context.Context, conn *web
 			return
 		}
 
+		metrics.IncWSMessageReceived()
+
 		var chatMsg model.WSChatMessage
 		if err := json.Unmarshal(rawMsg, &chatMsg); err != nil {
 			log.Warn("failed to unmarshal incoming ws message", "error", err)
@@ -155,6 +167,7 @@ func (s *websocketService) handleChatMessage(ctx context.Context, contestID uuid
 		return
 	}
 
+	metrics.IncChatMessage()
 	log.Info("chat message sent", "sender", claims.Username, "message", message)
 }
 
@@ -177,6 +190,7 @@ func (s *websocketService) handleOutgoingMessages(
 		case msg, ok := <-natsChan:
 			if !ok {
 				log.Warn("NATS channel closed, closing websocket connection")
+				metrics.RecordWSDisconnect(model.WSDisconnectNATSChanClose)
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
 					log.Info("failed to send disconnected message", "error", err)
 				}
@@ -198,7 +212,8 @@ func (s *websocketService) handleOutgoingMessages(
 		case <-pingChecker.C:
 			_ = conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Warn("failed to send ping", "error", err)
+				log.Info("failed to send ping, closing websocket", "error", err)
+				metrics.RecordWSDisconnect(model.WSDisconnectPingFailed)
 				_ = conn.Close()
 				return
 			}
@@ -207,6 +222,7 @@ func (s *websocketService) handleOutgoingMessages(
 		case <-jwtChecker.C:
 			if shouldCloseConnection(ctx, log) {
 				log.Warn("closing connection due to token validation failure")
+				metrics.RecordWSDisconnect(model.WSDisconnectTokenExpired)
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
 					log.Info("failed to send disconnected message", "error", err)
 				}
@@ -219,6 +235,7 @@ func (s *websocketService) handleOutgoingMessages(
 			natsConn := config.NATS()
 			if natsConn == nil || !natsConn.IsConnected() || !sub.IsValid() {
 				log.Warn("NATS connection lost, closing websocket")
+				metrics.RecordWSDisconnect(model.WSDisconnectNATSLost)
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
 					log.Info("failed to send disconnected message", "error", err)
 				}
@@ -229,6 +246,7 @@ func (s *websocketService) handleOutgoingMessages(
 		// handle client disconnection
 		case <-ctx.Done():
 			log.Info("websocket client disconnected")
+			metrics.RecordWSDisconnect(model.WSDisconnectClient)
 			return
 		}
 	}
@@ -249,6 +267,7 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 		return err
 	}
 
+	metrics.IncWSMessageSent(data.Type)
 	log.Info("sent websocket message", "ws_type", data.Type)
 	return nil
 }

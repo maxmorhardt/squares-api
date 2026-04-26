@@ -4,64 +4,32 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-var (
-	httpRequestsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "http_requests_total",
-			Help: "Total number of HTTP requests",
-		},
-		[]string{"method", "path", "status"},
-	)
-
-	httpRequestDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "http_request_duration_seconds",
-			Help:    "Duration of HTTP requests",
-			Buckets: []float64{.01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 30},
-		},
-		[]string{"method", "path", "status"},
-	)
-
-	activeConnections = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "active_connections",
-			Help: "Number of active connections",
-		},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(httpRequestsTotal, httpRequestDuration, activeConnections)
-}
 
 func PrometheusMiddleware(c *gin.Context) {
 	method := c.Request.Method
 
-	// increment active connections
-	activeConnections.Inc()
+	metrics.HTTPActiveConnections.Inc()
 
-	// start timer for request duration
 	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
 		status := strconv.Itoa(c.Writer.Status())
 		path := c.FullPath()
 		if path == "" {
 			path = "unmatched"
 		}
-		httpRequestDuration.WithLabelValues(method, path, status).Observe(v)
+		metrics.HTTPRequestDuration.WithLabelValues(method, path, status).Observe(v)
 	}))
 
 	c.Next()
 
-	// record metrics after request completes
 	status := strconv.Itoa(c.Writer.Status())
 	path := c.FullPath()
 	if path == "" {
 		path = "unmatched"
 	}
-	httpRequestsTotal.WithLabelValues(method, path, status).Inc()
+	metrics.HTTPRequestsTotal.WithLabelValues(method, path, status).Inc()
 	timer.ObserveDuration()
-	activeConnections.Dec()
+	metrics.HTTPActiveConnections.Dec()
 }
