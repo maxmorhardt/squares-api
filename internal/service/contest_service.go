@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -136,6 +137,8 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 		return nil, err
 	}
 
+	metrics.IncContestCreated()
+	metrics.IncParticipantJoined(string(model.ParticipantRoleOwner))
 	log.Info("created contest", "name", req.Name, "contest_id", contest.ID, "owner", req.Owner)
 	return &contest, nil
 }
@@ -247,6 +250,7 @@ func (s *contestService) StartContest(ctx context.Context, contestID uuid.UUID, 
 		return nil, err
 	}
 
+	metrics.IncContestStarted()
 	log.Info("contest started successfully", "contest_id", contestID)
 	return contest, nil
 }
@@ -410,6 +414,7 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 		return nil, err
 	}
 
+	metrics.IncQuarterResult(quarter)
 	log.Info("quarter result recorded and status transitioned", "contest_id", contestID, "quarter", quarter, "winner", winner, "new_status", nextStatus)
 	return result, nil
 }
@@ -502,6 +507,7 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 		}
 	}()
 
+	metrics.IncContestDeleted()
 	log.Info("deleted contest successfully", "contest_id", contestID)
 	return nil
 }
@@ -571,8 +577,11 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
+	// capture whether the square was unclaimed before the update mutates square.Owner
+	wasUnclaimed := square.Owner == ""
+
 	// only check limit if claiming a new square (not re-editing own square)
-	if square.Owner == "" {
+	if wasUnclaimed {
 		claimed, countErr := s.participantRepo.CountSquaresByUser(ctx, contestID, user)
 		if countErr != nil {
 			log.Error("failed to count user squares", "contest_id", contestID, "user", user, "error", countErr)
@@ -596,6 +605,10 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 	if err != nil {
 		log.Error("failed to update square", "square_id", square.ID, "value", req.Value, "owner", req.Owner, "error", err)
 		return nil, err
+	}
+
+	if wasUnclaimed {
+		metrics.IncSquareClaimed()
 	}
 
 	go func() {
@@ -655,6 +668,8 @@ func (s *contestService) ClearSquare(ctx context.Context, contestID, squareID uu
 		log.Error("failed to clear square", "square_id", square.ID, "error", err)
 		return nil, err
 	}
+
+	metrics.IncSquareCleared()
 
 	go func() {
 		if err := s.natsService.PublishSquareUpdate(contest.ID, user, clearedSquare); err != nil {

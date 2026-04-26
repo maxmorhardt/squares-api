@@ -13,3 +13,11 @@ type Claims struct {
 	Expire   int64    `json:"exp"`
 	IssuedAt int64    `json:"iat"`
 }
+
+type AuthFailureReason string
+
+const (
+	AuthFailureMissingHeader AuthFailureReason = "missing_header"
+	AuthFailureVerifyFailed  AuthFailureReason = "verify_failed"
+	AuthFailureClaimsParse   AuthFailureReason = "claims_parse_failed"
+)

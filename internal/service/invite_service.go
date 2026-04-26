@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -87,6 +88,7 @@ func (s *inviteService) CreateInvite(ctx context.Context, contestID uuid.UUID, r
 		return nil, err
 	}
 
+	metrics.IncInviteCreated()
 	log.Info("invite created", "invite_id", invite.ID, "contest_id", contestID, "token", invite.Token)
 	return invite, nil
 }
@@ -196,6 +198,9 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token, user string) (*
 		log.Error("failed to redeem invite", "invite_id", invite.ID, "contest_id", invite.ContestID, "user", user, "error", err)
 		return nil, err
 	}
+
+	metrics.IncInviteRedeemed()
+	metrics.IncParticipantJoined(string(invite.Role))
 
 	go func() {
 		if err := s.natsService.PublishParticipantAdded(invite.ContestID, participant); err != nil {

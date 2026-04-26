@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/config"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 )
 
@@ -70,5 +71,6 @@ func (s *natsService) publishToContestSubject(contestID uuid.UUID, message any) 
 		return fmt.Errorf("failed to publish to NATS subject %s: %w", subject, err)
 	}
 
+	metrics.IncNATSMessagePublished(model.ContestChannelPrefix)
 	return nil
 }

@@ -19,6 +19,29 @@ const (
 	ContestChannelPrefix    string = "contest"
 )
 
+type WSConnectionResult string
+
+const (
+	WSResultSuccess       WSConnectionResult = "success"
+	WSResultUpgradeFailed WSConnectionResult = "upgrade_failed"
+	WSResultBadRequest    WSConnectionResult = "bad_request"
+	WSResultNotFound      WSConnectionResult = "not_found"
+	WSResultUnauthorized  WSConnectionResult = "unauthorized"
+	WSResultInternalError WSConnectionResult = "internal_error"
+	WSResultUnavailable   WSConnectionResult = "unavailable"
+)
+
+type WSDisconnectReason string
+
+const (
+	WSDisconnectClient        WSDisconnectReason = "client"
+	WSDisconnectPingFailed    WSDisconnectReason = "ping_failed"
+	WSDisconnectTokenExpired  WSDisconnectReason = "token_expired"
+	WSDisconnectNATSLost      WSDisconnectReason = "nats_lost"
+	WSDisconnectNATSChanClose WSDisconnectReason = "nats_chan_closed"
+	WSDisconnectServerError   WSDisconnectReason = "server_error"
+)
+
 type WSChatMessage struct {
 	Message string `json:"message"`
 }

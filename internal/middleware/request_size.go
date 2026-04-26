@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
@@ -28,6 +29,7 @@ func RequestSizeLimitMiddleware() gin.HandlerFunc {
 		}
 
 		log.Warn("request body too large", "error", err)
+		metrics.IncRequestSizeRejected()
 		c.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, model.NewAPIError(
 			http.StatusRequestEntityTooLarge,
 			errorMessage,
