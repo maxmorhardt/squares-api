@@ -133,7 +133,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 		return
 	}
 
-	// handle websocket connection lifecycle
-	metrics.RecordWSConnectionResult(model.WSResultSuccess)
+	// hand off to service which records the final connection result once the
+	// connection is fully initialized (NATS subscribed and connected message sent)
 	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contest.ID, conn)
 }

@@ -577,8 +577,11 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
+	// capture whether the square was unclaimed before the update mutates square.Owner
+	wasUnclaimed := square.Owner == ""
+
 	// only check limit if claiming a new square (not re-editing own square)
-	if square.Owner == "" {
+	if wasUnclaimed {
 		claimed, countErr := s.participantRepo.CountSquaresByUser(ctx, contestID, user)
 		if countErr != nil {
 			log.Error("failed to count user squares", "contest_id", contestID, "user", user, "error", countErr)
@@ -604,7 +607,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 		return nil, err
 	}
 
-	if square.Owner == "" {
+	if wasUnclaimed {
 		metrics.IncSquareClaimed()
 	}
 
