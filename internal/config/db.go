@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/maxmorhardt/squares-api/internal/model"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/plugin/dbresolver"
-	gormprometheus "gorm.io/plugin/prometheus"
 )
 
 var database *gorm.DB
@@ -67,15 +68,9 @@ func setupPrimary() {
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(maxConnLifetime)
 
-	if err := db.Use(gormprometheus.New(gormprometheus.Config{
-		DBName:          Env().DB.Name,
-		RefreshInterval: 15,
-		StartServer:     false,
-		MetricsCollector: []gormprometheus.MetricsCollector{
-			&gormprometheus.Postgres{},
-		},
-	})); err != nil {
-		slog.Warn("failed to register gorm prometheus plugin", "error", err)
+	// expose database/sql pool stats via the official prometheus collector
+	if err := prometheus.Register(collectors.NewDBStatsCollector(sqlDB, Env().DB.Name)); err != nil {
+		slog.Warn("failed to register db stats collector", "error", err)
 	}
 
 	database = db
