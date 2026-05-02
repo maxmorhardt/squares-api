@@ -9,7 +9,10 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/model"
 )
 
-const rateLimitWindow = 24 * time.Hour
+const (
+	rateLimitWindow       = 24 * time.Hour
+	rateLimitCleanupEvery = time.Hour
+)
 
 type ipCounter struct {
 	count       int
@@ -18,31 +21,17 @@ type ipCounter struct {
 }
 
 type rateLimiter struct {
-	mu      sync.Mutex
-	entries map[string]*ipCounter
-	limit   int
+	mu          sync.Mutex
+	entries     map[string]*ipCounter
+	limit       int
+	lastCleanup time.Time
 }
 
 func newRateLimiter(limit int) *rateLimiter {
-	rl := &rateLimiter{
-		entries: make(map[string]*ipCounter),
-		limit:   limit,
-	}
-	go rl.cleanupLoop()
-	return rl
-}
-
-func (rl *rateLimiter) cleanupLoop() {
-	ticker := time.NewTicker(time.Hour)
-	defer ticker.Stop()
-	for range ticker.C {
-		rl.mu.Lock()
-		for ip, e := range rl.entries {
-			if time.Since(e.lastSeen) > rateLimitWindow {
-				delete(rl.entries, ip)
-			}
-		}
-		rl.mu.Unlock()
+	return &rateLimiter{
+		entries:     make(map[string]*ipCounter),
+		limit:       limit,
+		lastCleanup: time.Now(),
 	}
 }
 
@@ -51,6 +40,16 @@ func (rl *rateLimiter) allow(ip string) bool {
 	defer rl.mu.Unlock()
 
 	now := time.Now()
+
+	if now.Sub(rl.lastCleanup) > rateLimitCleanupEvery {
+		for k, e := range rl.entries {
+			if now.Sub(e.lastSeen) > rateLimitWindow {
+				delete(rl.entries, k)
+			}
+		}
+		rl.lastCleanup = now
+	}
+
 	e, ok := rl.entries[ip]
 	if !ok || now.Sub(e.windowStart) >= rateLimitWindow {
 		rl.entries[ip] = &ipCounter{count: 1, windowStart: now, lastSeen: now}

@@ -138,7 +138,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	}
 
 	// fetch participants to include in the connected message (authorization already verified above)
-	participants, err := h.participantService.GetParticipants(c.Request.Context(), contest.ID, user, false)
+	participants, err := h.participantService.GetParticipantsInternal(c.Request.Context(), contest.ID)
 	if err != nil {
 		log.Error("failed to fetch participants for websocket connected message", "error", err)
 		metrics.RecordWSConnectionResult(model.WSResultInternalError)

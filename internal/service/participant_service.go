@@ -15,7 +15,8 @@ import (
 )
 
 type ParticipantService interface {
-	GetParticipants(ctx context.Context, contestID uuid.UUID, user string, authorize bool) ([]model.ContestParticipant, error)
+	GetParticipants(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error)
+	GetParticipantsInternal(ctx context.Context, contestID uuid.UUID) ([]model.ContestParticipant, error)
 	GetMyContests(ctx context.Context, user, search string) ([]model.Contest, error)
 	UpdateParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error)
 	RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID, user string) error
@@ -111,13 +112,15 @@ func (s *participantService) Authorize(ctx context.Context, contestID uuid.UUID,
 // Participant CRUD
 // ====================
 
-func (s *participantService) GetParticipants(ctx context.Context, contestID uuid.UUID, user string, authorize bool) ([]model.ContestParticipant, error) {
-	if authorize {
-		if err := s.Authorize(ctx, contestID, user, ActionView); err != nil {
-			return nil, err
-		}
+func (s *participantService) GetParticipants(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error) {
+	if err := s.Authorize(ctx, contestID, user, ActionView); err != nil {
+		return nil, err
 	}
 
+	return s.fetchParticipants(ctx, contestID)
+}
+
+func (s *participantService) GetParticipantsInternal(ctx context.Context, contestID uuid.UUID) ([]model.ContestParticipant, error) {
 	return s.fetchParticipants(ctx, contestID)
 }
 
