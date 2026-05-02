@@ -70,7 +70,7 @@ func ContactRateLimitMiddleware(requestsPerDay int) gin.HandlerFunc {
 	if requestsPerDay <= 0 {
 		requestsPerDay = 1
 	}
-	
+
 	rl := newRateLimiter(requestsPerDay)
 	return func(c *gin.Context) {
 		if !rl.allow(c.ClientIP()) {
