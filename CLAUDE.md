@@ -55,7 +55,6 @@ The codebase follows a strict **handler → service → repository** layering:
 - Avoid comments unless the code is genuinely non-obvious. Prefer expressive names.
 - Never use `interface{}` / `any` for domain data — define a struct.
 - `prealloc`, `gocritic`, and `unparam` are enabled, so allocate slices with capacity hints and remove unused parameters.
-- Database queries that need cross-dialect support (Postgres in prod, SQLite in tests) should branch on `r.db.Dialector.Name()` — see the search clause in [internal/repository/contest_repository.go](internal/repository/contest_repository.go).
 
 ## Routes & handlers
 
@@ -71,7 +70,7 @@ The codebase follows a strict **handler → service → repository** layering:
 
 ## Authentication & context
 
-- Protected routes are gated by `middleware.AuthMiddleware()` (in `internal/middleware/auth.go`), which validates the OIDC JWT and stores claims under context keys defined in `internal/model/key.go` (e.g. `model.UserKey`, `model.FirstNameKey`).
+- Protected routes are gated by `middleware.AuthMiddleware()` (in `internal/middleware/auth.go`), which validates the OIDC JWT and stores claims under context keys defined in `internal/model/key.go` (e.g. `model.UserKey`, `model.ClaimsKey`).
 - Read identity in handlers with `c.GetString(model.UserKey)` and pass it down as a plain `string` argument — services should not depend on `*gin.Context`.
 
 ## Real-time / NATS
@@ -83,8 +82,7 @@ The codebase follows a strict **handler → service → repository** layering:
 
 - Unit tests are colocated next to source files as `foo_test.go` and live in the same package (white-box testing) so unexported helpers can be exercised.
 - Handler tests use the lightweight mocks in [internal/handler/testutil_test.go](internal/handler/testutil_test.go) (`mockContestService`, `mockParticipantService`, etc.) and the `newTestRouter()` / `authenticatedMiddleware(user)` helpers. Each mock has `xxxFn func(...) ...` fields the test sets per case.
-- Repository tests use a real SQLite DB via [internal/repository/testutil_test.go](internal/repository/testutil_test.go) (`setupTestDB(t)`). Postgres-specific SQL (e.g. `ILIKE`, `CURRENT_DATE`) won't work — either branch on dialect or use portable SQL.
-- Integration tests in `test/` use testcontainers and require Docker. Run them separately with `go test ./test/...`.
+- Repositories are not unit-tested in isolation; they are exercised end-to-end by the integration tests in `test/`, which spin up a real Postgres (and NATS) via testcontainers and require a working Docker daemon. Run them with `go test ./test/...`.
 - After changing a service or repository **interface**, update both the production implementation **and** every mock (handler-layer mocks live in `testutil_test.go`).
 - Run `go test ./...` and `golangci-lint run` before committing. Coverage threshold (35% total) is enforced in CI.
 
