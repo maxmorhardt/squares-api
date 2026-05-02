@@ -98,6 +98,7 @@ func (h *contestHandler) GetContestByOwnerAndName(c *gin.Context) {
 // @Param owner path string true "Owner"
 // @Param page query int true "Page number" minimum(1)
 // @Param limit query int true "Items per page (max 25)" minimum(1) maximum(25)
+// @Param search query string false "Filter contests by name (case-insensitive)"
 // @Success 200 {object} model.PaginatedContestResponseSwagger
 // @Failure 400 {object} model.APIError
 // @Failure 500 {object} model.APIError
@@ -121,8 +122,11 @@ func (h *contestHandler) GetContestsByOwner(c *gin.Context) {
 		return
 	}
 
+	// optional search filter
+	search := strings.TrimSpace(c.Query("search"))
+
 	// get paginated contests from service
-	contests, total, err := h.contestService.GetContestsByOwnerPaginated(c.Request.Context(), owner, page, limit)
+	contests, total, err := h.contestService.GetContestsByOwnerPaginated(c.Request.Context(), owner, page, limit, search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to retrieve contests", c))
 		return

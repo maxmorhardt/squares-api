@@ -872,6 +872,11 @@ paths:
   /contests/me:
     get:
       description: Returns all contests where the authenticated user is a participant
+      parameters:
+      - description: Filter contests by name (case-insensitive)
+        in: query
+        name: search
+        type: string
       produces:
       - application/json
       responses:
@@ -908,6 +913,10 @@ paths:
         name: limit
         required: true
         type: integer
+      - description: Filter contests by name (case-insensitive)
+        in: query
+        name: search
+        type: string
       produces:
       - application/json
       responses:

@@ -18,7 +18,7 @@ import (
 
 type ContestService interface {
 	GetContestByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error)
-	GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error)
+	GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error)
 
 	CreateContest(ctx context.Context, req *model.CreateContestRequest, user string) (*model.Contest, error)
 	UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
@@ -76,11 +76,11 @@ func (s *contestService) GetContestByOwnerAndName(ctx context.Context, owner, na
 	return contest, nil
 }
 
-func (s *contestService) GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error) {
+func (s *contestService) GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get paginated contests from repository
-	contests, total, err := s.repo.GetAllByOwnerPaginated(ctx, owner, page, limit)
+	contests, total, err := s.repo.GetAllByOwnerPaginated(ctx, owner, page, limit, search)
 	if err != nil {
 		log.Error("failed to get paginated contests by user", "owner", owner, "error", err)
 		return nil, 0, err

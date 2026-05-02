@@ -175,16 +175,43 @@ func TestContestRepository_GetAllByOwnerPaginated(t *testing.T) {
 	}
 
 	// page 1, limit 2
-	contests, total, err := repo.GetAllByOwnerPaginated(ctx, "owner1", 1, 2)
+	contests, total, err := repo.GetAllByOwnerPaginated(ctx, "owner1", 1, 2, "")
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), total)
 	assert.Len(t, contests, 2)
 
 	// page 3, limit 2 — should get 1 remaining
-	contests, total, err = repo.GetAllByOwnerPaginated(ctx, "owner1", 3, 2)
+	contests, total, err = repo.GetAllByOwnerPaginated(ctx, "owner1", 3, 2, "")
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), total)
 	assert.Len(t, contests, 1)
+}
+
+func TestContestRepository_GetAllByOwnerPaginated_Search(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewContestRepository(db)
+	ctx := context.WithValue(context.Background(), model.UserKey, "owner1")
+
+	createTestContest(t, repo, ctx, "Super Bowl")
+	createTestContest(t, repo, ctx, "Playoff Pool")
+	createTestContest(t, repo, ctx, "super-secret")
+
+	// case-insensitive substring match on name
+	contests, total, err := repo.GetAllByOwnerPaginated(ctx, "owner1", 1, 10, "super")
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), total)
+	assert.Len(t, contests, 2)
+
+	// search with no matches
+	contests, total, err = repo.GetAllByOwnerPaginated(ctx, "owner1", 1, 10, "nomatch")
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), total)
+	assert.Len(t, contests, 0)
+
+	// empty search returns everything
+	_, total, err = repo.GetAllByOwnerPaginated(ctx, "owner1", 1, 10, "")
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), total)
 }
 
 func TestContestRepository_Update(t *testing.T) {

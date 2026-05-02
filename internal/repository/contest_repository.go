@@ -13,7 +13,7 @@ type ContestRepository interface {
 	GetVisibilityByID(ctx context.Context, id uuid.UUID) (model.ContestVisibility, error)
 	GetByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error)
 	ExistsByOwnerAndName(ctx context.Context, owner, name string) (bool, error)
-	GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error)
+	GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error)
 
 	Create(ctx context.Context, contest *model.Contest, owner *model.ContestParticipant) error
 	Update(ctx context.Context, contest *model.Contest) error
@@ -80,19 +80,27 @@ func (r *contestRepository) ExistsByOwnerAndName(ctx context.Context, owner, nam
 	return count > 0, err
 }
 
-func (r *contestRepository) GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error) {
+func (r *contestRepository) GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error) {
 	var contests []model.Contest
 	var total int64
 
+	q := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted)
+	if search != "" {
+		if r.db.Dialector.Name() == "postgres" {
+			q = q.Where("name ILIKE ?", "%"+search+"%")
+		} else {
+			q = q.Where("LOWER(name) LIKE LOWER(?)", "%"+search+"%")
+		}
+	}
+
 	// get total count of contests for user
-	if err := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted).Count(&total).Error; err != nil {
+	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// calculate offset and fetch paginated contests
 	offset := (page - 1) * limit
-	err := r.db.WithContext(ctx).
-		Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted).
+	err := q.
 		Order("updated_at DESC").
 		Offset(offset).
 		Limit(limit).

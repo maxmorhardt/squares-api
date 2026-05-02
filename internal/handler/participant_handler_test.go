@@ -102,7 +102,7 @@ func TestGetParticipants_Forbidden(t *testing.T) {
 
 func TestGetMyContests_Success(t *testing.T) {
 	svc := defaultMockParticipantService()
-	svc.getMyContestsFn = func(_ context.Context, _ string) ([]model.Contest, error) {
+	svc.getMyContestsFn = func(_ context.Context, _ string, _ string) ([]model.Contest, error) {
 		return []model.Contest{{ID: uuid.New(), Name: "MyContest"}}, nil
 	}
 
@@ -123,7 +123,7 @@ func TestGetMyContests_Success(t *testing.T) {
 
 func TestGetMyContests_Error(t *testing.T) {
 	svc := defaultMockParticipantService()
-	svc.getMyContestsFn = func(_ context.Context, _ string) ([]model.Contest, error) {
+	svc.getMyContestsFn = func(_ context.Context, _ string, _ string) ([]model.Contest, error) {
 		return nil, assert.AnError
 	}
 
@@ -136,6 +136,46 @@ func TestGetMyContests_Error(t *testing.T) {
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestGetMyContests_PassesSearchQuery(t *testing.T) {
+	var capturedSearch string
+	svc := defaultMockParticipantService()
+	svc.getMyContestsFn = func(_ context.Context, _ string, search string) ([]model.Contest, error) {
+		capturedSearch = search
+		return []model.Contest{}, nil
+	}
+
+	h := NewParticipantHandler(svc)
+	r := newTestRouter()
+	r.Use(authenticatedMiddleware("user1"))
+	r.GET("/contests/me", h.GetMyContests)
+
+	req, _ := http.NewRequest(http.MethodGet, "/contests/me?search=foo", http.NoBody)
+	w := doRequest(r, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "foo", capturedSearch)
+}
+
+func TestGetMyContests_TrimsSearchQuery(t *testing.T) {
+	var capturedSearch string
+	svc := defaultMockParticipantService()
+	svc.getMyContestsFn = func(_ context.Context, _ string, search string) ([]model.Contest, error) {
+		capturedSearch = search
+		return []model.Contest{}, nil
+	}
+
+	h := NewParticipantHandler(svc)
+	r := newTestRouter()
+	r.Use(authenticatedMiddleware("user1"))
+	r.GET("/contests/me", h.GetMyContests)
+
+	req, _ := http.NewRequest(http.MethodGet, "/contests/me?search=%20%20bar%20%20", http.NoBody)
+	w := doRequest(r, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "bar", capturedSearch)
 }
 
 // ====================
