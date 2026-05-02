@@ -242,7 +242,7 @@ func TestWSHandler_ParticipantsFetchFails(t *testing.T) {
 	pSvc.authorizeFn = func(_ context.Context, _ uuid.UUID, _ string, _ service.Action) error {
 		return nil
 	}
-	pSvc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string) ([]model.ContestParticipant, error) {
+	pSvc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string, _ bool) ([]model.ContestParticipant, error) {
 		return nil, assert.AnError
 	}
 
@@ -284,7 +284,7 @@ func TestWSHandler_HandoffToService(t *testing.T) {
 	pSvc.authorizeFn = func(_ context.Context, _ uuid.UUID, _ string, _ service.Action) error {
 		return nil
 	}
-	pSvc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string) ([]model.ContestParticipant, error) {
+	pSvc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string, _ bool) ([]model.ContestParticipant, error) {
 		return participants, nil
 	}
 

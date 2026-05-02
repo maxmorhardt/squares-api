@@ -27,7 +27,7 @@ func defaultMockParticipantService() *mockParticipantService {
 func TestGetParticipants_Success(t *testing.T) {
 	contestID := uuid.New()
 	svc := defaultMockParticipantService()
-	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string) ([]model.ContestParticipant, error) {
+	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string, _ bool) ([]model.ContestParticipant, error) {
 		return []model.ContestParticipant{
 			{ID: uuid.New(), ContestID: contestID, UserID: "owner1", Role: model.ParticipantRoleOwner},
 			{ID: uuid.New(), ContestID: contestID, UserID: "user1", Role: model.ParticipantRoleParticipant},
@@ -64,7 +64,7 @@ func TestGetParticipants_InvalidID(t *testing.T) {
 
 func TestGetParticipants_NotFound(t *testing.T) {
 	svc := defaultMockParticipantService()
-	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string) ([]model.ContestParticipant, error) {
+	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string, _ bool) ([]model.ContestParticipant, error) {
 		return nil, gorm.ErrRecordNotFound
 	}
 
@@ -81,7 +81,7 @@ func TestGetParticipants_NotFound(t *testing.T) {
 
 func TestGetParticipants_Forbidden(t *testing.T) {
 	svc := defaultMockParticipantService()
-	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string) ([]model.ContestParticipant, error) {
+	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string, _ bool) ([]model.ContestParticipant, error) {
 		return nil, errs.ErrNotParticipant
 	}
 
@@ -382,7 +382,7 @@ func TestRemoveParticipant_NotFound(t *testing.T) {
 
 func TestGetParticipants_InsufficientRole(t *testing.T) {
 	svc := defaultMockParticipantService()
-	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string) ([]model.ContestParticipant, error) {
+	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string, _ bool) ([]model.ContestParticipant, error) {
 		return nil, errs.ErrInsufficientRole
 	}
 
@@ -399,7 +399,7 @@ func TestGetParticipants_InsufficientRole(t *testing.T) {
 
 func TestGetParticipants_InternalError(t *testing.T) {
 	svc := defaultMockParticipantService()
-	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string) ([]model.ContestParticipant, error) {
+	svc.getParticipantsFn = func(_ context.Context, _ uuid.UUID, _ string, _ bool) ([]model.ContestParticipant, error) {
 		return nil, assert.AnError
 	}
 

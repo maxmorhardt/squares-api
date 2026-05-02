@@ -7,61 +7,73 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/maxmorhardt/squares-api/internal/model"
-	"golang.org/x/time/rate"
 )
 
-type ipLimiter struct {
-	limiter  *rate.Limiter
-	lastSeen time.Time
+const rateLimitWindow = 24 * time.Hour
+
+type ipCounter struct {
+	count       int
+	windowStart time.Time
+	lastSeen    time.Time
 }
 
 type rateLimiter struct {
-	mu       sync.Mutex
-	limiters map[string]*ipLimiter
-	r        rate.Limit
-	b        int
+	mu      sync.Mutex
+	entries map[string]*ipCounter
+	limit   int
 }
 
-func newRateLimiter(r rate.Limit, b int) *rateLimiter {
+func newRateLimiter(limit int) *rateLimiter {
 	rl := &rateLimiter{
-		limiters: make(map[string]*ipLimiter),
-		r:        r,
-		b:        b,
+		entries: make(map[string]*ipCounter),
+		limit:   limit,
 	}
 	go rl.cleanupLoop()
 	return rl
 }
 
 func (rl *rateLimiter) cleanupLoop() {
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 	for range ticker.C {
 		rl.mu.Lock()
-		for ip, l := range rl.limiters {
-			if time.Since(l.lastSeen) > 24*time.Hour {
-				delete(rl.limiters, ip)
+		for ip, e := range rl.entries {
+			if time.Since(e.lastSeen) > rateLimitWindow {
+				delete(rl.entries, ip)
 			}
 		}
 		rl.mu.Unlock()
 	}
 }
 
-func (rl *rateLimiter) get(ip string) *rate.Limiter {
+func (rl *rateLimiter) allow(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	l, ok := rl.limiters[ip]
-	if !ok {
-		l = &ipLimiter{limiter: rate.NewLimiter(rl.r, rl.b)}
-		rl.limiters[ip] = l
+
+	now := time.Now()
+	e, ok := rl.entries[ip]
+	if !ok || now.Sub(e.windowStart) >= rateLimitWindow {
+		rl.entries[ip] = &ipCounter{count: 1, windowStart: now, lastSeen: now}
+		return true
 	}
-	l.lastSeen = time.Now()
-	return l.limiter
+
+	e.lastSeen = now
+	if e.count >= rl.limit {
+		return false
+	}
+
+	e.count++
+	return true
 }
 
 func ContactRateLimitMiddleware(requestsPerDay int) gin.HandlerFunc {
-	rl := newRateLimiter(rate.Every(24*time.Hour/time.Duration(requestsPerDay)), requestsPerDay)
+	if requestsPerDay <= 0 {
+		requestsPerDay = 1
+	}
+	
+	rl := newRateLimiter(requestsPerDay)
 	return func(c *gin.Context) {
-		if !rl.get(c.ClientIP()).Allow() {
+		if !rl.allow(c.ClientIP()) {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, model.NewAPIError(http.StatusTooManyRequests, "Too many requests", c))
 			return
 		}

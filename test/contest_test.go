@@ -110,15 +110,9 @@ func TestContest_FullLifecycle(t *testing.T) {
 		assert.Equal(t, status, http.StatusOK)
 		assert.Equal(t, model.ContestStatusQ1, contest.Status)
 
-		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 7, AwayTeamScore: 3})
-		assert.Equal(t, status, http.StatusOK)
-
-		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 14, AwayTeamScore: 10})
-		assert.Equal(t, status, http.StatusOK)
-
-		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 21, AwayTeamScore: 17})
-		assert.Equal(t, status, http.StatusOK)
-
+		assert.Equal(t, http.StatusOK, submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 7, AwayTeamScore: 3}))
+		assert.Equal(t, http.StatusOK, submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 14, AwayTeamScore: 10}))
+		assert.Equal(t, http.StatusOK, submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 21, AwayTeamScore: 17}))
 		assert.Equal(t, http.StatusOK, submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 28, AwayTeamScore: 24}))
 	})
 }
@@ -518,19 +512,6 @@ func updateContest(router http.Handler, contestID uuid.UUID, authToken string, u
 	_ = json.Unmarshal(w.Body.Bytes(), &contest)
 
 	return contest, w.Code
-}
-
-func updateSquare(router http.Handler, contestID, squareID uuid.UUID, authToken string, updateReq model.UpdateSquareRequest) int {
-	body, _ := json.Marshal(updateReq)
-
-	req, _ := http.NewRequest(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", contestID, squareID), bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
-
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	return w.Code
 }
 
 func startContest(router http.Handler, contestID uuid.UUID, authToken string) (result *model.Contest, statusCode int) {

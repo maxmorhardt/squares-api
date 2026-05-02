@@ -54,7 +54,7 @@ func (h *participantHandler) GetParticipants(c *gin.Context) {
 	}
 
 	user := c.GetString(model.UserKey)
-	participants, err := h.participantService.GetParticipants(c.Request.Context(), contestID, user)
+	participants, err := h.participantService.GetParticipants(c.Request.Context(), contestID, user, true)
 	if err != nil {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):
