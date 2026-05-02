@@ -316,7 +316,7 @@ func TestWSHandler_HandoffToService(t *testing.T) {
 	defer conn.Close()
 
 	// drain the connection (server will close it from the mock)
-	conn.ReadMessage() //nolint:errcheck
+	conn.ReadMessage() //nolint:errcheck // return value not needed in test helper
 
 	select {
 	case <-called:

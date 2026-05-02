@@ -58,11 +58,10 @@ func (rl *rateLimiter) get(ip string) *rate.Limiter {
 	return l.limiter
 }
 
-var contactRateLimiter = newRateLimiter(rate.Every(24*time.Hour/10), 10)
-
-func ContactRateLimitMiddleware() gin.HandlerFunc {
+func ContactRateLimitMiddleware(requestsPerDay int) gin.HandlerFunc {
+	rl := newRateLimiter(rate.Every(24*time.Hour/time.Duration(requestsPerDay)), requestsPerDay)
 	return func(c *gin.Context) {
-		if !contactRateLimiter.get(c.ClientIP()).Allow() {
+		if !rl.get(c.ClientIP()).Allow() {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, model.NewAPIError(http.StatusTooManyRequests, "Too many requests", c))
 			return
 		}

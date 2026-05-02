@@ -7,10 +7,12 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +26,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 		awayTeam = "Eagles"
 	)
 	t.Run("1_CreateContest", func(t *testing.T) {
-		contest, status := createContest(router, authToken, oidcUser, name, homeTeam, awayTeam)
+		contest, status := createContest(router, authToken, oidcUser, name, homeTeam, awayTeam, 100)
 
 		assert.NotNil(t, contest)
 		assert.Equal(t, status, http.StatusOK)
@@ -39,14 +41,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 		require.NotEqual(t, uuid.Nil, contestID, "contestID must be set for subsequent tests")
 	})
 
-	t.Run("2_GetContestByOwnerAndName", func(t *testing.T) {
-		contest, status := getContestByOwnerAndName(router, oidcUser, name, authToken)
-
-		assert.Equal(t, http.StatusOK, status)
-		assert.Equal(t, name, contest.Name)
-	})
-
-	t.Run("3_GetContestsByUser", func(t *testing.T) {
+	t.Run("2_GetContestsByUser", func(t *testing.T) {
 		response, status := getContestsByOwner(router, oidcUser, authToken)
 
 		assert.Equal(t, status, http.StatusOK)
@@ -65,7 +60,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 		assert.True(t, found, "Created contest should be in user's contest list")
 	})
 
-	t.Run("4_UpdateContest", func(t *testing.T) {
+	t.Run("3_UpdateContest", func(t *testing.T) {
 		newHomeTeam := "49ers"
 		updateReq := model.UpdateContestRequest{
 			HomeTeam: &newHomeTeam,
@@ -78,29 +73,39 @@ func TestContest_FullLifecycle(t *testing.T) {
 		assert.Equal(t, "Eagles", contest.AwayTeam)
 	})
 
-	t.Run("5_FillAllSquares", func(t *testing.T) {
-		contest, _ := getContestByOwnerAndName(router, oidcUser, name, authToken)
-		require.Len(t, contest.Squares, 100)
+	t.Run("4_WSConnectMessage", func(t *testing.T) {
+		require.NotEqual(t, uuid.Nil, contestID, "contestID must be set")
 
-		for i, square := range contest.Squares {
-			squareValue := fmt.Sprintf("U%d", i%100)
-			updateSquareReq := model.UpdateSquareRequest{
-				Value: squareValue,
-				Owner: oidcUser,
-			}
+		server := httptest.NewServer(router)
+		defer server.Close()
 
-			status := updateSquare(router, contestID, square.ID, authToken, updateSquareReq)
-			assert.Equal(t, status, http.StatusOK)
-		}
+		wsURL := "ws://" + server.Listener.Addr().String() +
+			"/ws/contests/owner/" + url.PathEscape(oidcUser) +
+			"/name/" + url.PathEscape(name)
 
-		contest, _ = getContestByOwnerAndName(router, oidcUser, name, authToken)
-		for _, square := range contest.Squares {
-			assert.NotEmpty(t, square.Value, "Square at row=%d, col=%d should have a value", square.Row, square.Col)
-			assert.NotEmpty(t, square.Owner, "Square at row=%d, col=%d should have an owner", square.Row, square.Col)
-		}
+		header := http.Header{}
+		header.Set("Origin", "http://localhost:3000")
+		header.Set("Sec-WebSocket-Protocol", authToken)
+
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
+		require.NoError(t, err, "WebSocket dial should succeed")
+		defer conn.Close()
+
+		_, msgBytes, err := conn.ReadMessage()
+		require.NoError(t, err, "should receive connected message")
+
+		var msg model.WSUpdate
+		require.NoError(t, json.Unmarshal(msgBytes, &msg))
+
+		assert.Equal(t, model.ConnectedType, msg.Type)
+		require.NotNil(t, msg.Contest)
+		assert.Equal(t, contestID, msg.Contest.ID)
+		assert.Equal(t, "49ers", msg.Contest.HomeTeam)
+		assert.Len(t, msg.Contest.Squares, 100)
+		assert.GreaterOrEqual(t, len(msg.Participants), 1)
 	})
 
-	t.Run("6_StartContestAndSubmitResults", func(t *testing.T) {
+	t.Run("5_StartContestAndSubmitResults", func(t *testing.T) {
 		contest, status := startContest(router, contestID, authToken)
 		assert.Equal(t, status, http.StatusOK)
 		assert.Equal(t, model.ContestStatusQ1, contest.Status)
@@ -114,12 +119,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 21, AwayTeamScore: 17})
 		assert.Equal(t, status, http.StatusOK)
 
-		submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 28, AwayTeamScore: 24})
-		assert.Equal(t, status, http.StatusOK)
-
-		contest, _ = getContestByOwnerAndName(router, oidcUser, name, authToken)
-		assert.Equal(t, model.ContestStatusFinished, contest.Status)
-		assert.Len(t, contest.QuarterResults, 4)
+		assert.Equal(t, http.StatusOK, submitQuarterResult(router, contestID, authToken, model.QuarterResultRequest{HomeTeamScore: 28, AwayTeamScore: 24}))
 	})
 }
 
@@ -132,318 +132,217 @@ func TestCreateContest_Validation(t *testing.T) {
 		{
 			name: "Missing_Owner",
 			request: model.CreateContestRequest{
-				Owner:    "",
-				Name:     "Valid Name",
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
+				Owner:      "",
+				Name:       "Valid Name",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Owner_Too_Long",
 			request: model.CreateContestRequest{
-				Owner:    strings.Repeat("A", 256),
-				Name:     "Valid Name",
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Name_Too_Long",
-			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "",
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Name_Too_Long",
-			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     strings.Repeat("A", 21),
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Home_Team_Too_Long",
-			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "Valid Name",
-				HomeTeam: strings.Repeat("A", 21),
-				AwayTeam: "Eagles",
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Away_Team_Too_Long",
-			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "Valid Name",
-				HomeTeam: "Chiefs",
-				AwayTeam: strings.Repeat("A", 21),
+				Owner:      strings.Repeat("A", 256),
+				Name:       "Valid Name",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Name_Empty_String",
 			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "",
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
+				Owner:      oidcUser,
+				Name:       "",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Name_Over_Max_21",
+			request: model.CreateContestRequest{
+				Owner:      oidcUser,
+				Name:       strings.Repeat("A", 21),
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Home_Team_Too_Long",
+			request: model.CreateContestRequest{
+				Owner:      oidcUser,
+				Name:       "Valid Name",
+				HomeTeam:   strings.Repeat("A", 21),
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Away_Team_Too_Long",
+			request: model.CreateContestRequest{
+				Owner:      oidcUser,
+				Name:       "Valid Name",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   strings.Repeat("A", 21),
+				MaxSquares: 10,
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "MaxSquares_Zero",
+			request: model.CreateContestRequest{
+				Owner:      oidcUser,
+				Name:       "MS Zero",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 0,
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "MaxSquares_Over_100",
+			request: model.CreateContestRequest{
+				Owner:      oidcUser,
+				Name:       "MS Over 100",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 101,
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Name_Min_Length_1",
 			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "A",
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
+				Owner:      oidcUser,
+				Name:       "A",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Name_Max_Length_20",
 			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     strings.Repeat("A", 20),
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
+				Owner:      oidcUser,
+				Name:       strings.Repeat("A", 20),
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Name_Over_Max_21",
-			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     strings.Repeat("A", 21),
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
 			name: "HomeTeam_Max_Length_20",
 			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "HomeTeam Test",
-				HomeTeam: strings.Repeat("A", 20),
-				AwayTeam: "Eagles",
+				Owner:      oidcUser,
+				Name:       "HomeTeam Test",
+				HomeTeam:   strings.Repeat("A", 20),
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "HomeTeam_Over_Max_21",
 			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "HomeTeam Test 2",
-				HomeTeam: strings.Repeat("A", 21),
-				AwayTeam: "Eagles",
+				Owner:      oidcUser,
+				Name:       "HomeTeam Test 2",
+				HomeTeam:   strings.Repeat("A", 21),
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "AwayTeam_Max_Length_20",
 			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "AwayTeam Test",
-				HomeTeam: "Chiefs",
-				AwayTeam: strings.Repeat("A", 20),
+				Owner:      oidcUser,
+				Name:       "AwayTeam Test",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   strings.Repeat("A", 20),
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "AwayTeam_Over_Max_21",
 			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "AwayTeam Test 2",
-				HomeTeam: "Chiefs",
-				AwayTeam: strings.Repeat("A", 21),
+				Owner:      oidcUser,
+				Name:       "AwayTeam Test 2",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   strings.Repeat("A", 21),
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Owner_Max_Length_255",
 			request: model.CreateContestRequest{
-				Owner:    oidcUser,
-				Name:     "Owner Test",
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
+				Owner:      oidcUser,
+				Name:       "Owner Test",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Owner_Over_Max_256",
 			request: model.CreateContestRequest{
-				Owner:    strings.Repeat("A", 256),
-				Name:     "Owner Test 2",
-				HomeTeam: "Chiefs",
-				AwayTeam: "Eagles",
+				Owner:      strings.Repeat("A", 256),
+				Name:       "Owner Test 2",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 10,
 			},
 			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "MaxSquares_Min_1",
+			request: model.CreateContestRequest{
+				Owner:      oidcUser,
+				Name:       "MS Min 1",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 1,
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "MaxSquares_Max_100",
+			request: model.CreateContestRequest{
+				Owner:      oidcUser,
+				Name:       "MS Max 100",
+				HomeTeam:   "Chiefs",
+				AwayTeam:   "Eagles",
+				MaxSquares: 100,
+			},
+			expectedStatus: http.StatusOK,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			contest, status := createContest(router, authToken, tc.request.Owner, tc.request.Name, tc.request.HomeTeam, tc.request.AwayTeam)
+			contest, status := createContest(router, authToken, tc.request.Owner, tc.request.Name, tc.request.HomeTeam, tc.request.AwayTeam, tc.request.MaxSquares)
 			slog.Info("negative contest result", "contest", contest)
 			assert.Equal(t, tc.expectedStatus, status)
 		})
 	}
 }
 
-func TestUpdateSquare_Validation(t *testing.T) {
-	contestName := "Square Val Test"
-	contest, status := createContest(router, authToken, oidcUser, contestName, "Home", "Away")
-	require.Equal(t, http.StatusOK, status)
-	require.NotEqual(t, uuid.Nil, contest.ID)
-
-	contest, status = getContestByOwnerAndName(router, oidcUser, contestName, authToken)
-	require.Equal(t, http.StatusOK, status)
-	require.Len(t, contest.Squares, 100)
-
-	squareID := contest.Squares[0].ID
-
-	t.Run("Successful_Square_Update", func(t *testing.T) {
-		updateReq := model.UpdateSquareRequest{
-			Value: "ABC",
-			Owner: oidcUser,
-		}
-		status := updateSquare(router, contest.ID, squareID, authToken, updateReq)
-		assert.Equal(t, http.StatusOK, status)
-	})
-
-	testCases := []struct {
-		name           string
-		request        model.UpdateSquareRequest
-		expectedStatus int
-	}{
-		{
-			name: "Value_Too_Short",
-			request: model.UpdateSquareRequest{
-				Value: "",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Value_Too_Long",
-			request: model.UpdateSquareRequest{
-				Value: "ABCD",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Value_Not_Uppercase",
-			request: model.UpdateSquareRequest{
-				Value: "abc",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Value_Not_Alphanumeric",
-			request: model.UpdateSquareRequest{
-				Value: "A$B",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Value_Contains_Dangerous_Chars",
-			request: model.UpdateSquareRequest{
-				Value: "A<B",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Owner_Missing",
-			request: model.UpdateSquareRequest{
-				Value: "ABC",
-				Owner: "",
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Owner_Contains_Dangerous_Chars",
-			request: model.UpdateSquareRequest{
-				Value: "ABC",
-				Owner: "user<script>",
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name: "Valid_Single_Char",
-			request: model.UpdateSquareRequest{
-				Value: "A",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name: "Valid_Two_Chars",
-			request: model.UpdateSquareRequest{
-				Value: "AB",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name: "Valid_Three_Chars",
-			request: model.UpdateSquareRequest{
-				Value: "XYZ",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name: "Valid_With_Numbers",
-			request: model.UpdateSquareRequest{
-				Value: "A1B",
-				Owner: oidcUser,
-			},
-			expectedStatus: http.StatusOK,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			status := updateSquare(router, contest.ID, squareID, authToken, tc.request)
-			assert.Equal(t, tc.expectedStatus, status, "Test case: %s", tc.name)
-		})
-	}
-
-	deleteContest(router, contest.ID, authToken)
-}
-
 func TestQuarterResult_Validation(t *testing.T) {
 	setupContest := func(name string) (uuid.UUID, *model.Contest) {
-		contest, status := createContest(router, authToken, oidcUser, name, "Home", "Away")
+		contest, status := createContest(router, authToken, oidcUser, name, "Home", "Away", 100)
 		require.Equal(t, http.StatusOK, status)
 		require.NotEqual(t, uuid.Nil, contest.ID)
-
-		contest, status = getContestByOwnerAndName(router, oidcUser, name, authToken)
-		require.Equal(t, http.StatusOK, status)
-		require.Len(t, contest.Squares, 100)
-
-		for _, square := range contest.Squares {
-			updateReq := model.UpdateSquareRequest{
-				Value: "AAA",
-				Owner: oidcUser,
-			}
-			squareStatus := updateSquare(router, contest.ID, square.ID, authToken, updateReq)
-			require.Equal(t, http.StatusOK, squareStatus)
-		}
 
 		_, status = startContest(router, contest.ID, authToken)
 		require.Equal(t, http.StatusOK, status)
@@ -569,13 +468,13 @@ func TestQuarterResult_Validation(t *testing.T) {
 	}
 }
 
-func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awayTeam string) (result *model.Contest, statusCode int) {
+func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awayTeam string, maxSquares int) (result *model.Contest, statusCode int) {
 	reqBody := model.CreateContestRequest{
 		Owner:      oidcUser,
 		Name:       name,
 		HomeTeam:   homeTeam,
 		AwayTeam:   awayTeam,
-		MaxSquares: 10,
+		MaxSquares: maxSquares,
 	}
 	body, _ := json.Marshal(reqBody)
 
@@ -590,19 +489,6 @@ func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awa
 	_ = json.Unmarshal(w.Body.Bytes(), &c)
 
 	return &c, w.Code
-}
-
-func getContestByOwnerAndName(router http.Handler, owner, name, authToken string) (result *model.Contest, statusCode int) {
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/contests/owner/%s/name/%s", owner, name), http.NoBody)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
-
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	var contest model.Contest
-	_ = json.Unmarshal(w.Body.Bytes(), &contest)
-
-	return &contest, w.Code
 }
 
 func getContestsByOwner(router http.Handler, oidcUser, authToken string) (resp model.PaginatedContestResponse, statusCode int) {

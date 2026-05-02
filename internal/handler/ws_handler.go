@@ -117,7 +117,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 
 	// check if user has permission to view this contest
 	user := c.GetString(model.UserKey)
-	if err := h.participantService.Authorize(c.Request.Context(), contest.ID, user, service.ActionView); err != nil {
+	if authErr := h.participantService.Authorize(c.Request.Context(), contest.ID, user, service.ActionView); authErr != nil {
 		log.Warn("user not authorized for websocket", "user", user, "contest_id", contest.ID)
 		metrics.RecordWSConnectionResult(model.WSResultUnauthorized)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4403, "Not authorized"))
@@ -128,7 +128,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log = log.With("contest_id", contest.ID)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
-	// verify NATS is available before upgrading
+	// verify NATS is available before handing off to the service
 	if !h.natsAvailable() {
 		log.Error("NATS connection not available, rejecting websocket")
 		metrics.RecordWSConnectionResult(model.WSResultUnavailable)
