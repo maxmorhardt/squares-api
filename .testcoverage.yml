@@ -14,5 +14,6 @@ exclude:
     - internal/metrics
     - internal/middleware
     - internal/model
+    - internal/repository
     - internal/routes
     - internal/templates

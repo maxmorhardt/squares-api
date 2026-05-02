@@ -63,24 +63,6 @@ func TestLoggerFromGinContext_WithoutLogger(t *testing.T) {
 	assert.Equal(t, slog.Default(), result)
 }
 
-func TestClaimsFromGinContext_WithClaims(t *testing.T) {
-	c := newTestGinContext()
-	claims := &model.Claims{Username: "testuser"}
-	c.Set(model.ClaimsKey, claims)
-
-	result := ClaimsFromGinContext(c)
-
-	assert.Equal(t, claims, result)
-}
-
-func TestClaimsFromGinContext_WithoutClaims(t *testing.T) {
-	c := newTestGinContext()
-
-	result := ClaimsFromGinContext(c)
-
-	assert.Nil(t, result)
-}
-
 func TestClaimsFromContext_WithClaims(t *testing.T) {
 	claims := &model.Claims{Username: "testuser"}
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, claims)

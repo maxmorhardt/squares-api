@@ -10,7 +10,7 @@ This guide provides context for coding agents working in this repository. Square
   - `config/` – env loading and typed config structs.
   - `errs/` – sentinel errors (`ErrContestNotFound`, `ErrInsufficientRole`, etc.) used to map service errors → HTTP status codes in handlers.
   - `handler/` – Gin HTTP handlers, one file per resource (`contest_handler.go`, `participant_handler.go`, …). Each handler defines its own interface so it can be stubbed in tests.
-  - `metrics/` – Prometheus counters/histograms registered in `bootstrap/metrics.go`.
+  - `metrics/` – Prometheus collectors (counters, histograms). Each file (`http.go`, `auth.go`, `business.go`, `nats.go`, `request_size.go`, `ws.go`) defines its metrics and registers them via a package `init()`. `bootstrap/metrics.go` only starts the Prometheus HTTP scrape server.
   - `middleware/` – Gin middleware (`auth.go` for OIDC JWT, `cors.go`, `logger.go`, `prometheus.go`, `request_size.go`).
   - `model/` – GORM entities (`contest.go`, `square.go`, `participant.go`, …), request/response DTOs, swagger types, context keys.
   - `repository/` – GORM data access. One file per aggregate root.
@@ -47,7 +47,7 @@ The codebase follows a strict **handler → service → repository** layering:
 ## Code style
 
 - Use lowercase, single-package files; one logical resource per file (`contest_service.go`, not `services.go`).
-- Define dependencies as **interfaces** at the consumer (handler depends on a `ContestService` interface declared in `contest_handler.go`, not in the service package). This keeps mocking trivial.
+- Define dependencies as **interfaces**. Service interfaces are declared alongside their implementation in `internal/service/<resource>_service.go` and consumed by handlers (e.g. handler structs hold a `service.ContestService`). Repository interfaces are declared in `internal/repository/<resource>_repository.go` and consumed by services. Keeping each interface next to its implementation keeps the production wiring obvious; mocks live with the consumer's tests (e.g. `internal/handler/testutil_test.go`).
 - Constructors are `NewXxx(...)` and return the interface type.
 - Use `context.Context` as the **first parameter** of any function that crosses a layer or talks to the DB/NATS.
 - Logging: pull a `*slog.Logger` from context with `util.LoggerFromContext(ctx)` (or `util.LoggerFromGinContext(c)` in handlers). Never call `slog.Default()` directly inside services/repositories.

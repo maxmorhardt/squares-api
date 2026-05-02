@@ -11,7 +11,6 @@ import (
 type ParticipantRepository interface {
 	GetByContestAndUser(ctx context.Context, contestID uuid.UUID, userID string) (*model.ContestParticipant, error)
 	GetAllByContestID(ctx context.Context, contestID uuid.UUID) ([]model.ContestParticipant, error)
-	GetAllByUserID(ctx context.Context, userID string) ([]model.ContestParticipant, error)
 	GetTotalAllocatedSquares(ctx context.Context, contestID uuid.UUID) (int, error)
 	CountSquaresByUser(ctx context.Context, contestID uuid.UUID, userID string) (int, error)
 	Update(ctx context.Context, participant *model.ContestParticipant) error
@@ -41,15 +40,6 @@ func (r *participantRepository) GetAllByContestID(ctx context.Context, contestID
 	err := r.db.WithContext(ctx).
 		Where("contest_id = ?", contestID).
 		Order("joined_at ASC").
-		Find(&participants).Error
-	return participants, err
-}
-
-func (r *participantRepository) GetAllByUserID(ctx context.Context, userID string) ([]model.ContestParticipant, error) {
-	var participants []model.ContestParticipant
-	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND role != ?", userID, model.ParticipantRoleOwner).
-		Order("joined_at DESC").
 		Find(&participants).Error
 	return participants, err
 }

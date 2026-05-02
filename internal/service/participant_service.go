@@ -16,7 +16,7 @@ import (
 
 type ParticipantService interface {
 	GetParticipants(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error)
-	GetMyContests(ctx context.Context, user string, search string) ([]model.Contest, error)
+	GetMyContests(ctx context.Context, user, search string) ([]model.Contest, error)
 	UpdateParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error)
 	RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID, user string) error
 	Authorize(ctx context.Context, contestID uuid.UUID, userID string, act Action) error
@@ -128,34 +128,13 @@ func (s *participantService) GetParticipants(ctx context.Context, contestID uuid
 	return participants, nil
 }
 
-func (s *participantService) GetMyContests(ctx context.Context, user string, search string) ([]model.Contest, error) {
+func (s *participantService) GetMyContests(ctx context.Context, user, search string) ([]model.Contest, error) {
 	log := util.LoggerFromContext(ctx)
 
-	participants, err := s.participantRepo.GetAllByUserID(ctx, user)
+	contests, err := s.contestRepo.GetAllByParticipantUserID(ctx, user, strings.TrimSpace(search))
 	if err != nil {
-		log.Error("failed to get user participations", "user", user, "error", err)
+		log.Error("failed to get user contests", "user", user, "error", err)
 		return nil, errs.ErrDatabaseUnavailable
-	}
-
-	searchLower := strings.ToLower(strings.TrimSpace(search))
-
-	var contests []model.Contest
-	for i := range participants {
-		contest, err := s.contestRepo.GetByID(ctx, participants[i].ContestID)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
-			log.Error("failed to get contest", "contest_id", participants[i].ContestID, "error", err)
-			continue
-		}
-
-		// case-insensitive name filter
-		if searchLower != "" && !strings.Contains(strings.ToLower(contest.Name), searchLower) {
-			continue
-		}
-
-		contests = append(contests, *contest)
 	}
 
 	return contests, nil

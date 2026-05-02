@@ -100,7 +100,7 @@ func (m *mockContestService) ClearSquare(ctx context.Context, contestID, squareI
 // mockParticipantService implements service.ParticipantService
 type mockParticipantService struct {
 	getParticipantsFn   func(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error)
-	getMyContestsFn     func(ctx context.Context, user string, search string) ([]model.Contest, error)
+	getMyContestsFn     func(ctx context.Context, user, search string) ([]model.Contest, error)
 	updateParticipantFn func(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error)
 	removeParticipantFn func(ctx context.Context, contestID uuid.UUID, targetUserID, user string) error
 	authorizeFn         func(ctx context.Context, contestID uuid.UUID, userID string, act service.Action) error
@@ -109,7 +109,7 @@ type mockParticipantService struct {
 func (m *mockParticipantService) GetParticipants(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error) {
 	return m.getParticipantsFn(ctx, contestID, user)
 }
-func (m *mockParticipantService) GetMyContests(ctx context.Context, user string, search string) ([]model.Contest, error) {
+func (m *mockParticipantService) GetMyContests(ctx context.Context, user, search string) ([]model.Contest, error) {
 	return m.getMyContestsFn(ctx, user, search)
 }
 func (m *mockParticipantService) UpdateParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error) {

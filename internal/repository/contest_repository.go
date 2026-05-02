@@ -14,6 +14,7 @@ type ContestRepository interface {
 	GetByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error)
 	ExistsByOwnerAndName(ctx context.Context, owner, name string) (bool, error)
 	GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error)
+	GetAllByParticipantUserID(ctx context.Context, userID, search string) ([]model.Contest, error)
 
 	Create(ctx context.Context, contest *model.Contest, owner *model.ContestParticipant) error
 	Update(ctx context.Context, contest *model.Contest) error
@@ -86,11 +87,7 @@ func (r *contestRepository) GetAllByOwnerPaginated(ctx context.Context, owner st
 
 	q := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted)
 	if search != "" {
-		if r.db.Dialector.Name() == "postgres" {
-			q = q.Where("name ILIKE ?", "%"+search+"%")
-		} else {
-			q = q.Where("LOWER(name) LIKE LOWER(?)", "%"+search+"%")
-		}
+		q = q.Where("name ILIKE ?", "%"+search+"%")
 	}
 
 	// get total count of contests for user
@@ -107,6 +104,27 @@ func (r *contestRepository) GetAllByOwnerPaginated(ctx context.Context, owner st
 		Find(&contests).Error
 
 	return contests, total, err
+}
+
+func (r *contestRepository) GetAllByParticipantUserID(ctx context.Context, userID, search string) ([]model.Contest, error) {
+	var contests []model.Contest
+
+	q := r.db.WithContext(ctx).
+		Model(&model.Contest{}).
+		Select("contests.*").
+		Preload("Squares").
+		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
+			return db.Order("quarter ASC")
+		}).
+		Joins("JOIN contest_participants cp ON cp.contest_id = contests.id").
+		Where("cp.user_id = ? AND cp.role != ? AND contests.status != ?", userID, model.ParticipantRoleOwner, model.ContestStatusDeleted)
+
+	if search != "" {
+		q = q.Where("contests.name ILIKE ?", "%"+search+"%")
+	}
+
+	err := q.Order("cp.joined_at DESC").Find(&contests).Error
+	return contests, err
 }
 
 // ====================
