@@ -19,8 +19,9 @@ type config struct {
 }
 
 type serverConfig struct {
-	MetricsEnabled bool     `env:"METRICS_ENABLED" envDefault:"false"`
-	AllowedOrigins []string `env:"ALLOWED_ORIGINS" envDefault:"http://localhost:3000" envSeparator:","`
+	MetricsEnabled   bool     `env:"METRICS_ENABLED" envDefault:"false"`
+	AllowedOrigins   []string `env:"ALLOWED_ORIGINS" envDefault:"http://localhost:3000" envSeparator:","`
+	ContactRateLimit int      `env:"CONTACT_RATE_LIMIT" envDefault:"10"`
 }
 
 type databaseConfig struct {

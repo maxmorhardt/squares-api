@@ -27,7 +27,7 @@ const (
 )
 
 type WebSocketService interface {
-	HandleWebSocketConnection(ctx context.Context, contestID uuid.UUID, conn *websocket.Conn)
+	HandleWebSocketConnection(ctx context.Context, contest *model.Contest, participants []model.ContestParticipant, conn *websocket.Conn)
 }
 
 type websocketService struct{}
@@ -36,8 +36,9 @@ func NewWebSocketService() WebSocketService {
 	return &websocketService{}
 }
 
-func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contestID uuid.UUID, conn *websocket.Conn) {
+func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contest *model.Contest, participants []model.ContestParticipant, conn *websocket.Conn) {
 	log := util.LoggerFromContext(ctx)
+	contestID := contest.ID
 
 	// generate connection id and update context
 	connectionID := uuid.New()
@@ -75,7 +76,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	}()
 
 	// send connected message only after NATS subscription is established
-	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID)); err != nil {
+	if err := sendWebSocketMessage(conn, log, model.NewConnectedMessage(contestID, connectionID, contest, participants)); err != nil {
 		log.Error("failed to send connected message", "error", err)
 		metrics.RecordWSConnectionResult(model.WSResultInternalError)
 		_ = conn.Close()

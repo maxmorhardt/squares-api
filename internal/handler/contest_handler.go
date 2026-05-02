@@ -16,7 +16,6 @@ import (
 )
 
 type ContestHandler interface {
-	GetContestByOwnerAndName(c *gin.Context)
 	GetContestsByOwner(c *gin.Context)
 
 	CreateContest(c *gin.Context)
@@ -42,54 +41,6 @@ func NewContestHandler(contestService service.ContestService) ContestHandler {
 // ====================
 // Getters
 // ====================
-
-// @Summary Get a contest by Owner and Name
-// @Description Returns a single contest by its owner and name. Private contests require the user to be a participant
-// @Tags contests
-// @Produce json
-// @Param owner path string true "Owner"
-// @Param name path string true "Name"
-// @Success 200 {object} model.ContestSwagger
-// @Failure 400 {object} model.APIError
-// @Failure 403 {object} model.APIError
-// @Failure 404 {object} model.APIError
-// @Failure 500 {object} model.APIError
-// @Security BearerAuth
-// @Router /contests/owner/{owner}/name/{name} [get]
-func (h *contestHandler) GetContestByOwnerAndName(c *gin.Context) {
-	log := util.LoggerFromGinContext(c)
-
-	// parse path vars
-	owner := c.Param("owner")
-	if owner == "" {
-		log.Warn("contest owner not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Owner is required", c))
-		return
-	}
-
-	name := c.Param("name")
-	if name == "" {
-		log.Warn("contest name not provided")
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Name is required", c))
-		return
-	}
-
-	// get contest from service
-	contest, err := h.contestService.GetContestByOwnerAndName(c.Request.Context(), owner, name)
-	if err != nil {
-		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-		case errors.Is(err, errs.ErrNotParticipant), errors.Is(err, errs.ErrInsufficientRole):
-			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(errs.ErrInsufficientRole), c))
-		default:
-			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contest", c))
-		}
-		return
-	}
-
-	c.JSON(http.StatusOK, contest)
-}
 
 // @Summary Get all contests by owner
 // @Description Returns all contests created by a specific owner with pagination

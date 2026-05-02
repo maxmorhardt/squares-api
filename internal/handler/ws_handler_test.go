@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -56,12 +57,12 @@ func (m *mockContestRepo) GetByOwnerAndName(ctx context.Context, owner, name str
 // mockWSService implements service.WebSocketService.
 type mockWSService struct {
 	service.WebSocketService
-	handleFn func(ctx context.Context, contestID uuid.UUID, conn *websocket.Conn)
+	handleFn func(ctx context.Context, contest *model.Contest, participants []model.ContestParticipant, conn *websocket.Conn)
 }
 
-func (m *mockWSService) HandleWebSocketConnection(ctx context.Context, contestID uuid.UUID, conn *websocket.Conn) {
+func (m *mockWSService) HandleWebSocketConnection(ctx context.Context, contest *model.Contest, participants []model.ContestParticipant, conn *websocket.Conn) {
 	if m.handleFn != nil {
-		m.handleFn(ctx, contestID, conn)
+		m.handleFn(ctx, contest, participants, conn)
 	}
 }
 
@@ -69,6 +70,16 @@ func newWSHandler(t *testing.T, repo *mockContestRepo, pSvc *mockParticipantServ
 	t.Helper()
 	loadWSTestConfig(t)
 	return NewWebSocketHandler(&mockWSService{}, repo, pSvc)
+}
+
+// newWSHandlerWithNATS builds a handler with NATS reported as available, so
+// tests can exercise code paths beyond the NATS availability check.
+func newWSHandlerWithNATS(t *testing.T, repo *mockContestRepo, wsSvc *mockWSService, pSvc *mockParticipantService) WebSocketHandler {
+	t.Helper()
+	loadWSTestConfig(t)
+	h := NewWebSocketHandler(wsSvc, repo, pSvc)
+	h.(*websocketHandler).natsAvailable = func() bool { return true }
+	return h
 }
 
 func dialWS(t *testing.T, server *httptest.Server, path string) (*websocket.Conn, *http.Response, error) {
@@ -216,4 +227,103 @@ func TestWSHandler_NATSUnavailable(t *testing.T) {
 	var closeErr *websocket.CloseError
 	require.True(t, errors.As(err, &closeErr))
 	assert.Equal(t, 4503, closeErr.Code)
+}
+
+// TestWSHandler_ParticipantsFetchFails covers the path where NATS is available
+// but fetching participants fails before handing off to the WS service.
+func TestWSHandler_ParticipantsFetchFails(t *testing.T) {
+	contestID := uuid.New()
+	repo := &mockContestRepo{
+		getByOwnerAndNameFn: func(_ context.Context, _, _ string) (*model.Contest, error) {
+			return &model.Contest{ID: contestID, Owner: "owner1", Name: "test"}, nil
+		},
+	}
+	pSvc := defaultMockParticipantService()
+	pSvc.authorizeFn = func(_ context.Context, _ uuid.UUID, _ string, _ service.Action) error {
+		return nil
+	}
+	pSvc.getParticipantsInternalFn = func(_ context.Context, _ uuid.UUID) ([]model.ContestParticipant, error) {
+		return nil, assert.AnError
+	}
+
+	h := newWSHandlerWithNATS(t, repo, &mockWSService{}, pSvc)
+
+	r := newTestRouter()
+	r.Use(authenticatedMiddleware("user1"))
+	r.GET("/ws/contests/owner/:owner/name/:name", h.ContestWSConnection)
+
+	server := httptest.NewServer(r)
+	defer server.Close()
+
+	conn, _, err := dialWS(t, server, "/ws/contests/owner/owner1/name/test")
+	require.NoError(t, err)
+	defer conn.Close()
+
+	_, _, err = conn.ReadMessage()
+	require.Error(t, err)
+	var closeErr *websocket.CloseError
+	require.True(t, errors.As(err, &closeErr))
+	assert.Equal(t, 4500, closeErr.Code)
+}
+
+// TestWSHandler_HandoffToService verifies that when all preconditions pass the
+// handler calls HandleWebSocketConnection with the fetched contest and participants.
+func TestWSHandler_HandoffToService(t *testing.T) {
+	contestID := uuid.New()
+	contest := &model.Contest{ID: contestID, Owner: "owner1", Name: "test"}
+	participants := []model.ContestParticipant{
+		{ContestID: contestID, UserID: "user1", Role: model.ParticipantRoleParticipant},
+	}
+
+	repo := &mockContestRepo{
+		getByOwnerAndNameFn: func(_ context.Context, _, _ string) (*model.Contest, error) {
+			return contest, nil
+		},
+	}
+	pSvc := defaultMockParticipantService()
+	pSvc.authorizeFn = func(_ context.Context, _ uuid.UUID, _ string, _ service.Action) error {
+		return nil
+	}
+	pSvc.getParticipantsInternalFn = func(_ context.Context, _ uuid.UUID) ([]model.ContestParticipant, error) {
+		return participants, nil
+	}
+
+	called := make(chan struct{}, 1)
+	var gotContest *model.Contest
+	var gotParticipants []model.ContestParticipant
+
+	wsSvc := &mockWSService{
+		handleFn: func(_ context.Context, c *model.Contest, p []model.ContestParticipant, conn *websocket.Conn) {
+			gotContest = c
+			gotParticipants = p
+			_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			_ = conn.Close()
+			called <- struct{}{}
+		},
+	}
+
+	h := newWSHandlerWithNATS(t, repo, wsSvc, pSvc)
+
+	r := newTestRouter()
+	r.Use(authenticatedMiddleware("user1"))
+	r.GET("/ws/contests/owner/:owner/name/:name", h.ContestWSConnection)
+
+	server := httptest.NewServer(r)
+	defer server.Close()
+
+	conn, _, err := dialWS(t, server, "/ws/contests/owner/owner1/name/test")
+	require.NoError(t, err)
+	defer conn.Close()
+
+	// drain the connection (server will close it from the mock)
+	conn.ReadMessage() //nolint:errcheck // return value not needed in test helper
+
+	select {
+	case <-called:
+	case <-time.After(2 * time.Second):
+		t.Fatal("HandleWebSocketConnection was not called")
+	}
+
+	assert.Equal(t, contest, gotContest)
+	assert.Equal(t, participants, gotParticipants)
 }

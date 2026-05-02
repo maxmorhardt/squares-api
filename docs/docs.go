@@ -211,71 +211,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/contests/owner/{owner}/name/{name}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns a single contest by its owner and name. Private contests require the user to be a participant",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "contests"
-                ],
-                "summary": "Get a contest by Owner and Name",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Owner",
-                        "name": "owner",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/model.ContestSwagger"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    }
-                }
-            }
-        },
         "/contests/{id}": {
             "delete": {
                 "security": [
@@ -1430,6 +1365,7 @@ const docTemplate = `{
         "model.CreateContestRequest": {
             "type": "object",
             "required": [
+                "maxSquares",
                 "name",
                 "owner"
             ],
@@ -1441,6 +1377,11 @@ const docTemplate = `{
                 "homeTeam": {
                     "type": "string",
                     "maxLength": 20
+                },
+                "maxSquares": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
                 },
                 "name": {
                     "type": "string",

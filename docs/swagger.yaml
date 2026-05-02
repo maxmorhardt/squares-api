@@ -140,6 +140,10 @@ definitions:
       homeTeam:
         maxLength: 20
         type: string
+      maxSquares:
+        maximum: 100
+        minimum: 1
+        type: integer
       name:
         maxLength: 20
         minLength: 1
@@ -153,6 +157,7 @@ definitions:
         - public
         type: string
     required:
+    - maxSquares
     - name
     - owner
     type: object
@@ -935,49 +940,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get all contests by owner
-      tags:
-      - contests
-  /contests/owner/{owner}/name/{name}:
-    get:
-      description: Returns a single contest by its owner and name. Private contests
-        require the user to be a participant
-      parameters:
-      - description: Owner
-        in: path
-        name: owner
-        required: true
-        type: string
-      - description: Name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.ContestSwagger'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.APIError'
-      security:
-      - BearerAuth: []
-      summary: Get a contest by Owner and Name
       tags:
       - contests
   /health/live:

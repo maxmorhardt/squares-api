@@ -16,6 +16,7 @@ import (
 
 type ParticipantService interface {
 	GetParticipants(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error)
+	GetParticipantsInternal(ctx context.Context, contestID uuid.UUID) ([]model.ContestParticipant, error)
 	GetMyContests(ctx context.Context, user, search string) ([]model.Contest, error)
 	UpdateParticipant(ctx context.Context, contestID uuid.UUID, targetUserID string, req *model.UpdateParticipantRequest, user string) (*model.ContestParticipant, error)
 	RemoveParticipant(ctx context.Context, contestID uuid.UUID, targetUserID, user string) error
@@ -112,12 +113,19 @@ func (s *participantService) Authorize(ctx context.Context, contestID uuid.UUID,
 // ====================
 
 func (s *participantService) GetParticipants(ctx context.Context, contestID uuid.UUID, user string) ([]model.ContestParticipant, error) {
-	log := util.LoggerFromContext(ctx)
-
-	// any participant can view the participant list
 	if err := s.Authorize(ctx, contestID, user, ActionView); err != nil {
 		return nil, err
 	}
+
+	return s.fetchParticipants(ctx, contestID)
+}
+
+func (s *participantService) GetParticipantsInternal(ctx context.Context, contestID uuid.UUID) ([]model.ContestParticipant, error) {
+	return s.fetchParticipants(ctx, contestID)
+}
+
+func (s *participantService) fetchParticipants(ctx context.Context, contestID uuid.UUID) ([]model.ContestParticipant, error) {
+	log := util.LoggerFromContext(ctx)
 
 	participants, err := s.participantRepo.GetAllByContestID(ctx, contestID)
 	if err != nil {
@@ -174,7 +182,7 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 	}
 
 	// cannot change the owner's role
-	if participant.Role == model.ParticipantRoleOwner {
+	if participant.Role == model.ParticipantRoleOwner && req.Role != nil {
 		return nil, errs.ErrCannotChangeOwner
 	}
 
@@ -192,6 +200,18 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 
 		if *req.MaxSquares < claimed {
 			return nil, errs.ErrSquareLimitTooLow
+		}
+
+		// total allocation across all participants (including owner) cannot exceed 100
+		totalAllocated, err := s.participantRepo.GetTotalAllocatedSquares(ctx, contestID)
+		if err != nil {
+			log.Error("failed to get total allocated squares", "contest_id", contestID, "error", err)
+			return nil, errs.ErrDatabaseUnavailable
+		}
+
+		newTotal := totalAllocated - participant.MaxSquares + *req.MaxSquares
+		if newTotal > 100 {
+			return nil, errs.ErrNotEnoughSquares
 		}
 
 		participant.MaxSquares = *req.MaxSquares

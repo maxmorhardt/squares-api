@@ -37,6 +37,7 @@ type websocketHandler struct {
 	contestRepo        repository.ContestRepository
 	participantService service.ParticipantService
 	upgrader           websocket.Upgrader
+	natsAvailable      func() bool
 }
 
 func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo repository.ContestRepository, participantService service.ParticipantService) WebSocketHandler {
@@ -45,6 +46,10 @@ func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo 
 		contestRepo:        contestRepo,
 		participantService: participantService,
 		upgrader:           newUpgrader(),
+		natsAvailable: func() bool {
+			nc := config.NATS()
+			return nc != nil && nc.IsConnected()
+		},
 	}
 }
 
@@ -112,7 +117,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 
 	// check if user has permission to view this contest
 	user := c.GetString(model.UserKey)
-	if err := h.participantService.Authorize(c.Request.Context(), contest.ID, user, service.ActionView); err != nil {
+	if authErr := h.participantService.Authorize(c.Request.Context(), contest.ID, user, service.ActionView); authErr != nil {
 		log.Warn("user not authorized for websocket", "user", user, "contest_id", contest.ID)
 		metrics.RecordWSConnectionResult(model.WSResultUnauthorized)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4403, "Not authorized"))
@@ -123,9 +128,8 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log = log.With("contest_id", contest.ID)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
-	// verify NATS is available before upgrading
-	natsConn := config.NATS()
-	if natsConn == nil || !natsConn.IsConnected() {
+	// verify NATS is available before handing off to the service
+	if !h.natsAvailable() {
 		log.Error("NATS connection not available, rejecting websocket")
 		metrics.RecordWSConnectionResult(model.WSResultUnavailable)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4503, "Real-time updates unavailable"))
@@ -133,7 +137,17 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 		return
 	}
 
+	// fetch participants to include in the connected message (authorization already verified above)
+	participants, err := h.participantService.GetParticipantsInternal(c.Request.Context(), contest.ID)
+	if err != nil {
+		log.Error("failed to fetch participants for websocket connected message", "error", err)
+		metrics.RecordWSConnectionResult(model.WSResultInternalError)
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4500, "Failed to load contest"))
+		_ = conn.Close()
+		return
+	}
+
 	// hand off to service which records the final connection result once the
 	// connection is fully initialized (NATS subscribed and connected message sent)
-	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contest.ID, conn)
+	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contest, participants, conn)
 }

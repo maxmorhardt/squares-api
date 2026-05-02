@@ -151,7 +151,7 @@ func (h *inviteHandler) RedeemInvite(c *gin.Context) {
 		case errors.Is(err, errs.ErrAlreadyParticipant):
 			c.JSON(http.StatusConflict, model.NewAPIError(http.StatusConflict, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrNotEnoughSquares):
-			c.JSON(http.StatusConflict, model.NewAPIError(http.StatusConflict, util.CapitalizeFirstLetter(err), c))
+			c.JSON(http.StatusUnprocessableEntity, model.NewAPIError(http.StatusUnprocessableEntity, util.CapitalizeFirstLetter(err), c))
 		default:
 			log.Error("failed to redeem invite", "error", err)
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to redeem invite", c))

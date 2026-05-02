@@ -47,25 +47,28 @@ type WSChatMessage struct {
 }
 
 type WSUpdate struct {
-	Type          string              `json:"type"`
-	ContestID     uuid.UUID           `json:"contestId"`
-	ConnectionID  uuid.UUID           `json:"connectionId,omitempty"`
-	UpdatedBy     string              `json:"updatedBy"`
-	Timestamp     time.Time           `json:"timestamp"`
-	Square        *Square             `json:"square,omitempty"`
-	Contest       *Contest            `json:"contest,omitempty"`
-	QuarterResult *QuarterResult      `json:"quarterResult,omitempty"`
-	Participant   *ContestParticipant `json:"participant,omitempty"`
-	Message       string              `json:"message,omitempty"`
+	Type          string               `json:"type"`
+	ContestID     uuid.UUID            `json:"contestId"`
+	ConnectionID  uuid.UUID            `json:"connectionId,omitempty"`
+	UpdatedBy     string               `json:"updatedBy"`
+	Timestamp     time.Time            `json:"timestamp"`
+	Square        *Square              `json:"square,omitempty"`
+	Contest       *Contest             `json:"contest,omitempty"`
+	Participants  []ContestParticipant `json:"participants,omitempty"`
+	QuarterResult *QuarterResult       `json:"quarterResult,omitempty"`
+	Participant   *ContestParticipant  `json:"participant,omitempty"`
+	Message       string               `json:"message,omitempty"`
 }
 
-func NewConnectedMessage(contestID, connectionID uuid.UUID) *WSUpdate {
+func NewConnectedMessage(contestID, connectionID uuid.UUID, contest *Contest, participants []ContestParticipant) *WSUpdate {
 	return &WSUpdate{
 		Type:         ConnectedType,
 		ContestID:    contestID,
 		ConnectionID: connectionID,
 		UpdatedBy:    "system",
 		Timestamp:    time.Now(),
+		Contest:      contest,
+		Participants: participants,
 	}
 }
 

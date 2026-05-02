@@ -6,6 +6,7 @@ type CreateContestRequest struct {
 	HomeTeam   string `json:"homeTeam,omitempty" binding:"max=20,safestring"`
 	AwayTeam   string `json:"awayTeam,omitempty" binding:"max=20,safestring"`
 	Visibility string `json:"visibility,omitempty" binding:"omitempty,oneof=private public"`
+	MaxSquares int    `json:"maxSquares" binding:"required,min=1,max=100"`
 }
 
 type UpdateSquareRequest struct {
