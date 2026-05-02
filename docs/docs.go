@@ -121,6 +121,14 @@ const docTemplate = `{
                     "participants"
                 ],
                 "summary": "Get all contests the user participates in",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter contests by name (case-insensitive)",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -173,6 +181,12 @@ const docTemplate = `{
                         "name": "limit",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter contests by name (case-insensitive)",
+                        "name": "search",
+                        "in": "query"
                     }
                 ],
                 "responses": {

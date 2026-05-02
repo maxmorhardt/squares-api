@@ -24,14 +24,6 @@ func LoggerFromGinContext(c *gin.Context) *slog.Logger {
 	return slog.Default()
 }
 
-func ClaimsFromGinContext(c *gin.Context) *model.Claims {
-	if claims, ok := c.Get(model.ClaimsKey); ok {
-		return claims.(*model.Claims)
-	}
-
-	return nil
-}
-
 func ClaimsFromContext(ctx context.Context) *model.Claims {
 	if claims, ok := ctx.Value(model.ClaimsKey).(*model.Claims); ok {
 		return claims

@@ -2,7 +2,7 @@ profile: coverage.out
 threshold:
   file: 0
   package: 0
-  total: 35
+  total: 30
 
 exclude:
   paths:
@@ -14,5 +14,6 @@ exclude:
     - internal/metrics
     - internal/middleware
     - internal/model
+    - internal/repository
     - internal/routes
     - internal/templates

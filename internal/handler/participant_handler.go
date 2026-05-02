@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -74,6 +75,7 @@ func (h *participantHandler) GetParticipants(c *gin.Context) {
 // @Description Returns all contests where the authenticated user is a participant
 // @Tags participants
 // @Produce json
+// @Param search query string false "Filter contests by name (case-insensitive)"
 // @Success 200 {array} model.ContestSwagger
 // @Security BearerAuth
 // @Router /contests/me [get]
@@ -81,7 +83,8 @@ func (h *participantHandler) GetMyContests(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
 	user := c.GetString(model.UserKey)
-	contests, err := h.participantService.GetMyContests(c.Request.Context(), user)
+	search := strings.TrimSpace(c.Query("search"))
+	contests, err := h.participantService.GetMyContests(c.Request.Context(), user, search)
 	if err != nil {
 		log.Error("failed to get user contests", "error", err)
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get contests", c))

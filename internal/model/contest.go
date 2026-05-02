@@ -16,7 +16,7 @@ const (
 )
 
 type Contest struct {
-	ID             uuid.UUID         `json:"id" gorm:"primaryKey"`
+	ID             uuid.UUID         `json:"id" gorm:"type:uuid;primaryKey"`
 	Name           string            `json:"name"`
 	XLabels        datatypes.JSON    `json:"xLabels"`
 	YLabels        datatypes.JSON    `json:"yLabels"`

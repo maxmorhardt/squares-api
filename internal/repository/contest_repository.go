@@ -13,7 +13,8 @@ type ContestRepository interface {
 	GetVisibilityByID(ctx context.Context, id uuid.UUID) (model.ContestVisibility, error)
 	GetByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error)
 	ExistsByOwnerAndName(ctx context.Context, owner, name string) (bool, error)
-	GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error)
+	GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error)
+	GetAllByParticipantUserID(ctx context.Context, userID, search string) ([]model.Contest, error)
 
 	Create(ctx context.Context, contest *model.Contest, owner *model.ContestParticipant) error
 	Update(ctx context.Context, contest *model.Contest) error
@@ -80,25 +81,50 @@ func (r *contestRepository) ExistsByOwnerAndName(ctx context.Context, owner, nam
 	return count > 0, err
 }
 
-func (r *contestRepository) GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int) ([]model.Contest, int64, error) {
+func (r *contestRepository) GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error) {
 	var contests []model.Contest
 	var total int64
 
+	q := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted)
+	if search != "" {
+		q = q.Where("name ILIKE ?", "%"+search+"%")
+	}
+
 	// get total count of contests for user
-	if err := r.db.WithContext(ctx).Model(&model.Contest{}).Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted).Count(&total).Error; err != nil {
+	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// calculate offset and fetch paginated contests
 	offset := (page - 1) * limit
-	err := r.db.WithContext(ctx).
-		Where("created_by = ? AND status != ?", owner, model.ContestStatusDeleted).
+	err := q.
 		Order("updated_at DESC").
 		Offset(offset).
 		Limit(limit).
 		Find(&contests).Error
 
 	return contests, total, err
+}
+
+func (r *contestRepository) GetAllByParticipantUserID(ctx context.Context, userID, search string) ([]model.Contest, error) {
+	var contests []model.Contest
+
+	q := r.db.WithContext(ctx).
+		Model(&model.Contest{}).
+		Select("contests.*").
+		Preload("Squares").
+		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
+			return db.Order("quarter ASC")
+		}).
+		Joins("JOIN contest_participants cp ON cp.contest_id = contests.id").
+		Where("cp.user_id = ? AND cp.role != ? AND contests.status != ?", userID, model.ParticipantRoleOwner, model.ContestStatusDeleted)
+
+	if search != "" {
+		q = q.Where("contests.name ILIKE ?", "%"+search+"%")
+	}
+
+	err := q.Order("cp.joined_at DESC").Find(&contests).Error
+	return contests, err
 }
 
 // ====================

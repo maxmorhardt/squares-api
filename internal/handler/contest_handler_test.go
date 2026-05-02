@@ -86,7 +86,7 @@ func TestGetContestByOwnerAndName_Forbidden(t *testing.T) {
 
 func TestGetContestsByOwner_Success(t *testing.T) {
 	svc := defaultMockContestService()
-	svc.getContestsByOwnerPaginatedFn = func(_ context.Context, _ string, _, _ int) ([]model.Contest, int64, error) {
+	svc.getContestsByOwnerPaginatedFn = func(_ context.Context, _ string, _, _ int, _ string) ([]model.Contest, int64, error) {
 		return []model.Contest{{ID: uuid.New(), Name: "C1"}}, 1, nil
 	}
 
@@ -134,7 +134,7 @@ func TestGetContestsByOwner_InvalidLimit(t *testing.T) {
 
 func TestGetContestsByOwner_ServiceError(t *testing.T) {
 	svc := defaultMockContestService()
-	svc.getContestsByOwnerPaginatedFn = func(_ context.Context, _ string, _, _ int) ([]model.Contest, int64, error) {
+	svc.getContestsByOwnerPaginatedFn = func(_ context.Context, _ string, _, _ int, _ string) ([]model.Contest, int64, error) {
 		return nil, 0, assert.AnError
 	}
 
@@ -147,6 +147,46 @@ func TestGetContestsByOwner_ServiceError(t *testing.T) {
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestGetContestsByOwner_PassesSearchQuery(t *testing.T) {
+	var capturedSearch string
+	svc := defaultMockContestService()
+	svc.getContestsByOwnerPaginatedFn = func(_ context.Context, _ string, _, _ int, search string) ([]model.Contest, int64, error) {
+		capturedSearch = search
+		return []model.Contest{}, 0, nil
+	}
+
+	h := NewContestHandler(svc)
+	r := newTestRouter()
+	r.Use(authenticatedMiddleware("owner1"))
+	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
+
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=10&search=foo", http.NoBody)
+	w := doRequest(r, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "foo", capturedSearch)
+}
+
+func TestGetContestsByOwner_TrimsSearchQuery(t *testing.T) {
+	var capturedSearch string
+	svc := defaultMockContestService()
+	svc.getContestsByOwnerPaginatedFn = func(_ context.Context, _ string, _, _ int, search string) ([]model.Contest, int64, error) {
+		capturedSearch = search
+		return []model.Contest{}, 0, nil
+	}
+
+	h := NewContestHandler(svc)
+	r := newTestRouter()
+	r.Use(authenticatedMiddleware("owner1"))
+	r.GET("/contests/owner/:owner", h.GetContestsByOwner)
+
+	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1?page=1&limit=10&search=%20%20bar%20%20", http.NoBody)
+	w := doRequest(r, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "bar", capturedSearch)
 }
 
 // ====================
