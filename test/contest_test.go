@@ -571,10 +571,11 @@ func TestQuarterResult_Validation(t *testing.T) {
 
 func createContest(router http.Handler, authToken, oidcUser, name, homeTeam, awayTeam string) (result *model.Contest, statusCode int) {
 	reqBody := model.CreateContestRequest{
-		Owner:    oidcUser,
-		Name:     name,
-		HomeTeam: homeTeam,
-		AwayTeam: awayTeam,
+		Owner:      oidcUser,
+		Name:       name,
+		HomeTeam:   homeTeam,
+		AwayTeam:   awayTeam,
+		MaxSquares: 10,
 	}
 	body, _ := json.Marshal(reqBody)
 

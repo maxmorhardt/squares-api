@@ -174,7 +174,7 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 	}
 
 	// cannot change the owner's role
-	if participant.Role == model.ParticipantRoleOwner {
+	if participant.Role == model.ParticipantRoleOwner && req.Role != nil {
 		return nil, errs.ErrCannotChangeOwner
 	}
 
@@ -192,6 +192,18 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 
 		if *req.MaxSquares < claimed {
 			return nil, errs.ErrSquareLimitTooLow
+		}
+
+		// total allocation across all participants (including owner) cannot exceed 100
+		totalAllocated, err := s.participantRepo.GetTotalAllocatedSquares(ctx, contestID)
+		if err != nil {
+			log.Error("failed to get total allocated squares", "contest_id", contestID, "error", err)
+			return nil, errs.ErrDatabaseUnavailable
+		}
+
+		newTotal := totalAllocated - participant.MaxSquares + *req.MaxSquares
+		if newTotal > 100 {
+			return nil, errs.ErrNotEnoughSquares
 		}
 
 		participant.MaxSquares = *req.MaxSquares

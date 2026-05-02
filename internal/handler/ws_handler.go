@@ -37,6 +37,7 @@ type websocketHandler struct {
 	contestRepo        repository.ContestRepository
 	participantService service.ParticipantService
 	upgrader           websocket.Upgrader
+	natsAvailable      func() bool
 }
 
 func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo repository.ContestRepository, participantService service.ParticipantService) WebSocketHandler {
@@ -45,6 +46,10 @@ func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo 
 		contestRepo:        contestRepo,
 		participantService: participantService,
 		upgrader:           newUpgrader(),
+		natsAvailable: func() bool {
+			nc := config.NATS()
+			return nc != nil && nc.IsConnected()
+		},
 	}
 }
 
@@ -124,8 +129,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
 	// verify NATS is available before upgrading
-	natsConn := config.NATS()
-	if natsConn == nil || !natsConn.IsConnected() {
+	if !h.natsAvailable() {
 		log.Error("NATS connection not available, rejecting websocket")
 		metrics.RecordWSConnectionResult(model.WSResultUnavailable)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4503, "Real-time updates unavailable"))
@@ -133,7 +137,17 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 		return
 	}
 
+	// fetch participants to include in the connected message
+	participants, err := h.participantService.GetParticipants(c.Request.Context(), contest.ID, user)
+	if err != nil {
+		log.Error("failed to fetch participants for websocket connected message", "error", err)
+		metrics.RecordWSConnectionResult(model.WSResultInternalError)
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4500, "Failed to load contest"))
+		_ = conn.Close()
+		return
+	}
+
 	// hand off to service which records the final connection result once the
 	// connection is fully initialized (NATS subscribed and connected message sent)
-	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contest.ID, conn)
+	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contest, participants, conn)
 }

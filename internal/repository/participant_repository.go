@@ -48,7 +48,7 @@ func (r *participantRepository) GetTotalAllocatedSquares(ctx context.Context, co
 	var total int
 	err := r.db.WithContext(ctx).
 		Model(&model.ContestParticipant{}).
-		Where("contest_id = ? AND role != ?", contestID, model.ParticipantRoleOwner).
+		Where("contest_id = ?", contestID).
 		Select("COALESCE(SUM(max_squares), 0)").
 		Row().
 		Scan(&total)

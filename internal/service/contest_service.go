@@ -17,7 +17,6 @@ import (
 )
 
 type ContestService interface {
-	GetContestByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error)
 	GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error)
 
 	CreateContest(ctx context.Context, req *model.CreateContestRequest, user string) (*model.Contest, error)
@@ -54,27 +53,6 @@ func NewContestService(
 // ====================
 // Getters
 // ====================
-
-func (s *contestService) GetContestByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error) {
-	log := util.LoggerFromContext(ctx)
-
-	// get contest from repository
-	contest, err := s.repo.GetByOwnerAndName(ctx, owner, name)
-	if err != nil {
-		log.Error("failed to get contest by owner and name", "owner", owner, "name", name, "error", err)
-		return nil, err
-	}
-
-	// check if user has permission to view
-	user, _ := ctx.Value(model.UserKey).(string)
-	if err := s.participantService.Authorize(ctx, contest.ID, user, ActionView); err != nil {
-		log.Warn("user not authorized to view contest", "owner", owner, "name", name, "user", user)
-		return nil, err
-	}
-
-	log.Info("contest retrieved successfully", "owner", owner, "name", name, "contest_id", contest.ID)
-	return contest, nil
-}
 
 func (s *contestService) GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error) {
 	log := util.LoggerFromContext(ctx)
@@ -130,7 +108,7 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 	ownerParticipant := &model.ContestParticipant{
 		UserID:     user,
 		Role:       model.ParticipantRoleOwner,
-		MaxSquares: 100,
+		MaxSquares: req.MaxSquares,
 	}
 	if err := s.repo.Create(ctx, &contest, ownerParticipant); err != nil {
 		log.Error("failed to create contest with owner participant", "error", err)

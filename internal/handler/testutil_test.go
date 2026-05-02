@@ -58,7 +58,6 @@ func (m *mockContactService) SubmitContact(ctx context.Context, req *model.Conta
 
 // mockContestService implements service.ContestService
 type mockContestService struct {
-	getContestByOwnerAndNameFn    func(ctx context.Context, owner, name string) (*model.Contest, error)
 	getContestsByOwnerPaginatedFn func(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error)
 	createContestFn               func(ctx context.Context, req *model.CreateContestRequest, user string) (*model.Contest, error)
 	updateContestFn               func(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
@@ -69,9 +68,6 @@ type mockContestService struct {
 	clearSquareFn                 func(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error)
 }
 
-func (m *mockContestService) GetContestByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error) {
-	return m.getContestByOwnerAndNameFn(ctx, owner, name)
-}
 func (m *mockContestService) GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error) {
 	return m.getContestsByOwnerPaginatedFn(ctx, owner, page, limit, search)
 }

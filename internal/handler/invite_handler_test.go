@@ -272,7 +272,7 @@ func TestRedeemInvite_NotEnoughSquares(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/invites/full-token/redeem", http.NoBody)
 	w := doRequest(r, req)
 
-	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 // ====================

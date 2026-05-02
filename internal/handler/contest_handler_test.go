@@ -21,66 +21,6 @@ func defaultMockContestService() *mockContestService {
 }
 
 // ====================
-// GetContestByOwnerAndName
-// ====================
-
-func TestGetContestByOwnerAndName_Success(t *testing.T) {
-	contestID := uuid.New()
-	svc := defaultMockContestService()
-	svc.getContestByOwnerAndNameFn = func(_ context.Context, owner, name string) (*model.Contest, error) {
-		return &model.Contest{ID: contestID, Owner: owner, Name: name, Status: model.ContestStatusActive}, nil
-	}
-
-	h := NewContestHandler(svc)
-	r := newTestRouter()
-	r.Use(authenticatedMiddleware("owner1"))
-	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
-
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/TestContest", http.NoBody)
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var resp model.Contest
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, contestID, resp.ID)
-}
-
-func TestGetContestByOwnerAndName_NotFound(t *testing.T) {
-	svc := defaultMockContestService()
-	svc.getContestByOwnerAndNameFn = func(_ context.Context, _, _ string) (*model.Contest, error) {
-		return nil, gorm.ErrRecordNotFound
-	}
-
-	h := NewContestHandler(svc)
-	r := newTestRouter()
-	r.Use(authenticatedMiddleware("user1"))
-	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
-
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Missing", http.NoBody)
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestGetContestByOwnerAndName_Forbidden(t *testing.T) {
-	svc := defaultMockContestService()
-	svc.getContestByOwnerAndNameFn = func(_ context.Context, _, _ string) (*model.Contest, error) {
-		return nil, errs.ErrNotParticipant
-	}
-
-	h := NewContestHandler(svc)
-	r := newTestRouter()
-	r.Use(authenticatedMiddleware("stranger"))
-	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
-
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Private", http.NoBody)
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusForbidden, w.Code)
-}
-
-// ====================
 // GetContestsByOwner
 // ====================
 
@@ -205,7 +145,7 @@ func TestCreateContest_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
 
-	body, _ := json.Marshal(model.CreateContestRequest{Owner: "owner1", Name: "NewContest"})
+	body, _ := json.Marshal(model.CreateContestRequest{Owner: "owner1", Name: "NewContest", MaxSquares: 10})
 	req, _ := http.NewRequest(http.MethodPut, "/contests", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := doRequest(r, req)
@@ -238,7 +178,7 @@ func TestCreateContest_OwnerMismatch(t *testing.T) {
 	r.Use(authenticatedMiddleware("user1"))
 	r.PUT("/contests", h.CreateContest)
 
-	body, _ := json.Marshal(model.CreateContestRequest{Owner: "someone-else", Name: "Test"})
+	body, _ := json.Marshal(model.CreateContestRequest{Owner: "someone-else", Name: "Test", MaxSquares: 10})
 	req, _ := http.NewRequest(http.MethodPut, "/contests", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := doRequest(r, req)
@@ -257,7 +197,7 @@ func TestCreateContest_AlreadyExists(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
 
-	body, _ := json.Marshal(model.CreateContestRequest{Owner: "owner1", Name: "Dup"})
+	body, _ := json.Marshal(model.CreateContestRequest{Owner: "owner1", Name: "Dup", MaxSquares: 10})
 	req, _ := http.NewRequest(http.MethodPut, "/contests", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := doRequest(r, req)
@@ -693,44 +633,6 @@ func TestClearSquare_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-// ====================
-// Additional error-branch coverage
-// ====================
-
-func TestGetContestByOwnerAndName_InsufficientRole(t *testing.T) {
-	svc := defaultMockContestService()
-	svc.getContestByOwnerAndNameFn = func(_ context.Context, _, _ string) (*model.Contest, error) {
-		return nil, errs.ErrInsufficientRole
-	}
-
-	h := NewContestHandler(svc)
-	r := newTestRouter()
-	r.Use(authenticatedMiddleware("stranger"))
-	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
-
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Private", http.NoBody)
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusForbidden, w.Code)
-}
-
-func TestGetContestByOwnerAndName_InternalError(t *testing.T) {
-	svc := defaultMockContestService()
-	svc.getContestByOwnerAndNameFn = func(_ context.Context, _, _ string) (*model.Contest, error) {
-		return nil, assert.AnError
-	}
-
-	h := NewContestHandler(svc)
-	r := newTestRouter()
-	r.Use(authenticatedMiddleware("user1"))
-	r.GET("/contests/owner/:owner/name/:name", h.GetContestByOwnerAndName)
-
-	req, _ := http.NewRequest(http.MethodGet, "/contests/owner/owner1/name/Test", http.NoBody)
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
 func TestGetContestsByOwner_MissingLimit(t *testing.T) {
 	svc := defaultMockContestService()
 	h := NewContestHandler(svc)
@@ -794,7 +696,7 @@ func TestCreateContest_DatabaseUnavailable(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
 
-	body, _ := json.Marshal(model.CreateContestRequest{Owner: "owner1", Name: "Test"})
+	body, _ := json.Marshal(model.CreateContestRequest{Owner: "owner1", Name: "Test", MaxSquares: 10})
 	req, _ := http.NewRequest(http.MethodPut, "/contests", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := doRequest(r, req)
@@ -813,7 +715,7 @@ func TestCreateContest_InternalError(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PUT("/contests", h.CreateContest)
 
-	body, _ := json.Marshal(model.CreateContestRequest{Owner: "owner1", Name: "Test"})
+	body, _ := json.Marshal(model.CreateContestRequest{Owner: "owner1", Name: "Test", MaxSquares: 10})
 	req, _ := http.NewRequest(http.MethodPut, "/contests", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := doRequest(r, req)
