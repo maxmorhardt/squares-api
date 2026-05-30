@@ -20,7 +20,7 @@ This guide provides context for coding agents working in this repository. Square
   - `util/` – cross-cutting helpers (logger from context, error helpers, capitalization).
 - `test/` – Testcontainers-driven integration tests. Spins up Postgres + NATS in Docker.
 - `docs/` – swag-generated OpenAPI docs (`docs.go`, `swagger.json`, `swagger.yaml`).
-- `Dockerfile` – multi-stage production image.
+- `Dockerfile` – production image. Single-stage on `alpine`: CI builds the binary with `make build` (cross-compiled to `linux/arm64`), uploads it as an artifact, and the Docker build copies that prebuilt binary into the image.
 - `make nats` – local helper to port-forward a NATS server for development.
 - `.env`, `.env.test` – local secrets (gitignored). `.env.example` and `.env.test.example` are committed templates.
 
@@ -89,7 +89,7 @@ The codebase follows a strict **handler → service → repository** layering:
 
 ## Deployment
 
-- The production image is built from the multi-stage [Dockerfile](Dockerfile) and pushed via CI. Runtime config comes from environment variables (see `.env.example`).
+- The production image is built from the [Dockerfile](Dockerfile) (single-stage; CI pre-builds the binary and the Docker build only copies it in) and pushed via CI. Runtime config comes from environment variables (see `.env.example`).
 - Helm chart lives in the sibling `charts/squares-api/` workspace folder. Don't change the chart from this repo unless explicitly asked — coordinate via that workspace.
 
 ## Commit conventions

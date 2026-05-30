@@ -6,7 +6,7 @@ BIN_DIR     ?= bin
 MAIN        ?= ./cmd/main.go
 OUT         ?= $(BIN_DIR)/$(BINARY)
 COVER_FILE  ?= coverage.out
-COVER_TOOL  := github.com/vladopajic/go-test-coverage/v2@latest
+COVER_TOOL  ?= github.com/vladopajic/go-test-coverage/v2@v2.18.8
 SWAG        := go run github.com/swaggo/swag/cmd/swag@v1.16.6
 RACE        ?=
 BUILD_FLAGS ?=
@@ -23,6 +23,7 @@ run: ## Run the API locally
 
 .PHONY: build
 build: ## Build the binary (override OUT/MAIN/BUILD_FLAGS/LDFLAGS for cross-compiles)
+	@mkdir -p $(dir $(OUT))
 	go build $(BUILD_FLAGS) $(if $(LDFLAGS),-ldflags="$(LDFLAGS)",) -o $(OUT) $(MAIN)
 
 .PHONY: verify
