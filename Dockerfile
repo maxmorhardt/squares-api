@@ -12,7 +12,7 @@ WORKDIR /app
 RUN addgroup -g 1000 squares && \
     adduser -D -u 1000 -G squares squares
 
-COPY --chown=squares:squares squares-api .
+COPY --chown=squares:squares bin/squares-api .
 
 RUN apk upgrade --no-cache && \
     apk add --no-cache ca-certificates && \

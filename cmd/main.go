@@ -45,9 +45,12 @@ func main() {
 	router := bootstrap.NewServer()
 
 	srv := &http.Server{
-		Addr:              ":8080",
+		Addr:              ":" + config.Env().Server.Port,
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		// no write timeout: it would kill long-lived /ws websocket connections
 	}
 
 	// start server in a goroutine so it doesn't block signal handling

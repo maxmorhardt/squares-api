@@ -336,7 +336,6 @@ func (h *contestHandler) StartContest(c *gin.Context) {
 	c.JSON(http.StatusOK, contest)
 }
 
-// RecordQuarterResult records a quarter result for a contest
 // @Summary Record quarter result
 // @Description Records the score and winner for a specific quarter
 // @Tags contests

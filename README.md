@@ -31,7 +31,6 @@ This application requires the following services to be deployed:
 - **SMTP Server** for email notifications
 
 ## Development
-1. Set up environment variables
+1. Copy `.env.example` to `.env` and fill in the values
 2. Start required services (PostgreSQL, NATS, OIDC provider)
-3. Run `go run cmd/main.go`
-4. Upgrade packages `go get -u -t ./... && go mod tidy`
+3. Run the API with `make run` (run `make help` to list all available tasks)
