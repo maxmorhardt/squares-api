@@ -19,6 +19,7 @@ type config struct {
 }
 
 type serverConfig struct {
+	Port             string   `env:"SERVER_PORT" envDefault:"8080"`
 	MetricsEnabled   bool     `env:"METRICS_ENABLED" envDefault:"false"`
 	AllowedOrigins   []string `env:"ALLOWED_ORIGINS" envDefault:"http://localhost:3000" envSeparator:","`
 	ContactRateLimit int      `env:"CONTACT_RATE_LIMIT" envDefault:"10"`

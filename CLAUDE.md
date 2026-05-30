@@ -20,20 +20,21 @@ This guide provides context for coding agents working in this repository. Square
   - `util/` – cross-cutting helpers (logger from context, error helpers, capitalization).
 - `test/` – Testcontainers-driven integration tests. Spins up Postgres + NATS in Docker.
 - `docs/` – swag-generated OpenAPI docs (`docs.go`, `swagger.json`, `swagger.yaml`).
-- `Dockerfile` – multi-stage production image.
-- `nats.sh` – local helper to launch a NATS server for development.
+- `Dockerfile` – production image. Single-stage on `alpine`: CI builds the binary with `make build` (cross-compiled to `linux/arm64`), uploads it as an artifact, and the Docker build copies that prebuilt binary into the image.
+- `make nats` – local helper to port-forward a NATS server for development.
 - `.env`, `.env.test` – local secrets (gitignored). `.env.example` and `.env.test.example` are committed templates.
 
 ## Tooling
 
 - Language: **Go 1.26.x** (see [go.mod](go.mod)).
-- Run/build: `go run cmd/main.go`, `go build ./...`.
-- Lint: **golangci-lint** with the config in [.golangci.yml](.golangci.yml). Enabled linters include `errcheck`, `govet` (with `shadow`), `staticcheck`, `gosec`, `errorlint`, `gocritic`, `prealloc`, `unparam`. Run `golangci-lint run`.
-- Tests: stdlib `go test` + **testify** (`assert`, `require`). Run unit tests with `go test ./...`.
-- Coverage: enforced via [.testcoverage.yml](.testcoverage.yml) (`profile: coverage.out`, `total: 35`). Generate with `go test -coverprofile=coverage.out ./...` then `go-test-coverage --config .testcoverage.yml`.
-- Integration tests in `test/` use **testcontainers-go** to launch Postgres + NATS. They require a working Docker daemon — on Windows, rootless Docker is **not** supported by testcontainers, so use Docker Desktop or skip with `go test ./internal/...`.
-- Swagger docs: regenerate with `swag init -g cmd/main.go -o docs` after changing handler annotations.
-- Dependency upgrades: `go get -u -t ./... && go mod tidy`.
+- **The [Makefile](Makefile) is the canonical way to run tasks — prefer `make <target>` over raw `go`/tool commands.** Run `make help` to list targets. CI (the shared `workflows/ci-go.yml`) invokes the same targets, so the Makefile is the single source of truth for build/test/lint/coverage flow; the raw commands noted below are just what each target runs. The lint step is the one exception CI runs via the `golangci-lint-action` (for reliable install/caching), against the same `.golangci.yml`.
+- Run/build: `make run` / `make build`. Build is overridable for cross-compiles: `make build OUT=… MAIN=… BUILD_FLAGS=… LDFLAGS=…` with `GOOS`/`GOARCH`/`CGO_ENABLED` env (this is how CI produces the linux/arm64 binary).
+- Lint: `make lint` (runs **golangci-lint** with [.golangci.yml](.golangci.yml)). Enabled linters include `errcheck`, `govet` (with `shadow`), `staticcheck`, `gosec`, `errorlint`, `gocritic`, `prealloc`, `unparam`. Also `make vet` for `go vet`, `make verify` for `go mod verify`.
+- Tests: stdlib `go test` + **testify** (`assert`, `require`). `make test` for unit (no Docker), `make test-integration` for the testcontainers suite, `make test-all` for everything. Pass `RACE=-race` to enable the race detector (CI does).
+- Coverage: enforced via [.testcoverage.yml](.testcoverage.yml) (`profile: coverage.out`, `total: 32`). `make cover` runs the unit tests with a coverage profile and the `go-test-coverage` gate. The threshold is a ratchet set just below current coverage; raise it as service-layer unit tests are added (the `service` package currently has no unit tests and is exercised only by the integration suite).
+- Integration tests in `test/` use **testcontainers-go** to launch Postgres + NATS. They require a working Docker daemon — on Windows, rootless Docker is **not** supported by testcontainers, so use Docker Desktop or run just unit tests with `make test`.
+- Swagger docs: regenerate with `make swag` after changing handler annotations.
+- Dependency upgrades: `make deps` (`go get -u -t ./... && go mod tidy`); `make tidy` for tidy alone.
 
 ## Architecture
 
@@ -88,7 +89,7 @@ The codebase follows a strict **handler → service → repository** layering:
 
 ## Deployment
 
-- The production image is built from the multi-stage [Dockerfile](Dockerfile) and pushed via CI. Runtime config comes from environment variables (see `.env.example`).
+- The production image is built from the [Dockerfile](Dockerfile) (single-stage; CI pre-builds the binary and the Docker build only copies it in) and pushed via CI. Runtime config comes from environment variables (see `.env.example`).
 - Helm chart lives in the sibling `charts/squares-api/` workspace folder. Don't change the chart from this repo unless explicitly asked — coordinate via that workspace.
 
 ## Commit conventions

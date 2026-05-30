@@ -25,7 +25,33 @@ func InitDB() {
 	setupPrimary()
 
 	if Env().DB.ReadHost != "" {
+		validateReadReplicaConfig()
 		setupReadReplica()
+	}
+}
+
+func validateReadReplicaConfig() {
+	var missing []string
+
+	if Env().DB.ReadPort == 0 {
+		missing = append(missing, "DB_READ_PORT")
+	}
+	if Env().DB.ReadUser == "" {
+		missing = append(missing, "DB_READ_USER")
+	}
+	if Env().DB.ReadPassword == "" {
+		missing = append(missing, "DB_READ_PASSWORD")
+	}
+	if Env().DB.ReadName == "" {
+		missing = append(missing, "DB_READ_NAME")
+	}
+	if Env().DB.ReadSSLMode == "" {
+		missing = append(missing, "DB_READ_SSL_MODE")
+	}
+
+	if len(missing) > 0 {
+		slog.Error("read replica partially configured", "missing", missing)
+		panic(fmt.Sprintf("DB_READ_HOST is set but required read replica config is missing: %v", missing))
 	}
 }
 
@@ -56,14 +82,18 @@ func setupPrimary() {
 	}
 
 	for _, m := range models {
-		if err := db.AutoMigrate(m); err != nil {
-			slog.Error("failed to migrate model", "error", err)
-			panic(err)
+		if migErr := db.AutoMigrate(m); migErr != nil {
+			slog.Error("failed to migrate model", "error", migErr)
+			panic(migErr)
 		}
 	}
 
 	// configure connection pool
-	sqlDB, _ := db.DB()
+	sqlDB, err := db.DB()
+	if err != nil {
+		slog.Error("failed to get underlying sql.DB", "error", err)
+		panic(err)
+	}
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(maxConnLifetime)
