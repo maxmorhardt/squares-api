@@ -16,11 +16,11 @@ type HealthHandler interface {
 
 type healthHandler struct {
 	db           *gorm.DB
-	natsConn     func() *nats.Conn
-	oidcVerifier func() *oidc.IDTokenVerifier
+	natsConn     *nats.Conn
+	oidcVerifier *oidc.IDTokenVerifier
 }
 
-func NewHealthHandler(db *gorm.DB, natsConn func() *nats.Conn, oidcVerifier func() *oidc.IDTokenVerifier) HealthHandler {
+func NewHealthHandler(db *gorm.DB, natsConn *nats.Conn, oidcVerifier *oidc.IDTokenVerifier) HealthHandler {
 	return &healthHandler{
 		db:           db,
 		natsConn:     natsConn,
@@ -69,8 +69,7 @@ func (h *healthHandler) Readiness(c *gin.Context) {
 	}
 
 	// nats
-	nc := h.natsConn()
-	if nc != nil && nc.IsConnected() {
+	if h.natsConn != nil && h.natsConn.IsConnected() {
 		checks["nats"] = "UP"
 	} else {
 		checks["nats"] = "DOWN"
@@ -78,7 +77,7 @@ func (h *healthHandler) Readiness(c *gin.Context) {
 	}
 
 	// oidc
-	if h.oidcVerifier() != nil {
+	if h.oidcVerifier != nil {
 		checks["oidc"] = "UP"
 	} else {
 		checks["oidc"] = "DOWN"

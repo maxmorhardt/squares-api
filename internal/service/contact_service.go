@@ -28,11 +28,13 @@ type ContactService interface {
 
 type contactService struct {
 	repo repository.ContactRepository
+	cfg  *config.Config
 }
 
-func NewContactService(repo repository.ContactRepository) ContactService {
+func NewContactService(repo repository.ContactRepository, cfg *config.Config) ContactService {
 	return &contactService{
 		repo: repo,
+		cfg:  cfg,
 	}
 }
 
@@ -63,7 +65,7 @@ func (s *contactService) SubmitContact(ctx context.Context, req *model.ContactRe
 
 	log.Info("contact submission saved to database", "submission_id", submission.ID)
 
-	// send email notification asynchronously
+	// send email notification asynchronously so the request returns immediately
 	go func() {
 		if err := s.sendEmailNotification(req); err != nil {
 			log.Error("failed to send contact email notification", "error", err, "submission_id", submission.ID)
@@ -83,8 +85,8 @@ func sanitizeHeader(v string) string {
 
 func (s *contactService) sendEmailNotification(req *model.ContactRequest) error {
 	// construct email message
-	from := config.Env().SMTP.User
-	to := []string{config.Env().SMTP.SupportEmail}
+	from := s.cfg.SMTP.User
+	to := []string{s.cfg.SMTP.SupportEmail}
 	subject := sanitizeHeader(fmt.Sprintf("Contact Form: %s", req.Subject))
 	plainBody := fmt.Sprintf(
 		"New contact form submission:\n\n"+
@@ -98,18 +100,18 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 		req.Message,
 	)
 
-	// render HTML body
+	// render html body
 	var htmlBody bytes.Buffer
 	if err := contactEmailTmpl.Execute(&htmlBody, req); err != nil {
 		return fmt.Errorf("failed to render contact email template: %w", err)
 	}
 
-	// build message with unique multipart boundary
+	// build a multipart/alternative message with both plain text and html parts
 	var msg bytes.Buffer
 
 	// write top-level headers
 	fmt.Fprintf(&msg, "From: %s\r\n", sanitizeHeader(from))
-	fmt.Fprintf(&msg, "To: %s\r\n", sanitizeHeader(config.Env().SMTP.SupportEmail))
+	fmt.Fprintf(&msg, "To: %s\r\n", sanitizeHeader(s.cfg.SMTP.SupportEmail))
 	fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
 	fmt.Fprintf(&msg, "Reply-To: %s\r\n", sanitizeHeader(req.Email))
 	fmt.Fprintf(&msg, "MIME-Version: 1.0\r\n")
@@ -129,7 +131,7 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 		return fmt.Errorf("failed to write plain text body: %w", err)
 	}
 
-	// HTML part
+	// html part
 	partHeader = make(textproto.MIMEHeader)
 	partHeader.Set("Content-Type", `text/html; charset="UTF-8"`)
 	pw, err = mpw.CreatePart(partHeader)
@@ -145,8 +147,8 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 	}
 
 	// send email via smtp
-	auth := smtp.PlainAuth("", config.Env().SMTP.User, config.Env().SMTP.Password, config.Env().SMTP.Host)
-	addr := fmt.Sprintf("%s:%d", config.Env().SMTP.Host, config.Env().SMTP.Port)
+	auth := smtp.PlainAuth("", s.cfg.SMTP.User, s.cfg.SMTP.Password, s.cfg.SMTP.Host)
+	addr := fmt.Sprintf("%s:%d", s.cfg.SMTP.Host, s.cfg.SMTP.Port)
 
 	return smtp.SendMail(addr, auth, from, to, msg.Bytes())
 }
@@ -161,15 +163,20 @@ type turnstileResponse struct {
 }
 
 func (s *contactService) validateTurnstile(ctx context.Context, token, remoteIP string) error {
+	baseURL := s.cfg.Turnstile.BaseURL
+	if baseURL == "" {
+		baseURL = "https://challenges.cloudflare.com"
+	}
+
 	client := resty.New().
 		SetTimeout(10 * time.Second).
-		SetBaseURL("https://challenges.cloudflare.com")
+		SetBaseURL(baseURL)
 
 	var turnstileResp turnstileResponse
 	resp, err := client.R().
 		SetContext(ctx).
 		SetFormData(map[string]string{
-			"secret":   config.Env().Turnstile.SecretKey,
+			"secret":   s.cfg.Turnstile.SecretKey,
 			"response": token,
 			"remoteip": remoteIP,
 		}).

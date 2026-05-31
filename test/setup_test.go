@@ -40,7 +40,13 @@ func TestMain(m *testing.M) {
 	setupPostgresContainer(ctx)
 	setupNatsContainer(ctx)
 	setupAuth()
-	router = bootstrap.NewServer()
+
+	deps, err := bootstrap.BuildDependencies()
+	if err != nil {
+		slog.Error("failed to build dependencies", "error", err)
+		os.Exit(1)
+	}
+	router = bootstrap.NewServer(deps)
 
 	code := m.Run()
 

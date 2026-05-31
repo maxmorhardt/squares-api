@@ -6,18 +6,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/service"
 	"github.com/maxmorhardt/squares-api/internal/util"
+	"github.com/nats-io/nats.go"
 	"gorm.io/gorm"
 )
 
-func newUpgrader() websocket.Upgrader {
-	originSet := make(map[string]bool, len(config.Env().Server.AllowedOrigins))
-	for _, o := range config.Env().Server.AllowedOrigins {
+func newUpgrader(allowedOrigins []string) websocket.Upgrader {
+	originSet := make(map[string]bool, len(allowedOrigins))
+	for _, o := range allowedOrigins {
 		originSet[o] = true
 	}
 
@@ -40,14 +40,13 @@ type websocketHandler struct {
 	natsAvailable      func() bool
 }
 
-func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo repository.ContestRepository, participantService service.ParticipantService) WebSocketHandler {
+func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo repository.ContestRepository, participantService service.ParticipantService, allowedOrigins []string, nc *nats.Conn) WebSocketHandler {
 	return &websocketHandler{
 		websocketService:   websocketService,
 		contestRepo:        contestRepo,
 		participantService: participantService,
-		upgrader:           newUpgrader(),
+		upgrader:           newUpgrader(allowedOrigins),
 		natsAvailable: func() bool {
-			nc := config.NATS()
 			return nc != nil && nc.IsConnected()
 		},
 	}

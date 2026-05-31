@@ -13,62 +13,69 @@ import (
 	"gorm.io/plugin/dbresolver"
 )
 
-var database *gorm.DB
-
 const (
 	maxOpenConns    int           = 20
 	maxIdleConns    int           = 5
 	maxConnLifetime time.Duration = time.Hour
 )
 
-func InitDB() {
-	setupPrimary()
-
-	if Env().DB.ReadHost != "" {
-		validateReadReplicaConfig()
-		setupReadReplica()
+func InitDB(cfg *Config) (*gorm.DB, error) {
+	db, err := setupPrimary(cfg)
+	if err != nil {
+		return nil, err
 	}
+
+	if cfg.DB.ReadHost != "" {
+		if err := validateReadReplicaConfig(cfg); err != nil {
+			return nil, err
+		}
+		if err := setupReadReplica(cfg, db); err != nil {
+			return nil, err
+		}
+	}
+
+	return db, nil
 }
 
-func validateReadReplicaConfig() {
+func validateReadReplicaConfig(cfg *Config) error {
 	var missing []string
 
-	if Env().DB.ReadPort == 0 {
+	if cfg.DB.ReadPort == 0 {
 		missing = append(missing, "DB_READ_PORT")
 	}
-	if Env().DB.ReadUser == "" {
+	if cfg.DB.ReadUser == "" {
 		missing = append(missing, "DB_READ_USER")
 	}
-	if Env().DB.ReadPassword == "" {
+	if cfg.DB.ReadPassword == "" {
 		missing = append(missing, "DB_READ_PASSWORD")
 	}
-	if Env().DB.ReadName == "" {
+	if cfg.DB.ReadName == "" {
 		missing = append(missing, "DB_READ_NAME")
 	}
-	if Env().DB.ReadSSLMode == "" {
+	if cfg.DB.ReadSSLMode == "" {
 		missing = append(missing, "DB_READ_SSL_MODE")
 	}
 
 	if len(missing) > 0 {
-		slog.Error("read replica partially configured", "missing", missing)
-		panic(fmt.Sprintf("DB_READ_HOST is set but required read replica config is missing: %v", missing))
+		return fmt.Errorf("DB_READ_HOST is set but required read replica config is missing: %v", missing)
 	}
+
+	return nil
 }
 
-func setupPrimary() {
+func setupPrimary(cfg *Config) (*gorm.DB, error) {
 	dsn := formatDSN(
-		Env().DB.Host,
-		Env().DB.Port,
-		Env().DB.User,
-		Env().DB.Password,
-		Env().DB.Name,
-		Env().DB.SSLMode,
+		cfg.DB.Host,
+		cfg.DB.Port,
+		cfg.DB.User,
+		cfg.DB.Password,
+		cfg.DB.Name,
+		cfg.DB.SSLMode,
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		slog.Error("failed to connect to primary database", "error", err)
-		panic(err)
+		return nil, fmt.Errorf("failed to connect to primary database: %w", err)
 	}
 
 	// auto-migrate models
@@ -83,38 +90,36 @@ func setupPrimary() {
 
 	for _, m := range models {
 		if migErr := db.AutoMigrate(m); migErr != nil {
-			slog.Error("failed to migrate model", "error", migErr)
-			panic(migErr)
+			return nil, fmt.Errorf("failed to migrate model: %w", migErr)
 		}
 	}
 
 	// configure connection pool
 	sqlDB, err := db.DB()
 	if err != nil {
-		slog.Error("failed to get underlying sql.DB", "error", err)
-		panic(err)
+		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(maxConnLifetime)
 
 	// expose database/sql pool stats via the official prometheus collector
-	if err := prometheus.Register(collectors.NewDBStatsCollector(sqlDB, Env().DB.Name)); err != nil {
+	if err := prometheus.Register(collectors.NewDBStatsCollector(sqlDB, cfg.DB.Name)); err != nil {
 		slog.Warn("failed to register db stats collector", "error", err)
 	}
 
-	database = db
 	slog.Info("primary database configured")
+	return db, nil
 }
 
-func setupReadReplica() {
+func setupReadReplica(cfg *Config, db *gorm.DB) error {
 	dsn := formatDSN(
-		Env().DB.ReadHost,
-		Env().DB.ReadPort,
-		Env().DB.ReadUser,
-		Env().DB.ReadPassword,
-		Env().DB.ReadName,
-		Env().DB.ReadSSLMode,
+		cfg.DB.ReadHost,
+		cfg.DB.ReadPort,
+		cfg.DB.ReadUser,
+		cfg.DB.ReadPassword,
+		cfg.DB.ReadName,
+		cfg.DB.ReadSSLMode,
 	)
 
 	// register read replica with dbresolver
@@ -130,13 +135,12 @@ func setupReadReplica() {
 	resolver.SetMaxIdleConns(maxIdleConns)
 	resolver.SetMaxOpenConns(maxOpenConns)
 
-	err := database.Use(resolver)
-	if err != nil {
-		slog.Warn("failed to register read replica", "error", err)
-		return
+	if err := db.Use(resolver); err != nil {
+		return fmt.Errorf("failed to register read replica: %w", err)
 	}
 
 	slog.Info("read replica configured")
+	return nil
 }
 
 func formatDSN(host string, port int, user, password, dbname, sslmode string) string {
@@ -144,8 +148,4 @@ func formatDSN(host string, port int, user, password, dbname, sslmode string) st
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		host, port, user, password, dbname, sslmode,
 	)
-}
-
-func DB() *gorm.DB {
-	return database
 }

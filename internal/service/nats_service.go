@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
+	"github.com/nats-io/nats.go"
 )
 
 type NatsService interface {
@@ -19,10 +19,12 @@ type NatsService interface {
 	PublishParticipantAdded(contestID uuid.UUID, participant *model.ContestParticipant) error
 }
 
-type natsService struct{}
+type natsService struct {
+	nats *nats.Conn
+}
 
-func NewNatsService() NatsService {
-	return &natsService{}
+func NewNatsService(nc *nats.Conn) NatsService {
+	return &natsService{nats: nc}
 }
 
 func (s *natsService) PublishSquareUpdate(contestID uuid.UUID, updatedBy string, square *model.Square) error {
@@ -62,12 +64,11 @@ func (s *natsService) publishToContestSubject(contestID uuid.UUID, message any) 
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	natsConn := config.NATS()
-	if natsConn == nil || !natsConn.IsConnected() {
+	if s.nats == nil || !s.nats.IsConnected() {
 		return fmt.Errorf("NATS connection is not available")
 	}
 
-	if err := natsConn.Publish(subject, jsonData); err != nil {
+	if err := s.nats.Publish(subject, jsonData); err != nil {
 		return fmt.Errorf("failed to publish to NATS subject %s: %w", subject, err)
 	}
 

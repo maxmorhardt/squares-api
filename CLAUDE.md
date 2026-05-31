@@ -31,7 +31,7 @@ This guide provides context for coding agents working in this repository. Square
 - Run/build: `make run` / `make build`. Build is overridable for cross-compiles: `make build OUT=… MAIN=… BUILD_FLAGS=… LDFLAGS=…` with `GOOS`/`GOARCH`/`CGO_ENABLED` env (this is how CI produces the linux/arm64 binary).
 - Lint: `make lint` (runs **golangci-lint** with [.golangci.yml](.golangci.yml)). Enabled linters include `errcheck`, `govet` (with `shadow`), `staticcheck`, `gosec`, `errorlint`, `gocritic`, `prealloc`, `unparam`. Also `make vet` for `go vet`, `make verify` for `go mod verify`.
 - Tests: stdlib `go test` + **testify** (`assert`, `require`). `make test` for unit (no Docker), `make test-integration` for the testcontainers suite, `make test-all` for everything. Pass `RACE=-race` to enable the race detector (CI does).
-- Coverage: enforced via [.testcoverage.yml](.testcoverage.yml) (`profile: coverage.out`, `total: 32`). `make cover` runs the unit tests with a coverage profile and the `go-test-coverage` gate. The threshold is a ratchet set just below current coverage; raise it as service-layer unit tests are added (the `service` package currently has no unit tests and is exercised only by the integration suite).
+- Coverage: enforced via [.testcoverage.yml](.testcoverage.yml) (`profile: coverage.out`, `total: 80`). `make cover` runs the unit tests with a coverage profile and the `go-test-coverage` gate. The gate measures `handler`, `service`, `util`, `middleware`, `bootstrap`, `config`, and `repository`; `mocks` (generated), `routes`, `metrics`, `model`, `errs`, `templates`, `cmd`, `docs` are excluded (generated/trivial). Interfaces are mocked with **mockery** (`make mocks` → `internal/mocks`, config in [.mockery.yaml](.mockery.yaml)); repositories use **go-sqlmock** unit tests (no cgo). One `_test.go` per source file — no `testutil`/`_internal` test files.
 - Integration tests in `test/` use **testcontainers-go** to launch Postgres + NATS. They require a working Docker daemon — on Windows, rootless Docker is **not** supported by testcontainers, so use Docker Desktop or run just unit tests with `make test`.
 - Swagger docs: regenerate with `make swag` after changing handler annotations.
 - Dependency upgrades: `make deps` (`go get -u -t ./... && go mod tidy`); `make tidy` for tidy alone.
@@ -48,7 +48,7 @@ The codebase follows a strict **handler → service → repository** layering:
 ## Code style
 
 - Use lowercase, single-package files; one logical resource per file (`contest_service.go`, not `services.go`).
-- Define dependencies as **interfaces**. Service interfaces are declared alongside their implementation in `internal/service/<resource>_service.go` and consumed by handlers (e.g. handler structs hold a `service.ContestService`). Repository interfaces are declared in `internal/repository/<resource>_repository.go` and consumed by services. Keeping each interface next to its implementation keeps the production wiring obvious; mocks live with the consumer's tests (e.g. `internal/handler/testutil_test.go`).
+- Define dependencies as **interfaces**. Service interfaces are declared alongside their implementation in `internal/service/<resource>_service.go` and consumed by handlers (e.g. handler structs hold a `service.ContestService`). Repository interfaces are declared in `internal/repository/<resource>_repository.go` and consumed by services. Keeping each interface next to its implementation keeps the production wiring obvious; mocks are generated from the interfaces with **mockery** into `internal/mocks` (`make mocks`).
 - Constructors are `NewXxx(...)` and return the interface type.
 - Use `context.Context` as the **first parameter** of any function that crosses a layer or talks to the DB/NATS.
 - Logging: pull a `*slog.Logger` from context with `util.LoggerFromContext(ctx)` (or `util.LoggerFromGinContext(c)` in handlers). Never call `slog.Default()` directly inside services/repositories.
@@ -65,7 +65,7 @@ The codebase follows a strict **handler → service → repository** layering:
   2. If the endpoint requires new business logic, add a method to the corresponding service interface + implementation.
   3. If new persistence is needed, add a repository method + interface.
   4. Register the route in `internal/routes/<resource>_routes.go`.
-  5. Update mocks in `internal/handler/testutil_test.go` to satisfy the new interface method.
+  5. Run `make mocks` to regenerate the mockery mock for the changed interface.
   6. Add handler-level test cases (success, validation error, service error) following the existing patterns.
   7. Regenerate swagger docs.
 
@@ -81,11 +81,11 @@ The codebase follows a strict **handler → service → repository** layering:
 
 ## Testing
 
-- Unit tests are colocated next to source files as `foo_test.go` and live in the same package (white-box testing) so unexported helpers can be exercised.
-- Handler tests use the lightweight mocks in [internal/handler/testutil_test.go](internal/handler/testutil_test.go) (`mockContestService`, `mockParticipantService`, etc.) and the `newTestRouter()` / `authenticatedMiddleware(user)` helpers. Each mock has `xxxFn func(...) ...` fields the test sets per case.
-- Repositories are not unit-tested in isolation; they are exercised end-to-end by the integration tests in `test/`, which spin up a real Postgres (and NATS) via testcontainers and require a working Docker daemon. Run them with `go test ./test/...`.
-- After changing a service or repository **interface**, update both the production implementation **and** every mock (handler-layer mocks live in `testutil_test.go`).
-- Run `go test ./...` and `golangci-lint run` before committing. Coverage threshold (35% total) is enforced in CI.
+- One `_test.go` per source file (no `testutil`/`_internal` test files). Tests of unexported helpers use white-box `package <pkg>`; tests that need mockery mocks use black-box `package <pkg>_test` (the `internal/mocks` package imports the real packages, so white-box would create an import cycle).
+- Interface dependencies are mocked with **mockery** (`make mocks` regenerates `internal/mocks`; config in `.mockery.yaml`). Use the testify expecter API, e.g. `m := mocks.NewContestService(t); m.EXPECT().CreateContest(...).Return(...)`. The `NatsService` mock is stubbed permissively (publishes are fire-and-forget goroutines). Handler tests use `gin.New()` / `authenticatedMiddleware(user)` helpers in `health_handler_test.go`.
+- Repositories have **go-sqlmock** unit tests (pure Go, no cgo) plus end-to-end coverage from the integration tests in `test/` (real Postgres + NATS via testcontainers, needs Docker). sqlmock tests set `mock.MatchExpectationsInOrder(false)` since GORM preloads run in non-deterministic order.
+- After changing an interface, run `make mocks` to regenerate its mock.
+- Run `make test` (or `go test ./...`) and `make lint` before committing. The 80% coverage threshold is enforced in CI via `make cover`.
 
 ## Deployment
 

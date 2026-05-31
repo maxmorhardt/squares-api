@@ -49,7 +49,7 @@ func NewInviteService(
 func (s *inviteService) CreateInvite(ctx context.Context, contestID uuid.UUID, req *model.CreateInviteRequest, user string) (*model.ContestInvite, error) {
 	log := util.LoggerFromContext(ctx)
 
-	// check contest is not in a terminal state
+	// reject invites once the contest is in a terminal state
 	contest, err := s.contestRepo.GetByID(ctx, contestID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -162,7 +162,7 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token, user string) (*
 		return nil, errs.ErrContestFinalized
 	}
 
-	// check user is not already a participant
+	// reject if user is already a participant in this contest
 	_, err = s.participantRepo.GetByContestAndUser(ctx, invite.ContestID, user)
 	if err == nil {
 		log.Warn("user already a participant", "contest_id", invite.ContestID, "user", user)
@@ -173,7 +173,7 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token, user string) (*
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
-	// check total allocated squares won't exceed 100
+	// reject if granting this invite would exceed the 100-square pool
 	totalAllocated, err := s.participantRepo.GetTotalAllocatedSquares(ctx, invite.ContestID)
 	if err != nil {
 		log.Error("failed to get total allocated squares", "contest_id", invite.ContestID, "error", err)
@@ -232,7 +232,7 @@ func (s *inviteService) GetInvitesByContestID(ctx context.Context, contestID uui
 func (s *inviteService) DeleteInvite(ctx context.Context, contestID, inviteID uuid.UUID, user string) error {
 	log := util.LoggerFromContext(ctx)
 
-	// check contest is not in a terminal state
+	// reject deletes once the contest is in a terminal state
 	contest, err := s.contestRepo.GetByID(ctx, contestID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

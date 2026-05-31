@@ -1,20 +1,16 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/nats-io/nats.go"
 )
 
-var (
-	natsConn *nats.Conn
-)
-
-func InitNATS() {
-	var err error
-	natsConn, err = nats.Connect(
-		Env().NATS.URL,
+func InitNATS(cfg *Config) (*nats.Conn, error) {
+	natsConn, err := nats.Connect(
+		cfg.NATS.URL,
 		nats.ReconnectHandler(func(nc *nats.Conn) {
 			slog.Info("NATS reconnected", "url", nc.ConnectedUrl())
 			metrics.IncNATSReconnect()
@@ -31,21 +27,10 @@ func InitNATS() {
 		}),
 	)
 	if err != nil {
-		slog.Error("failed to connect to NATS", "error", err)
-		panic(err)
+		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 
 	metrics.SetNATSConnected(true)
-	slog.Info("NATS connection established successfully", "url", Env().NATS.URL)
-}
-
-func NATS() *nats.Conn {
-	return natsConn
-}
-
-func CloseNATS() {
-	if natsConn != nil {
-		natsConn.Close()
-		slog.Info("NATS connection closed")
-	}
+	slog.Info("NATS connection established successfully", "url", cfg.NATS.URL)
+	return natsConn, nil
 }

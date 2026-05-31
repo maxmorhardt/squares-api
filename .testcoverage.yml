@@ -2,18 +2,15 @@ profile: coverage.out
 threshold:
   file: 0
   package: 0
-  total: 32
+  total: 80
 
 exclude:
   paths:
     - cmd
     - docs
-    - internal/bootstrap
-    - internal/config
     - internal/errs
     - internal/metrics
-    - internal/middleware
+    - internal/mocks
     - internal/model
-    - internal/repository
     - internal/routes
     - internal/templates

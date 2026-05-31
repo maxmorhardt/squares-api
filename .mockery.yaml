@@ -1,0 +1,25 @@
+with-expecter: true
+dir: internal/mocks
+outpkg: mocks
+resolve-type-alias: false
+disable-version-string: true
+issue-845-fix: true
+mockname: "{{.InterfaceName}}"
+filename: "{{.InterfaceName}}.go"
+packages:
+  github.com/maxmorhardt/squares-api/internal/repository:
+    interfaces:
+      ContestRepository:
+      ParticipantRepository:
+      InviteRepository:
+      ContactRepository:
+      StatsRepository:
+  github.com/maxmorhardt/squares-api/internal/service:
+    interfaces:
+      ParticipantService:
+      NatsService:
+      ContestService:
+      InviteService:
+      ContactService:
+      StatsService:
+      WebSocketService:
