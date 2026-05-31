@@ -2,30 +2,48 @@ package handler
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/maxmorhardt/squares-api/internal/errs"
+	"github.com/maxmorhardt/squares-api/internal/mocks"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func newContactHandler(fn func(ctx context.Context, req *model.ContactRequest, ipAddress string) error) ContactHandler {
-	return NewContactHandler(&mockContactService{submitContactFn: fn})
+func TestSubmitContact_Success(t *testing.T) {
+	svc := mocks.NewContactService(t)
+	svc.EXPECT().SubmitContact(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	r := gin.New()
+	r.POST("/contact", NewContactHandler(svc).SubmitContact)
+	w := doRequest(r, postContact(validContactBody()))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp model.ContactResponse
+
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Contains(t, resp.Message, "submitted successfully")
 }
 
-func TestSubmitContact_Success(t *testing.T) {
-	h := newContactHandler(func(_ context.Context, _ *model.ContactRequest, _ string) error {
-		return nil
-	})
+func doRequest(r *gin.Engine, req *http.Request) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
 
-	r := newTestRouter()
-	r.POST("/contact", h.SubmitContact)
+func postContact(body []byte) *http.Request {
+	req, _ := http.NewRequest(http.MethodPost, "/contact", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
 
+func validContactBody() []byte {
 	body, _ := json.Marshal(model.ContactRequest{
 		Name:           "John",
 		Email:          "john@example.com",
@@ -33,72 +51,37 @@ func TestSubmitContact_Success(t *testing.T) {
 		Message:        "Test message",
 		TurnstileToken: "valid-token",
 	})
-	req, _ := http.NewRequest(http.MethodPost, "/contact", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var resp model.ContactResponse
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Contains(t, resp.Message, "submitted successfully")
+	return body
 }
 
 func TestSubmitContact_InvalidBody(t *testing.T) {
-	h := newContactHandler(nil) // should not be called
+	svc := mocks.NewContactService(t)
 
-	r := newTestRouter()
-	r.POST("/contact", h.SubmitContact)
-
-	req, _ := http.NewRequest(http.MethodPost, "/contact", bytes.NewReader([]byte(`{invalid`)))
-	req.Header.Set("Content-Type", "application/json")
-	w := doRequest(r, req)
+	r := gin.New()
+	r.POST("/contact", NewContactHandler(svc).SubmitContact)
+	w := doRequest(r, postContact([]byte(`{invalid`)))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestSubmitContact_InvalidTurnstile(t *testing.T) {
-	h := newContactHandler(func(_ context.Context, _ *model.ContactRequest, _ string) error {
-		return errs.ErrInvalidTurnstile
-	})
+	svc := mocks.NewContactService(t)
+	svc.EXPECT().SubmitContact(mock.Anything, mock.Anything, mock.Anything).Return(errs.ErrInvalidTurnstile)
 
-	r := newTestRouter()
-	r.POST("/contact", h.SubmitContact)
-
-	body, _ := json.Marshal(model.ContactRequest{
-		Name:           "John",
-		Email:          "john@example.com",
-		Subject:        "Hello",
-		Message:        "Test message",
-		TurnstileToken: "bad-token",
-	})
-	req, _ := http.NewRequest(http.MethodPost, "/contact", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := doRequest(r, req)
+	r := gin.New()
+	r.POST("/contact", NewContactHandler(svc).SubmitContact)
+	w := doRequest(r, postContact(validContactBody()))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestSubmitContact_ServiceError(t *testing.T) {
-	h := newContactHandler(func(_ context.Context, _ *model.ContactRequest, _ string) error {
-		return assert.AnError
-	})
+	svc := mocks.NewContactService(t)
+	svc.EXPECT().SubmitContact(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 
-	r := newTestRouter()
-	r.POST("/contact", h.SubmitContact)
-
-	body, _ := json.Marshal(model.ContactRequest{
-		Name:           "John",
-		Email:          "john@example.com",
-		Subject:        "Hello",
-		Message:        "Test message",
-		TurnstileToken: "valid-token",
-	})
-
-	req, _ := http.NewRequest(http.MethodPost, "/contact", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	r := gin.New()
+	r.POST("/contact", NewContactHandler(svc).SubmitContact)
+	w := doRequest(r, postContact(validContactBody()))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

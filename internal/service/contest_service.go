@@ -57,7 +57,6 @@ func NewContestService(
 func (s *contestService) GetContestsByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error) {
 	log := util.LoggerFromContext(ctx)
 
-	// get paginated contests from repository
 	contests, total, err := s.repo.GetAllByOwnerPaginated(ctx, owner, page, limit, search)
 	if err != nil {
 		log.Error("failed to get paginated contests by user", "owner", owner, "error", err)
@@ -220,6 +219,13 @@ func (s *contestService) StartContest(ctx context.Context, contestID uuid.UUID, 
 	if contest.Status != model.ContestStatusActive {
 		log.Warn("cannot start contest - not in ACTIVE status", "contest_id", contestID, "current_status", contest.Status)
 		return nil, errors.New("contest must be in ACTIVE status to start")
+	}
+
+	for i := range contest.Squares {
+		if contest.Squares[i].Owner == "" {
+			log.Warn("cannot start contest - unclaimed squares remain", "contest_id", contestID)
+			return nil, errs.ErrContestNotReady
+		}
 	}
 
 	// transition to q1 and randomize labels
@@ -400,7 +406,6 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 func (s *contestService) transitionContestAfterQuarter(ctx context.Context, contest *model.Contest, newStatus model.ContestStatus, result *model.QuarterResult, user string) error {
 	log := util.LoggerFromContext(ctx)
 
-	// update contest status
 	contest.Status = newStatus
 	if err := s.repo.Update(ctx, contest); err != nil {
 		log.Error("failed to update contest status", "contest_id", contest.ID, "new_status", newStatus, "error", err)
@@ -441,7 +446,6 @@ func calculateWinnerCoordinates(homeScore, awayScore int, xLabels, yLabels []int
 		}
 	}
 
-	// validate both coordinates were found
 	if row == -1 || col == -1 {
 		return 0, 0, gorm.ErrInvalidData
 	}
@@ -473,7 +477,6 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 		return errs.ErrUnauthorizedContestDelete
 	}
 
-	// delete contest from repository
 	if err := s.repo.Delete(ctx, contestID); err != nil {
 		log.Error("failed to delete contest from repository", "contest_id", contestID, "error", err)
 		return err
@@ -572,7 +575,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 		}
 	}
 
-	// get claims for first and last name
+	// get claims so we can capture the owner's display name
 	claims := util.ClaimsFromContext(ctx)
 	if claims == nil {
 		log.Error("claims not found in context")

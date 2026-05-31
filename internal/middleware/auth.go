@@ -1,11 +1,14 @@
 package middleware
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -13,18 +16,46 @@ import (
 
 const authErrorMessage = "Authentication required. Please log in to continue"
 
-func AuthMiddleware() gin.HandlerFunc {
+var errClaimsParse = errors.New("claims parse failed")
+
+type TokenVerifier interface {
+	Verify(ctx context.Context, token string) (*model.Claims, error)
+}
+
+type oidcTokenVerifier struct {
+	verifier *oidc.IDTokenVerifier
+}
+
+func NewOIDCTokenVerifier(verifier *oidc.IDTokenVerifier) TokenVerifier {
+	return &oidcTokenVerifier{verifier: verifier}
+}
+
+func (v *oidcTokenVerifier) Verify(ctx context.Context, token string) (*model.Claims, error) {
+	idToken, err := v.verifier.Verify(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	claims := &model.Claims{}
+	if err := idToken.Claims(claims); err != nil {
+		return nil, fmt.Errorf("%w: %w", errClaimsParse, err)
+	}
+
+	return claims, nil
+}
+
+func AuthMiddleware(verifier TokenVerifier) gin.HandlerFunc {
 	// verify token from authorization header
 	return func(c *gin.Context) {
-		claims := verifyToken(c, false)
+		claims := verifyToken(c, verifier, false)
 		authMiddleware(c, claims)
 	}
 }
 
-func AuthMiddlewareWS() gin.HandlerFunc {
+func AuthMiddlewareWS(verifier TokenVerifier) gin.HandlerFunc {
 	// verify token from websocket protocol header
 	return func(c *gin.Context) {
-		claims := verifyToken(c, true)
+		claims := verifyToken(c, verifier, true)
 		authMiddleware(c, claims)
 	}
 }
@@ -48,7 +79,7 @@ func authMiddleware(c *gin.Context, claims *model.Claims) {
 	c.Next()
 }
 
-func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
+func verifyToken(c *gin.Context, verifier TokenVerifier, isWebSocket bool) *model.Claims {
 	log := util.LoggerFromGinContext(c)
 
 	// extract token from appropriate header
@@ -75,13 +106,23 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 		}
 
 		token = strings.TrimPrefix(authHeader, "Bearer ")
+		if token == "" {
+			log.Warn("empty bearer token")
+			metrics.RecordAuthFailure(model.AuthFailureMissingHeader)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
+			return nil
+		}
 	}
 
-	// verify token with oidc provider
-	idToken, err := config.OIDCVerifier().Verify(c.Request.Context(), token)
+	// verify token and extract claims via the injected verifier
+	claims, err := verifier.Verify(c.Request.Context(), token)
 	if err != nil {
 		log.Warn("failed to verify token", "error", err)
-		metrics.RecordAuthFailure(model.AuthFailureVerifyFailed)
+		if errors.Is(err, errClaimsParse) {
+			metrics.RecordAuthFailure(model.AuthFailureClaimsParse)
+		} else {
+			metrics.RecordAuthFailure(model.AuthFailureVerifyFailed)
+		}
 		if !isWebSocket {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}
@@ -89,17 +130,5 @@ func verifyToken(c *gin.Context, isWebSocket bool) *model.Claims {
 		return nil
 	}
 
-	// extract claims from token
-	claims := model.Claims{}
-	if err := idToken.Claims(&claims); err != nil {
-		log.Warn("failed to parse claims", "err", err)
-		metrics.RecordAuthFailure(model.AuthFailureClaimsParse)
-		if !isWebSocket {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
-		}
-
-		return nil
-	}
-
-	return &claims
+	return claims
 }

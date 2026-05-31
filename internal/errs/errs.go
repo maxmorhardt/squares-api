@@ -18,6 +18,7 @@ var (
 var (
 	ErrContestNotEditable         = errors.New("contest is not in an editable state")
 	ErrContestFinalized           = errors.New("contest is finished or deleted and cannot be modified")
+	ErrContestNotReady            = errors.New("all squares must be claimed before the contest can be started")
 	ErrSquareNotEditable          = errors.New("squares can only be edited when contest is active")
 	ErrContestAlreadyExists       = errors.New("contest already exists with this name")
 	ErrQuarterResultAlreadyExists = errors.New("result of this quarter has already been recorded")

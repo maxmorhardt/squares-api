@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
@@ -30,10 +29,12 @@ type WebSocketService interface {
 	HandleWebSocketConnection(ctx context.Context, contest *model.Contest, participants []model.ContestParticipant, conn *websocket.Conn)
 }
 
-type websocketService struct{}
+type websocketService struct {
+	nats *nats.Conn
+}
 
-func NewWebSocketService() WebSocketService {
-	return &websocketService{}
+func NewWebSocketService(nc *nats.Conn) WebSocketService {
+	return &websocketService{nats: nc}
 }
 
 func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contest *model.Contest, participants []model.ContestParticipant, conn *websocket.Conn) {
@@ -50,8 +51,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
 
 	natsChan := make(chan *nats.Msg, 64)
-	natsConn := config.NATS()
-	if natsConn == nil || !natsConn.IsConnected() {
+	if s.nats == nil || !s.nats.IsConnected() {
 		log.Error("NATS connection not available")
 		metrics.RecordWSConnectionResult(model.WSResultUnavailable)
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(4503, "Real-time updates unavailable"))
@@ -59,7 +59,7 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 		return
 	}
 
-	sub, err := natsConn.ChanSubscribe(contestSubject, natsChan)
+	sub, err := s.nats.ChanSubscribe(contestSubject, natsChan)
 	if err != nil {
 		log.Error("failed to subscribe to NATS", "error", err)
 		metrics.RecordWSConnectionResult(model.WSResultInternalError)
@@ -124,7 +124,6 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 	s.handleOutgoingMessages(ctx, conn, pingChecker, jwtChecker, natsChecker, contestID, connectionID, natsChan, log, sub)
 }
 
-// handle incoming messages from websocket client
 func (s *websocketService) handleIncomingMessages(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, contestID uuid.UUID, log *slog.Logger) {
 	// signal the outgoing loop to stop when this reader exits so resources
 	// are released promptly instead of waiting on the next ping tick
@@ -178,13 +177,12 @@ func (s *websocketService) handleChatMessage(ctx context.Context, contestID uuid
 	}
 
 	contestSubject := fmt.Sprintf("%s.%s", model.ContestChannelPrefix, contestID.String())
-	natsConn := config.NATS()
-	if natsConn == nil || !natsConn.IsConnected() {
+	if s.nats == nil || !s.nats.IsConnected() {
 		log.Warn("NATS not available for chat message")
 		return
 	}
 
-	if err := natsConn.Publish(contestSubject, jsonData); err != nil {
+	if err := s.nats.Publish(contestSubject, jsonData); err != nil {
 		log.Error("failed to publish chat message to NATS", "error", err)
 		return
 	}
@@ -193,7 +191,6 @@ func (s *websocketService) handleChatMessage(ctx context.Context, contestID uuid
 	log.Info("chat message sent", "sender", claims.Username, "message", message)
 }
 
-// main event loop
 func (s *websocketService) handleOutgoingMessages(
 	ctx context.Context,
 	conn *websocket.Conn,
@@ -254,8 +251,7 @@ func (s *websocketService) handleOutgoingMessages(
 
 		// check NATS connection periodically
 		case <-natsChecker.C:
-			natsConn := config.NATS()
-			if natsConn == nil || !natsConn.IsConnected() || !sub.IsValid() {
+			if s.nats == nil || !s.nats.IsConnected() || !sub.IsValid() {
 				log.Warn("NATS connection lost, closing websocket")
 				metrics.RecordWSDisconnect(model.WSDisconnectNATSLost)
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {

@@ -9,8 +9,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func setupMetricsServer() {
-	if !config.Env().Server.MetricsEnabled {
+func setupMetricsServer(cfg *config.Config) {
+	if !cfg.Server.MetricsEnabled {
 		slog.Info("metrics disabled")
 		return
 	}

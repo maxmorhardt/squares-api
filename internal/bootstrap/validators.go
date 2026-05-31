@@ -25,7 +25,7 @@ func validateContestName(fl validator.FieldLevel) bool {
 	return matches
 }
 
-// Blocks: < > { } [ ] \ | ` and other control characters
+// blocks: < > { } [ ] \ | ` and other control characters
 func validateSafeString(fl validator.FieldLevel) bool {
 	str := fl.Field().String()
 	if str == "" {

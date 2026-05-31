@@ -13,7 +13,6 @@ import (
 
 	_ "github.com/maxmorhardt/squares-api/docs"
 	"github.com/maxmorhardt/squares-api/internal/bootstrap"
-	"github.com/maxmorhardt/squares-api/internal/config"
 )
 
 func init() {
@@ -41,11 +40,17 @@ func init() {
 // @in header
 // @name Authorization
 func main() {
-	// initialize server with all routes and middleware
-	router := bootstrap.NewServer()
+	// build infrastructure dependencies (db, nats, oidc) then wire the server
+	deps, err := bootstrap.BuildDependencies()
+	if err != nil {
+		slog.Error("failed to build dependencies", "error", err)
+		panic(err)
+	}
+
+	router := bootstrap.NewServer(deps)
 
 	srv := &http.Server{
-		Addr:              ":" + config.Env().Server.Port,
+		Addr:              fmt.Sprintf(":%d", deps.Config.Server.Port),
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -79,7 +84,9 @@ func main() {
 	}
 
 	// cleanup external connections
-	config.CloseNATS()
+	if deps.NATS != nil {
+		deps.NATS.Close()
+	}
 
 	slog.Info("server exited")
 }

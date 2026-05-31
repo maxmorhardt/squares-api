@@ -1,15 +1,13 @@
 package config
 
 import (
-	"log/slog"
+	"fmt"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )
 
-var cfg *config
-
-type config struct {
+type Config struct {
 	Server    serverConfig
 	DB        databaseConfig
 	SMTP      smtpConfig
@@ -19,7 +17,7 @@ type config struct {
 }
 
 type serverConfig struct {
-	Port             string   `env:"SERVER_PORT" envDefault:"8080"`
+	Port             int      `env:"SERVER_PORT" envDefault:"8080"`
 	MetricsEnabled   bool     `env:"METRICS_ENABLED" envDefault:"false"`
 	AllowedOrigins   []string `env:"ALLOWED_ORIGINS" envDefault:"http://localhost:3000" envSeparator:","`
 	ContactRateLimit int      `env:"CONTACT_RATE_LIMIT" envDefault:"10"`
@@ -59,20 +57,16 @@ type natsConfig struct {
 
 type turnstileConfig struct {
 	SecretKey string `env:"TURNSTILE_SECRET_KEY,required"`
+	BaseURL   string `env:"TURNSTILE_BASE_URL" envDefault:"https://challenges.cloudflare.com"`
 }
 
-func LoadEnv() {
+func LoadEnv() (*Config, error) {
 	_ = godotenv.Load()
 
-	cfg = &config{}
+	cfg := &Config{}
 	if err := env.Parse(cfg); err != nil {
-		slog.Error("failed to handle configuration", "error", err)
-		panic(err)
+		return nil, fmt.Errorf("failed to parse configuration: %w", err)
 	}
 
-	slog.Info("configuration loaded successfully")
-}
-
-func Env() *config {
-	return cfg
+	return cfg, nil
 }

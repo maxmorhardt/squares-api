@@ -35,41 +35,44 @@ func setRequiredEnv(t *testing.T) {
 func TestLoadEnv_Success(t *testing.T) {
 	setRequiredEnv(t)
 
-	LoadEnv()
+	cfg, err := LoadEnv()
 
-	require.NotNil(t, Env())
-	assert.Equal(t, "localhost", Env().DB.Host)
-	assert.Equal(t, 5432, Env().DB.Port)
-	assert.Equal(t, "testuser", Env().DB.User)
-	assert.Equal(t, "testpass", Env().DB.Password)
-	assert.Equal(t, "testdb", Env().DB.Name)
-	assert.Equal(t, "disable", Env().DB.SSLMode)
-	assert.Equal(t, "smtp.test.com", Env().SMTP.Host)
-	assert.Equal(t, 587, Env().SMTP.Port)
-	assert.Equal(t, "smtpuser", Env().SMTP.User)
-	assert.Equal(t, "smtppass", Env().SMTP.Password)
-	assert.Equal(t, "support@test.com", Env().SMTP.SupportEmail)
-	assert.Equal(t, "test-client", Env().OIDC.ClientID)
-	assert.Equal(t, "nats://localhost:4222", Env().NATS.URL)
-	assert.Equal(t, "secret", Env().Turnstile.SecretKey)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	assert.Equal(t, "localhost", cfg.DB.Host)
+	assert.Equal(t, 5432, cfg.DB.Port)
+	assert.Equal(t, "testuser", cfg.DB.User)
+	assert.Equal(t, "testpass", cfg.DB.Password)
+	assert.Equal(t, "testdb", cfg.DB.Name)
+	assert.Equal(t, "disable", cfg.DB.SSLMode)
+	assert.Equal(t, "smtp.test.com", cfg.SMTP.Host)
+	assert.Equal(t, 587, cfg.SMTP.Port)
+	assert.Equal(t, "smtpuser", cfg.SMTP.User)
+	assert.Equal(t, "smtppass", cfg.SMTP.Password)
+	assert.Equal(t, "support@test.com", cfg.SMTP.SupportEmail)
+	assert.Equal(t, "test-client", cfg.OIDC.ClientID)
+	assert.Equal(t, "nats://localhost:4222", cfg.NATS.URL)
+	assert.Equal(t, "secret", cfg.Turnstile.SecretKey)
 }
 
 func TestLoadEnv_Defaults(t *testing.T) {
 	setRequiredEnv(t)
 
-	LoadEnv()
+	cfg, err := LoadEnv()
 
-	assert.False(t, Env().Server.MetricsEnabled)
-	assert.Equal(t, "https://login.maxstash.io/application/o/squares/", Env().OIDC.Issuer)
+	require.NoError(t, err)
+	assert.False(t, cfg.Server.MetricsEnabled)
+	assert.Equal(t, "https://login.maxstash.io/application/o/squares/", cfg.OIDC.Issuer)
 }
 
 func TestLoadEnv_MetricsEnabled(t *testing.T) {
 	setRequiredEnv(t)
 	t.Setenv("METRICS_ENABLED", "true")
 
-	LoadEnv()
+	cfg, err := LoadEnv()
 
-	assert.True(t, Env().Server.MetricsEnabled)
+	require.NoError(t, err)
+	assert.True(t, cfg.Server.MetricsEnabled)
 }
 
 func TestLoadEnv_OptionalReadReplica(t *testing.T) {
@@ -81,18 +84,19 @@ func TestLoadEnv_OptionalReadReplica(t *testing.T) {
 	t.Setenv("DB_READ_NAME", "replicadb")
 	t.Setenv("DB_READ_SSL_MODE", "require")
 
-	LoadEnv()
+	cfg, err := LoadEnv()
 
-	assert.Equal(t, "replica.host", Env().DB.ReadHost)
-	assert.Equal(t, 5433, Env().DB.ReadPort)
-	assert.Equal(t, "replicauser", Env().DB.ReadUser)
-	assert.Equal(t, "replicapass", Env().DB.ReadPassword)
-	assert.Equal(t, "replicadb", Env().DB.ReadName)
-	assert.Equal(t, "require", Env().DB.ReadSSLMode)
+	require.NoError(t, err)
+	assert.Equal(t, "replica.host", cfg.DB.ReadHost)
+	assert.Equal(t, 5433, cfg.DB.ReadPort)
+	assert.Equal(t, "replicauser", cfg.DB.ReadUser)
+	assert.Equal(t, "replicapass", cfg.DB.ReadPassword)
+	assert.Equal(t, "replicadb", cfg.DB.ReadName)
+	assert.Equal(t, "require", cfg.DB.ReadSSLMode)
 }
 
-func TestLoadEnv_MissingRequired_Panics(t *testing.T) {
-	// Unset only the required keys instead of clearing the entire process environment
+func TestLoadEnv_MissingRequired_Errors(t *testing.T) {
+	// unset only the required keys instead of clearing the entire process environment
 	for _, key := range []string{
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSL_MODE",
 		"SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL",
@@ -102,32 +106,27 @@ func TestLoadEnv_MissingRequired_Panics(t *testing.T) {
 		require.NoError(t, os.Unsetenv(key))
 	}
 
-	assert.Panics(t, func() {
-		LoadEnv()
-	})
+	cfg, err := LoadEnv()
+
+	require.Error(t, err)
+	assert.Nil(t, cfg)
 }
 
 func TestLoadEnv_AllowedOrigins_Default(t *testing.T) {
 	setRequiredEnv(t)
 
-	LoadEnv()
+	cfg, err := LoadEnv()
 
-	assert.Equal(t, []string{"http://localhost:3000"}, Env().Server.AllowedOrigins)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"http://localhost:3000"}, cfg.Server.AllowedOrigins)
 }
 
 func TestLoadEnv_AllowedOrigins_Custom(t *testing.T) {
 	setRequiredEnv(t)
 	t.Setenv("ALLOWED_ORIGINS", "https://app.example.com,https://admin.example.com")
 
-	LoadEnv()
+	cfg, err := LoadEnv()
 
-	assert.Equal(t, []string{"https://app.example.com", "https://admin.example.com"}, Env().Server.AllowedOrigins)
-}
-
-func TestEnv_ReturnsNilBeforeLoad(t *testing.T) {
-	original := cfg
-	cfg = nil
-	defer func() { cfg = original }()
-
-	assert.Nil(t, Env())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"https://app.example.com", "https://admin.example.com"}, cfg.Server.AllowedOrigins)
 }

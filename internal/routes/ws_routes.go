@@ -7,6 +7,6 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/middleware"
 )
 
-func RegisterWebSocketRoutes(rg *gin.RouterGroup, h handler.WebSocketHandler) {
-	rg.GET("/contests/owner/:owner/name/:name", middleware.AuthMiddlewareWS(), h.ContestWSConnection)
+func RegisterWebSocketRoutes(rg *gin.RouterGroup, h handler.WebSocketHandler, verifier middleware.TokenVerifier) {
+	rg.GET("/contests/owner/:owner/name/:name", middleware.AuthMiddlewareWS(verifier), h.ContestWSConnection)
 }

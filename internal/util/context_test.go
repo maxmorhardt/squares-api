@@ -12,14 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestGinContext() *gin.Context {
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	return c
-}
-
 func TestLoggerFromContext_WithLogger(t *testing.T) {
 	logger := slog.Default()
 	ctx := context.WithValue(context.Background(), model.LoggerKey, logger)
@@ -53,6 +45,14 @@ func TestLoggerFromGinContext_WithLogger(t *testing.T) {
 	result := LoggerFromGinContext(c)
 
 	assert.Equal(t, logger, result)
+}
+
+func newTestGinContext() *gin.Context {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	return c
 }
 
 func TestLoggerFromGinContext_WithoutLogger(t *testing.T) {

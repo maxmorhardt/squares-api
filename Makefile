@@ -8,6 +8,7 @@ OUT         ?= $(BIN_DIR)/$(BINARY)
 COVER_FILE  ?= coverage.out
 COVER_TOOL  ?= github.com/vladopajic/go-test-coverage/v2@v2.18.8
 SWAG        := go run github.com/swaggo/swag/cmd/swag@v1.16.6
+MOCKERY     := go run github.com/vektra/mockery/v2@v2.53.4
 RACE        ?=
 BUILD_FLAGS ?=
 LDFLAGS     ?=
@@ -62,6 +63,10 @@ lint: ## Run golangci-lint
 .PHONY: fmt
 fmt: ## Format all Go files
 	gofmt -w .
+
+.PHONY: mocks
+mocks: ## Regenerate testify mocks (mockery)
+	$(MOCKERY)
 
 .PHONY: swag
 swag: ## Regenerate swagger docs

@@ -2,28 +2,22 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 )
 
-var oidcVerifier *oidc.IDTokenVerifier
-
-func InitOIDC() {
-	provider, err := oidc.NewProvider(context.Background(), Env().OIDC.Issuer)
+func InitOIDC(cfg *Config) (*oidc.IDTokenVerifier, error) {
+	provider, err := oidc.NewProvider(context.Background(), cfg.OIDC.Issuer)
 	if err != nil {
-		slog.Error("failed to create oidc provider", "error", err)
-		panic(err)
+		return nil, fmt.Errorf("failed to create oidc provider: %w", err)
 	}
 
-	oidcConfig := &oidc.Config{
-		ClientID: Env().OIDC.ClientID,
-	}
-	oidcVerifier = provider.Verifier(oidcConfig)
+	verifier := provider.Verifier(&oidc.Config{
+		ClientID: cfg.OIDC.ClientID,
+	})
 
 	slog.Info("oidc configuration initialized")
-}
-
-func OIDCVerifier() *oidc.IDTokenVerifier {
-	return oidcVerifier
+	return verifier, nil
 }

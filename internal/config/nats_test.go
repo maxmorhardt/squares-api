@@ -4,23 +4,27 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestNATS_ReturnsNilWhenNotInitialized(t *testing.T) {
-	original := natsConn
-	natsConn = nil
-	defer func() { natsConn = original }()
+func TestInitNATS_InvalidURL(t *testing.T) {
+	cfg := &Config{}
+	cfg.NATS.URL = "nats://127.0.0.1:1"
 
-	assert.Nil(t, NATS())
+	conn, err := InitNATS(cfg)
+
+	require.Error(t, err)
+	assert.Nil(t, conn)
+	assert.Contains(t, err.Error(), "failed to connect to NATS")
 }
 
-func TestCloseNATS_NilConnection(t *testing.T) {
-	original := natsConn
-	natsConn = nil
-	defer func() { natsConn = original }()
+func TestInitNATS_MalformedURL(t *testing.T) {
+	cfg := &Config{}
+	cfg.NATS.URL = "not-a-valid-url"
 
-	// Should not panic
-	assert.NotPanics(t, func() {
-		CloseNATS()
-	})
+	conn, err := InitNATS(cfg)
+
+	require.Error(t, err)
+	assert.Nil(t, conn)
+	assert.Contains(t, err.Error(), "failed to connect to NATS")
 }
