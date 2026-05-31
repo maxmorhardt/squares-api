@@ -221,6 +221,13 @@ func (s *contestService) StartContest(ctx context.Context, contestID uuid.UUID, 
 		return nil, errors.New("contest must be in ACTIVE status to start")
 	}
 
+	for i := range contest.Squares {
+		if contest.Squares[i].Owner == "" {
+			log.Warn("cannot start contest - unclaimed squares remain", "contest_id", contestID)
+			return nil, errs.ErrContestNotReady
+		}
+	}
+
 	// transition to q1 and randomize labels
 	if err := s.transitionToQ1(ctx, contest, user); err != nil {
 		log.Error("failed to transition to Q1", "contest_id", contestID, "error", err)

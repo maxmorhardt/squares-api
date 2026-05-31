@@ -137,9 +137,24 @@ func TestStartContest_NotActive(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestStartContest_UnclaimedSquares(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status:  model.ContestStatusActive,
+		Squares: []model.Square{{Owner: "alice"}, {Owner: ""}},
+	}, nil)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		StartContest(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, errs.ErrContestNotReady)
+}
+
 func TestStartContest_Success(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
-	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status:  model.ContestStatusActive,
+		Squares: []model.Square{{Owner: "alice"}, {Owner: "bob"}},
+	}, nil)
 	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
 
 	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
@@ -376,7 +391,10 @@ func TestUpdateContest_SaveError(t *testing.T) {
 
 func TestStartContest_UpdateError(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
-	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status:  model.ContestStatusActive,
+		Squares: []model.Square{{Owner: "alice"}},
+	}, nil)
 	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(errors.New("db"))
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).

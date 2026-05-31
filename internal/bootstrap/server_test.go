@@ -14,7 +14,7 @@ func TestNewServer_WiresRoutesWithoutInfra(t *testing.T) {
 
 	cfg := &config.Config{}
 	cfg.Server.ContactRateLimit = 10
-	deps := &Dependencies{Config: cfg, DB: nil, NATS: nil, OIDC: nil}
+	deps := &Dependencies{Config: cfg, DB: nil, NATS: nil}
 
 	r := NewServer(deps)
 	require.NotNil(t, r)
@@ -49,7 +49,7 @@ func TestNewServer_MetricsEnabled(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Server.ContactRateLimit = 10
 	cfg.Server.MetricsEnabled = true
-	deps := &Dependencies{Config: cfg, DB: nil, NATS: nil, OIDC: nil}
+	deps := &Dependencies{Config: cfg, DB: nil, NATS: nil}
 
 	r := NewServer(deps)
 

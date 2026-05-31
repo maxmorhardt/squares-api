@@ -1,7 +1,6 @@
 package bootstrap
 
 import (
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	_ "github.com/maxmorhardt/squares-api/docs"
 	"github.com/maxmorhardt/squares-api/internal/config"
@@ -15,10 +14,10 @@ import (
 )
 
 type Dependencies struct {
-	Config *config.Config
-	DB     *gorm.DB
-	NATS   *nats.Conn
-	OIDC   *oidc.IDTokenVerifier
+	Config   *config.Config
+	DB       *gorm.DB
+	NATS     *nats.Conn
+	Verifier middleware.TokenVerifier
 }
 
 func BuildDependencies() (*Dependencies, error) {
@@ -34,19 +33,26 @@ func BuildDependencies() (*Dependencies, error) {
 
 	nc, err := config.InitNATS(cfg)
 	if err != nil {
+		if sqlDB, dbErr := db.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
 		return nil, err
 	}
 
-	verifier, err := config.InitOIDC(cfg)
+	oidcVerifier, err := config.InitOIDC(cfg)
 	if err != nil {
+		nc.Close()
+		if sqlDB, dbErr := db.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
 		return nil, err
 	}
 
 	return &Dependencies{
-		Config: cfg,
-		DB:     db,
-		NATS:   nc,
-		OIDC:   verifier,
+		Config:   cfg,
+		DB:       db,
+		NATS:     nc,
+		Verifier: middleware.NewOIDCTokenVerifier(oidcVerifier),
 	}, nil
 }
 
@@ -54,7 +60,7 @@ func NewServer(deps *Dependencies) *gin.Engine {
 	r := gin.New()
 
 	setupMiddleware(r, deps.Config)
-	setupRoutes(r, deps)
+	setupRoutes(r, deps, deps.Verifier)
 	setupMetricsServer(deps.Config)
 	setupValidators()
 
@@ -72,9 +78,8 @@ func setupMiddleware(r *gin.Engine, cfg *config.Config) {
 	}
 }
 
-func setupRoutes(r *gin.Engine, deps *Dependencies) {
+func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVerifier) {
 	db := deps.DB
-	verifier := middleware.NewOIDCTokenVerifier(deps.OIDC)
 
 	contestRepo := repository.NewContestRepository(db)
 	contactRepo := repository.NewContactRepository(db)
@@ -97,7 +102,7 @@ func setupRoutes(r *gin.Engine, deps *Dependencies) {
 	statsHandler := handler.NewStatsHandler(statsService)
 	inviteHandler := handler.NewInviteHandler(inviteService)
 	participantHandler := handler.NewParticipantHandler(participantService)
-	healthHandler := handler.NewHealthHandler(db, deps.NATS, deps.OIDC)
+	healthHandler := handler.NewHealthHandler(db, deps.NATS, deps.Verifier)
 
 	routes.RegisterRootRoutes(r.Group(""), healthHandler)
 	routes.RegisterStatsRoutes(r.Group("/stats"), statsHandler)

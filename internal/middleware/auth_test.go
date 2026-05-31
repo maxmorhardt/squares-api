@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -61,6 +62,19 @@ func TestAuthMiddleware_VerifyError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Authorization", "Bearer badtoken")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.False(t, *reached)
+}
+
+func TestAuthMiddleware_ClaimsParseError(t *testing.T) {
+	claimsErr := fmt.Errorf("%w: %w", errClaimsParse, errors.New("json: cannot unmarshal"))
+	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{err: claimsErr}))
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
+	req.Header.Set("Authorization", "Bearer validtoken")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

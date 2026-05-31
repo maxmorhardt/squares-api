@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -13,6 +15,8 @@ import (
 )
 
 const authErrorMessage = "Authentication required. Please log in to continue"
+
+var errClaimsParse = errors.New("claims parse failed")
 
 type TokenVerifier interface {
 	Verify(ctx context.Context, token string) (*model.Claims, error)
@@ -34,7 +38,7 @@ func (v *oidcTokenVerifier) Verify(ctx context.Context, token string) (*model.Cl
 
 	claims := &model.Claims{}
 	if err := idToken.Claims(claims); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", errClaimsParse, err)
 	}
 
 	return claims, nil
@@ -108,7 +112,11 @@ func verifyToken(c *gin.Context, verifier TokenVerifier, isWebSocket bool) *mode
 	claims, err := verifier.Verify(c.Request.Context(), token)
 	if err != nil {
 		log.Warn("failed to verify token", "error", err)
-		metrics.RecordAuthFailure(model.AuthFailureVerifyFailed)
+		if errors.Is(err, errClaimsParse) {
+			metrics.RecordAuthFailure(model.AuthFailureClaimsParse)
+		} else {
+			metrics.RecordAuthFailure(model.AuthFailureVerifyFailed)
+		}
 		if !isWebSocket {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}

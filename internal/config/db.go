@@ -27,9 +27,15 @@ func InitDB(cfg *Config) (*gorm.DB, error) {
 
 	if cfg.DB.ReadHost != "" {
 		if err := validateReadReplicaConfig(cfg); err != nil {
+			if sqlDB, dbErr := db.DB(); dbErr == nil {
+				_ = sqlDB.Close()
+			}
 			return nil, err
 		}
 		if err := setupReadReplica(cfg, db); err != nil {
+			if sqlDB, dbErr := db.DB(); dbErr == nil {
+				_ = sqlDB.Close()
+			}
 			return nil, err
 		}
 	}

@@ -14,7 +14,6 @@ jobs:
     with:
       repository: ${{ github.repository }}
       swagger: true
-    secrets: inherit
 
   docker-ci:
     uses: maxmorhardt/workflows/.github/workflows/ci-docker.yml@main

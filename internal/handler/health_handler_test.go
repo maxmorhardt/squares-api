@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -9,10 +10,10 @@ import (
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
 	nats "github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,12 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+type stubVerifier struct{}
+
+func (stubVerifier) Verify(_ context.Context, _ string) (*model.Claims, error) {
+	return nil, nil
+}
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -57,8 +64,7 @@ func TestHealth_Readiness_AllDown(t *testing.T) {
 }
 
 func TestHealth_Readiness_OIDCVerifierPresent(t *testing.T) {
-	verifier := new(oidc.IDTokenVerifier)
-	h := NewHealthHandler(nil, nil, verifier)
+	h := NewHealthHandler(nil, nil, stubVerifier{})
 	r := gin.New()
 	r.GET("/health/ready", h.Readiness)
 
@@ -133,8 +139,7 @@ func TestHealth_Readiness_AllUp(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { nc.Close() })
 
-	verifier := new(oidc.IDTokenVerifier)
-	h := NewHealthHandler(gdb, nc, verifier)
+	h := NewHealthHandler(gdb, nc, stubVerifier{})
 	r := gin.New()
 	r.GET("/health/ready", h.Readiness)
 
