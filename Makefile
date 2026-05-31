@@ -9,6 +9,8 @@ COVER_FILE  ?= coverage.out
 COVER_TOOL  ?= github.com/vladopajic/go-test-coverage/v2@v2.18.8
 SWAG        := go run github.com/swaggo/swag/cmd/swag@v1.16.6
 MOCKERY     := go run github.com/vektra/mockery/v2@v2.53.4
+MIGRATE     := go run -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+MIGRATIONS  := internal/config/migrations
 RACE        ?=
 BUILD_FLAGS ?=
 LDFLAGS     ?=
@@ -67,6 +69,18 @@ fmt: ## Format all Go files
 .PHONY: mocks
 mocks: ## Regenerate testify mocks (mockery)
 	$(MOCKERY)
+
+.PHONY: migrate-create
+migrate-create: ## Create a new migration pair: make migrate-create NAME=add_foo
+	$(MIGRATE) create -ext sql -dir $(MIGRATIONS) -seq $(NAME)
+
+.PHONY: migrate-up
+migrate-up: ## Apply migrations (DATABASE_URL=postgres://user:pass@host:port/db?sslmode=disable)
+	$(MIGRATE) -path $(MIGRATIONS) -database "$(DATABASE_URL)" up
+
+.PHONY: migrate-down
+migrate-down: ## Roll back the last migration (set DATABASE_URL)
+	$(MIGRATE) -path $(MIGRATIONS) -database "$(DATABASE_URL)" down 1
 
 .PHONY: swag
 swag: ## Regenerate swagger docs

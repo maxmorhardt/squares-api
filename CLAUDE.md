@@ -7,7 +7,7 @@ This guide provides context for coding agents working in this repository. Square
 - `cmd/main.go` – process entrypoint. Loads env, builds the bootstrap, starts the server.
 - `internal/` – application source (private, not intended for import by other modules).
   - `bootstrap/` – wires the app: HTTP server, GORM DB, NATS, OIDC verifier, validators, Prometheus metrics.
-  - `config/` – env loading and typed config structs.
+  - `config/` – env loading, typed config structs, DB/NATS/OIDC init, and schema migrations (`migrate.go` + embedded `migrations/*.sql`, run at startup).
   - `errs/` – sentinel errors (`ErrContestNotFound`, `ErrInsufficientRole`, etc.) used to map service errors → HTTP status codes in handlers.
   - `handler/` – Gin HTTP handlers, one file per resource (`contest_handler.go`, `participant_handler.go`, …). Each handler defines its own interface so it can be stubbed in tests.
   - `metrics/` – Prometheus collectors (counters, histograms). Each file (`http.go`, `auth.go`, `business.go`, `nats.go`, `request_size.go`, `ws.go`) defines its metrics and registers them via a package `init()`. `bootstrap/metrics.go` only starts the Prometheus HTTP scrape server.
@@ -35,6 +35,7 @@ This guide provides context for coding agents working in this repository. Square
 - Integration tests in `test/` use **testcontainers-go** to launch Postgres + NATS. They require a working Docker daemon — on Windows, rootless Docker is **not** supported by testcontainers, so use Docker Desktop or run just unit tests with `make test`.
 - Swagger docs: regenerate with `make swag` after changing handler annotations.
 - Dependency upgrades: `make deps` (`go get -u -t ./... && go mod tidy`); `make tidy` for tidy alone.
+- Migrations: schema is managed by **golang-migrate** SQL files in `internal/config/migrations/`, embedded via `go:embed` and applied on startup in `config/setupPrimary` (advisory-locked, safe across replicas). Create a new pair with `make migrate-create NAME=add_foo`; `make migrate-up`/`migrate-down` (set `DATABASE_URL`) for manual ops. The baseline `000001_init` uses `IF NOT EXISTS` so it cleanly versions a pre-existing AutoMigrate'd database. Models in `internal/model` no longer drive schema — change a model **and** add a migration.
 
 ## Architecture
 

@@ -20,7 +20,7 @@ A real-time football squares pool API built with Go and Gin. Supports contest li
 - **Real-time Updates** - WebSocket connections for live contest, square, and quarter result updates
 - **OIDC Authentication** - JWT token validation with username, first name, and last name claims
 - **NATS Messaging** - Scales horizontally with cross-instance WebSocket broadcasting
-- **PostgreSQL** - Data persistence with GORM ORM and automatic migrations
+- **PostgreSQL** - Data persistence with GORM ORM; schema managed by versioned **golang-migrate** migrations applied at startup
 - **Swagger Documentation** - Auto-generated API documentation
 
 ## Dependencies
