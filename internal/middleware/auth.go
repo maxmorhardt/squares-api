@@ -106,6 +106,12 @@ func verifyToken(c *gin.Context, verifier TokenVerifier, isWebSocket bool) *mode
 		}
 
 		token = strings.TrimPrefix(authHeader, "Bearer ")
+		if token == "" {
+			log.Warn("empty bearer token")
+			metrics.RecordAuthFailure(model.AuthFailureMissingHeader)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
+			return nil
+		}
 	}
 
 	// verify token and extract claims via the injected verifier

@@ -45,6 +45,18 @@ func (f *fakeVerifier) Verify(_ context.Context, _ string) (*model.Claims, error
 	return f.claims, f.err
 }
 
+func TestAuthMiddleware_EmptyToken(t *testing.T) {
+	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{claims: &model.Claims{Username: "alice"}}))
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
+	req.Header.Set("Authorization", "Bearer ")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.False(t, *reached)
+}
+
 func TestAuthMiddleware_BadPrefix(t *testing.T) {
 	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{}))
 

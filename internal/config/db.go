@@ -96,6 +96,9 @@ func setupPrimary(cfg *Config) (*gorm.DB, error) {
 
 	for _, m := range models {
 		if migErr := db.AutoMigrate(m); migErr != nil {
+			if sqlDB, dbErr := db.DB(); dbErr == nil {
+				_ = sqlDB.Close()
+			}
 			return nil, fmt.Errorf("failed to migrate model: %w", migErr)
 		}
 	}

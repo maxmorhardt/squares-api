@@ -82,7 +82,7 @@ The codebase follows a strict **handler → service → repository** layering:
 ## Testing
 
 - One `_test.go` per source file (no `testutil`/`_internal` test files). Tests of unexported helpers use white-box `package <pkg>`; tests that need mockery mocks use black-box `package <pkg>_test` (the `internal/mocks` package imports the real packages, so white-box would create an import cycle).
-- Interface dependencies are mocked with **mockery** (`make mocks` regenerates `internal/mocks`; config in `.mockery.yaml`). Use the testify expecter API, e.g. `m := mocks.NewContestService(t); m.EXPECT().CreateContest(...).Return(...)`. The `NatsService` mock is stubbed permissively (publishes are fire-and-forget goroutines). Handler tests use `gin.New()` / `authenticatedMiddleware(user)` helpers in `health_handler_test.go`.
+- Interface dependencies are mocked with **mockery** (`make mocks` regenerates `internal/mocks`; config in `.mockery.yaml`). Use the testify expecter API, e.g. `m := mocks.NewContestService(t); m.EXPECT().CreateContest(...).Return(...)`. The `NatsService` mock is stubbed permissively (publishes are fire-and-forget goroutines). Handler tests use `gin.New()` / `authenticatedMiddleware(user)` helpers in `contest_handler_test.go`.
 - Repositories have **go-sqlmock** unit tests (pure Go, no cgo) plus end-to-end coverage from the integration tests in `test/` (real Postgres + NATS via testcontainers, needs Docker). sqlmock tests set `mock.MatchExpectationsInOrder(false)` since GORM preloads run in non-deterministic order.
 - After changing an interface, run `make mocks` to regenerate its mock.
 - Run `make test` (or `go test ./...`) and `make lint` before committing. The 80% coverage threshold is enforced in CI via `make cover`.
