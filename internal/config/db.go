@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"gorm.io/driver/postgres"
@@ -84,30 +83,18 @@ func setupPrimary(cfg *Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to primary database: %w", err)
 	}
 
-	// auto-migrate models
-	models := []any{
-		&model.Contest{},
-		&model.Square{},
-		&model.QuarterResult{},
-		&model.ContactSubmission{},
-		&model.ContestParticipant{},
-		&model.ContestInvite{},
-	}
-
-	for _, m := range models {
-		if migErr := db.AutoMigrate(m); migErr != nil {
-			if sqlDB, dbErr := db.DB(); dbErr == nil {
-				_ = sqlDB.Close()
-			}
-			return nil, fmt.Errorf("failed to migrate model: %w", migErr)
-		}
-	}
-
-	// configure connection pool
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
+
+	// apply schema migrations before serving
+	if migErr := runMigrations(sqlDB); migErr != nil {
+		_ = sqlDB.Close()
+		return nil, migErr
+	}
+
+	// configure connection pool
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(maxConnLifetime)
