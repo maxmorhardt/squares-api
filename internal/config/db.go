@@ -88,8 +88,8 @@ func setupPrimary(cfg *Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
 
-	// apply schema migrations before serving
-	if migErr := runMigrations(sqlDB); migErr != nil {
+	// apply schema migrations before serving (migrate uses its own connection)
+	if migErr := runMigrations(cfg); migErr != nil {
 		_ = sqlDB.Close()
 		return nil, migErr
 	}

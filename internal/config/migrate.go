@@ -1,37 +1,52 @@
 package config
 
 import (
-	"database/sql"
 	"embed"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/url"
+	"strconv"
 
 	"github.com/golang-migrate/migrate/v4"
-	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-func runMigrations(sqlDB *sql.DB) error {
+func migrationDatabaseURL(cfg *Config) string {
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(cfg.DB.User, cfg.DB.Password),
+		Host:   net.JoinHostPort(cfg.DB.Host, strconv.Itoa(cfg.DB.Port)),
+		Path:   "/" + cfg.DB.Name,
+	}
+	q := u.Query()
+	q.Set("sslmode", cfg.DB.SSLMode)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+func runMigrations(cfg *Config) error {
 	src, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
 		return fmt.Errorf("failed to load embedded migrations: %w", err)
 	}
 
-	// golang-migrate takes a postgres advisory lock, so concurrent pod startups
-	// are serialized rather than racing the schema
-	driver, err := migratepg.WithInstance(sqlDB, &migratepg.Config{})
+	// own connection (not gorm's pool), so the deferred m.Close is safe
+	m, err := migrate.NewWithSourceInstance("iofs", src, migrationDatabaseURL(cfg))
 	if err != nil {
-		return fmt.Errorf("failed to create migration driver: %w", err)
-	}
-
-	m, err := migrate.NewWithInstance("iofs", src, "postgres", driver)
-	if err != nil {
+		_ = src.Close()
 		return fmt.Errorf("failed to initialize migrator: %w", err)
 	}
+	defer func() {
+		if srcErr, dbErr := m.Close(); srcErr != nil || dbErr != nil {
+			slog.Warn("failed to close migrator", "source_error", srcErr, "db_error", dbErr)
+		}
+	}()
 
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
