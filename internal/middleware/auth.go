@@ -67,7 +67,9 @@ func AuthMiddlewareWS(verifier TokenVerifier) gin.HandlerFunc {
 func authMiddleware(c *gin.Context, claims *model.Claims) {
 	// abort if token verification failed
 	if claims == nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
+		if !c.IsAborted() {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
+		}
 		return
 	}
 
@@ -127,7 +129,10 @@ func verifyToken(c *gin.Context, verifier TokenVerifier, isWebSocket bool) *mode
 		} else {
 			metrics.RecordAuthFailure(model.AuthFailureVerifyFailed)
 		}
-		if !isWebSocket {
+		if isWebSocket {
+			// avoid writing a body for websocket upgrade failures, caller closes socket
+			c.Abort()
+		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}
 
