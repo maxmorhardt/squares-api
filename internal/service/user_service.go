@@ -64,7 +64,7 @@ func (s *userService) DeleteAccount(ctx context.Context, email string) error {
 	for _, id := range contestIDs {
 		if err := s.contestService.DeleteContest(ctx, id, email); err != nil {
 			log.Error("failed to delete owned contest during account deletion", "contest_id", id, "error", err)
-			return errs.ErrDatabaseUnavailable
+			return err
 		}
 	}
 

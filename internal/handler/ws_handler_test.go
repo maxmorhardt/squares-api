@@ -60,7 +60,7 @@ func serveWS(t *testing.T, h WebSocketHandler) *httptest.Server {
 	t.Helper()
 	r := gin.New()
 	r.Use(authenticatedMiddleware("user1"))
-	r.GET("/ws/contests/owner/:owner/name/:name", h.ContestWSConnection)
+	r.GET("/ws/contests/:id", h.ContestWSConnection)
 	return httptest.NewServer(r)
 }
 
@@ -74,7 +74,7 @@ func dialWS(t *testing.T, server *httptest.Server, path string) (*websocket.Conn
 
 func expectCloseCode(t *testing.T, server *httptest.Server, code int) {
 	t.Helper()
-	conn, _, err := dialWS(t, server, "/ws/contests/owner/o1/name/n1")
+	conn, _, err := dialWS(t, server, "/ws/contests/"+uuid.New().String())
 	require.NoError(t, err)
 	defer conn.Close()
 
@@ -90,9 +90,9 @@ func TestWSHandler_UpgradeFails(t *testing.T) {
 
 	r := gin.New()
 	r.Use(authenticatedMiddleware("user1"))
-	r.GET("/ws/contests/owner/:owner/name/:name", h.ContestWSConnection)
+	r.GET("/ws/contests/:id", h.ContestWSConnection)
 
-	req, _ := http.NewRequest(http.MethodGet, "/ws/contests/owner/o1/name/n1", http.NoBody)
+	req, _ := http.NewRequest(http.MethodGet, "/ws/contests/"+uuid.New().String(), http.NoBody)
 	w := doRequest(r, req)
 
 	assert.True(t, w.Code == http.StatusBadRequest || w.Code == http.StatusInternalServerError)
@@ -100,7 +100,7 @@ func TestWSHandler_UpgradeFails(t *testing.T) {
 
 func TestWSHandler_ContestNotFound(t *testing.T) {
 	repo := &mocks.ContestRepository{}
-	repo.On("GetByOwnerAndName", mock.Anything, mock.Anything, mock.Anything).Return(nil, gorm.ErrRecordNotFound)
+	repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, gorm.ErrRecordNotFound)
 	h := newWSHandler(t, repo, &mocks.WebSocketService{}, &mocks.ParticipantService{}, false)
 
 	server := serveWS(t, h)
@@ -110,7 +110,7 @@ func TestWSHandler_ContestNotFound(t *testing.T) {
 
 func TestWSHandler_ContestRepoError(t *testing.T) {
 	repo := &mocks.ContestRepository{}
-	repo.On("GetByOwnerAndName", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, assert.AnError)
 	h := newWSHandler(t, repo, &mocks.WebSocketService{}, &mocks.ParticipantService{}, false)
 
 	server := serveWS(t, h)
@@ -120,7 +120,7 @@ func TestWSHandler_ContestRepoError(t *testing.T) {
 
 func TestWSHandler_Unauthorized(t *testing.T) {
 	repo := &mocks.ContestRepository{}
-	repo.On("GetByOwnerAndName", mock.Anything, mock.Anything, mock.Anything).
+	repo.On("GetByID", mock.Anything, mock.Anything).
 		Return(&model.Contest{ID: uuid.New(), Owner: "owner1", Name: "test"}, nil)
 	pSvc := &mocks.ParticipantService{}
 	pSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, service.ActionView).Return(assert.AnError)
@@ -133,7 +133,7 @@ func TestWSHandler_Unauthorized(t *testing.T) {
 
 func TestWSHandler_NATSUnavailable(t *testing.T) {
 	repo := &mocks.ContestRepository{}
-	repo.On("GetByOwnerAndName", mock.Anything, mock.Anything, mock.Anything).
+	repo.On("GetByID", mock.Anything, mock.Anything).
 		Return(&model.Contest{ID: uuid.New(), Owner: "owner1", Name: "test"}, nil)
 	pSvc := &mocks.ParticipantService{}
 	pSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -146,7 +146,7 @@ func TestWSHandler_NATSUnavailable(t *testing.T) {
 
 func TestWSHandler_ParticipantsFetchFails(t *testing.T) {
 	repo := &mocks.ContestRepository{}
-	repo.On("GetByOwnerAndName", mock.Anything, mock.Anything, mock.Anything).
+	repo.On("GetByID", mock.Anything, mock.Anything).
 		Return(&model.Contest{ID: uuid.New(), Owner: "owner1", Name: "test"}, nil)
 	pSvc := &mocks.ParticipantService{}
 	pSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -164,7 +164,7 @@ func TestWSHandler_HandoffToService(t *testing.T) {
 	participants := []model.ContestParticipant{{ContestID: contestID, UserID: "user1", Role: model.ParticipantRoleParticipant}}
 
 	repo := &mocks.ContestRepository{}
-	repo.On("GetByOwnerAndName", mock.Anything, mock.Anything, mock.Anything).Return(contest, nil)
+	repo.On("GetByID", mock.Anything, mock.Anything).Return(contest, nil)
 	pSvc := &mocks.ParticipantService{}
 	pSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	pSvc.On("GetParticipantsInternal", mock.Anything, mock.Anything).Return(participants, nil)
@@ -183,7 +183,7 @@ func TestWSHandler_HandoffToService(t *testing.T) {
 	server := serveWS(t, h)
 	defer server.Close()
 
-	conn, _, err := dialWS(t, server, "/ws/contests/owner/owner1/name/test")
+	conn, _, err := dialWS(t, server, "/ws/contests/"+contestID.String())
 	require.NoError(t, err)
 	defer conn.Close()
 	conn.ReadMessage() //nolint:errcheck // draining until server closes

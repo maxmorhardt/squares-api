@@ -11,7 +11,6 @@ import (
 type ContestRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Contest, error)
 	GetVisibilityByID(ctx context.Context, id uuid.UUID) (model.ContestVisibility, error)
-	GetByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error)
 	ExistsByOwnerAndName(ctx context.Context, owner, name string) (bool, error)
 	GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error)
 	GetAllByParticipantUserID(ctx context.Context, userID, search string) ([]model.Contest, error)
@@ -57,18 +56,6 @@ func (r *contestRepository) GetVisibilityByID(ctx context.Context, id uuid.UUID)
 		Select("visibility").
 		First(&contest, "id = ? AND status != ?", id, model.ContestStatusDeleted).Error
 	return contest.Visibility, err
-}
-
-func (r *contestRepository) GetByOwnerAndName(ctx context.Context, owner, name string) (*model.Contest, error) {
-	var contest model.Contest
-	err := r.db.WithContext(ctx).
-		Preload("Squares").
-		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
-			return db.Order("quarter ASC")
-		}).
-		First(&contest, "owner = ? AND name = ? AND status != ?", owner, name, model.ContestStatusDeleted).Error
-
-	return &contest, err
 }
 
 func (r *contestRepository) ExistsByOwnerAndName(ctx context.Context, owner, name string) (bool, error) {

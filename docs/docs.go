@@ -51,6 +51,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
                     }
                 }
             }
@@ -137,6 +143,12 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/model.ContestSwagger"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
                         }
                     }
                 }
@@ -243,25 +255,25 @@ const docTemplate = `{
                         "description": "Contest deleted successfully"
                     },
                     "400": {
-                        "description": "Invalid contest id",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
                     "403": {
-                        "description": "Forbidden - user is not the owner",
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
                     "404": {
-                        "description": "Contest not found",
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -444,6 +456,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
                     }
                 }
             }
@@ -599,6 +617,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
                     }
                 }
             },
@@ -659,6 +683,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -1011,14 +1041,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.InvitePreviewResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
-                    "410": {
-                        "description": "Gone",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -1074,12 +1104,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
-                    },
-                    "410": {
-                        "description": "Gone",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
                     }
                 }
             }
@@ -1132,12 +1156,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.UserProfileResponse"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1161,8 +1179,14 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     },
-                    "401": {
-                        "description": "Unauthorized",
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -1198,12 +1222,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.UserStatsResponse"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
-                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1213,7 +1231,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/ws/contests/owner/{owner}/name/{name}": {
+        "/ws/contests/{id}": {
             "get": {
                 "security": [
                     {
@@ -1228,15 +1246,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Contest Owner",
-                        "name": "owner",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Contest Name",
-                        "name": "name",
+                        "description": "Contest ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -1537,6 +1548,9 @@ const docTemplate = `{
         "model.InvitePreviewResponse": {
             "type": "object",
             "properties": {
+                "contestId": {
+                    "type": "string"
+                },
                 "contestName": {
                     "type": "string"
                 },

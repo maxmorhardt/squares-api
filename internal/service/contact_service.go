@@ -65,7 +65,7 @@ func (s *contactService) SubmitContact(ctx context.Context, req *model.ContactRe
 
 	log.Info("contact submission saved to database", "submission_id", submission.ID)
 
-	// send email notification asynchronously so the request returns immediately
+	// send email notification asynchronously
 	go func() {
 		if err := s.sendEmailNotification(req); err != nil {
 			log.Error("failed to send contact email notification", "error", err, "submission_id", submission.ID)
@@ -84,7 +84,6 @@ func sanitizeHeader(v string) string {
 }
 
 func (s *contactService) sendEmailNotification(req *model.ContactRequest) error {
-	// construct email message
 	from := s.cfg.SMTP.User
 	to := []string{s.cfg.SMTP.SupportEmail}
 	subject := sanitizeHeader(fmt.Sprintf("Contact Form: %s", req.Subject))

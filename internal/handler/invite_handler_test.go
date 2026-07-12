@@ -110,10 +110,10 @@ func TestGetInvitePreview_NotFound(t *testing.T) {
 	getInvitePreviewErr(t, errs.ErrInviteNotFound, http.StatusNotFound)
 }
 func TestGetInvitePreview_Expired(t *testing.T) {
-	getInvitePreviewErr(t, errs.ErrInviteExpired, http.StatusGone)
+	getInvitePreviewErr(t, errs.ErrInviteExpired, http.StatusBadRequest)
 }
 func TestGetInvitePreview_MaxUsesReached(t *testing.T) {
-	getInvitePreviewErr(t, errs.ErrInviteMaxUsesReached, http.StatusGone)
+	getInvitePreviewErr(t, errs.ErrInviteMaxUsesReached, http.StatusBadRequest)
 }
 func TestGetInvitePreview_InternalError(t *testing.T) {
 	getInvitePreviewErr(t, assert.AnError, http.StatusInternalServerError)
@@ -159,10 +159,10 @@ func TestRedeemInvite_AlreadyParticipant(t *testing.T) {
 	redeemInviteErr(t, errs.ErrAlreadyParticipant, http.StatusConflict)
 }
 func TestRedeemInvite_Expired(t *testing.T) {
-	redeemInviteErr(t, errs.ErrInviteExpired, http.StatusGone)
+	redeemInviteErr(t, errs.ErrInviteExpired, http.StatusBadRequest)
 }
 func TestRedeemInvite_MaxUsesReached(t *testing.T) {
-	redeemInviteErr(t, errs.ErrInviteMaxUsesReached, http.StatusGone)
+	redeemInviteErr(t, errs.ErrInviteMaxUsesReached, http.StatusBadRequest)
 }
 func TestRedeemInvite_NotEnoughSquares(t *testing.T) {
 	redeemInviteErr(t, errs.ErrNotEnoughSquares, http.StatusUnprocessableEntity)

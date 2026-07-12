@@ -93,13 +93,14 @@ func TestUserService_DeleteAccount_ListError(t *testing.T) {
 func TestUserService_DeleteAccount_DeleteContestError(t *testing.T) {
 	svc, repo, contestSvc := newUserService(t)
 	id1 := uuid.New()
+	deleteErr := errs.ErrContestFinalized
 
 	repo.EXPECT().GetOwnedActiveContestIDs(mock.Anything, "a@b.com").Return([]uuid.UUID{id1}, nil)
-	contestSvc.EXPECT().DeleteContest(mock.Anything, id1, "a@b.com").Return(errors.New("delete failed"))
+	contestSvc.EXPECT().DeleteContest(mock.Anything, id1, "a@b.com").Return(deleteErr)
 
 	err := svc.DeleteAccount(context.Background(), "a@b.com")
 
-	require.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
+	require.ErrorIs(t, err, deleteErr)
 }
 
 func TestUserService_DeleteAccount_ScrubError(t *testing.T) {

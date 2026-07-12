@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// replaces the email of deleted accounts in surviving rows (same convention as github)
 const GhostUser = "ghost"
 
 type User struct {

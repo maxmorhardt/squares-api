@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/service"
 	"github.com/maxmorhardt/squares-api/internal/util"
+	"gorm.io/gorm"
 )
 
 type UserHandler interface {
@@ -40,7 +43,6 @@ func toProfileResponse(user *model.User) model.UserProfileResponse {
 // @Tags users
 // @Produce json
 // @Success 200 {object} model.UserProfileResponse
-// @Failure 401 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /users/me [get]
@@ -68,7 +70,6 @@ func (h *userHandler) GetMe(c *gin.Context) {
 // @Tags users
 // @Produce json
 // @Success 200 {object} model.UserStatsResponse
-// @Failure 401 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /users/me/stats [get]
@@ -89,7 +90,8 @@ func (h *userHandler) GetMyStats(c *gin.Context) {
 // @Description Deletes active owned contests, releases squares in live contests, and anonymizes contest history under the ghost identity
 // @Tags users
 // @Success 204
-// @Failure 401 {object} model.APIError
+// @Failure 403 {object} model.APIError
+// @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /users/me [delete]
@@ -97,7 +99,16 @@ func (h *userHandler) DeleteMe(c *gin.Context) {
 	user := c.GetString(model.UserKey)
 
 	if err := h.userService.DeleteAccount(c.Request.Context(), user); err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
+		case errors.Is(err, errs.ErrContestFinalized):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrUnauthorizedContestDelete):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		default:
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to delete account", c))
+		}
 		return
 	}
 

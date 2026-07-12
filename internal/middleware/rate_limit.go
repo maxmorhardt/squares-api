@@ -35,6 +35,21 @@ func newRateLimiter(limit int) *rateLimiter {
 	}
 }
 
+func ContactRateLimitMiddleware(requestsPerDay int) gin.HandlerFunc {
+	if requestsPerDay <= 0 {
+		requestsPerDay = 1
+	}
+
+	rl := newRateLimiter(requestsPerDay)
+	return func(c *gin.Context) {
+		if !rl.allow(c.ClientIP()) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, model.NewAPIError(http.StatusTooManyRequests, "Too many requests", c))
+			return
+		}
+		c.Next()
+	}
+}
+
 func (rl *rateLimiter) allow(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -63,19 +78,4 @@ func (rl *rateLimiter) allow(ip string) bool {
 
 	e.count++
 	return true
-}
-
-func ContactRateLimitMiddleware(requestsPerDay int) gin.HandlerFunc {
-	if requestsPerDay <= 0 {
-		requestsPerDay = 1
-	}
-
-	rl := newRateLimiter(requestsPerDay)
-	return func(c *gin.Context) {
-		if !rl.allow(c.ClientIP()) {
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, model.NewAPIError(http.StatusTooManyRequests, "Too many requests", c))
-			return
-		}
-		c.Next()
-	}
 }

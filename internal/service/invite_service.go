@@ -120,6 +120,7 @@ func (s *inviteService) GetInvitePreview(ctx context.Context, token string) (*mo
 	}
 
 	return &model.InvitePreviewResponse{
+		ContestID:   contest.ID,
 		ContestName: contest.Name,
 		Owner:       contest.Owner,
 		Role:        string(invite.Role),

@@ -33,6 +33,7 @@ func NewContactHandler(contactService service.ContactService) ContactHandler {
 // @Param contact body model.ContactRequest true "Contact form data"
 // @Success 200 {object} model.ContactResponse
 // @Failure 400 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Router /contact [post]
 func (h *contactHandler) SubmitContact(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)

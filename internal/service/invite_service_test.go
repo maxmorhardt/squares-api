@@ -140,11 +140,12 @@ func TestGetInvitePreview_Success(t *testing.T) {
 	inv := mocks.NewInviteRepository(t)
 	inv.EXPECT().GetByToken(mock.Anything, mock.Anything).Return(&model.ContestInvite{ContestID: contestID, Role: model.ParticipantRoleParticipant, MaxSquares: 5}, nil)
 	c := mocks.NewContestRepository(t)
-	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Name: "Pool", Owner: "owner"}, nil)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{ID: contestID, Name: "Pool", Owner: "owner"}, nil)
 
 	got, err := inviteSvc(inv, mocks.NewParticipantRepository(t), c, mocks.NewParticipantService(t)).
 		GetInvitePreview(context.Background(), "tok")
 	require.NoError(t, err)
+	assert.Equal(t, contestID, got.ContestID)
 	assert.Equal(t, "Pool", got.ContestName)
 	assert.Equal(t, "owner", got.Owner)
 }

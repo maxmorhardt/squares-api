@@ -1,5 +1,7 @@
 package model
 
+import "github.com/google/uuid"
+
 type PaginatedContestResponse struct {
 	Contests    []Contest `json:"contests"`
 	Page        int       `json:"page"`
@@ -34,10 +36,11 @@ type UserStatsResponse struct {
 }
 
 type InvitePreviewResponse struct {
-	ContestName string `json:"contestName"`
-	Owner       string `json:"owner"`
-	Role        string `json:"role"`
-	MaxSquares  int    `json:"maxSquares"`
+	ContestID   uuid.UUID `json:"contestId"`
+	ContestName string    `json:"contestName"`
+	Owner       string    `json:"owner"`
+	Role        string    `json:"role"`
+	MaxSquares  int       `json:"maxSquares"`
 }
 
 type InviteResponse struct {

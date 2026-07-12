@@ -13,4 +13,6 @@ func init() {
 	prometheus.MustRegister(requestSizeRejectedTotal)
 }
 
-func IncRequestSizeRejected() { requestSizeRejectedTotal.Inc() }
+func IncRequestSizeRejected() { 
+	requestSizeRejectedTotal.Inc()
+}
