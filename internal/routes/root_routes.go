@@ -31,8 +31,8 @@ func RegisterRootRoutes(rg *gin.RouterGroup, healthHandler handler.HealthHandler
 
 	rg.GET("/swagger/doc.json", serveSwaggerSpec)
 	rg.GET("/swagger", serveScalar)
+	rg.GET("/swagger/", serveScalar)
 	rg.GET("/swagger/index.html", serveScalar)
-}
 
 func serveSwaggerSpec(c *gin.Context) {
 	doc, err := swag.ReadDoc()
