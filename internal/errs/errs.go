@@ -45,7 +45,9 @@ var (
 )
 
 var (
-	ErrInvalidTurnstile = errors.New("invalid or expired captcha")
+	ErrInvalidTurnstile      = errors.New("invalid or expired captcha")
+	ErrTurnstileVerification = errors.New("failed to verify turnstile token")
+	ErrEmailNotification     = errors.New("failed to send contact email notification")
 )
 
 var (

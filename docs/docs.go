@@ -974,10 +974,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.LivenessResponse"
                         }
                     }
                 }
@@ -997,19 +994,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.ReadinessResponse"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/model.ReadinessResponse"
                         }
                     }
                 }
@@ -1593,6 +1584,14 @@ const docTemplate = `{
                 }
             }
         },
+        "model.LivenessResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "model.PaginatedContestResponseSwagger": {
             "type": "object",
             "properties": {
@@ -1691,6 +1690,23 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 9999,
                     "minimum": 0
+                }
+            }
+        },
+        "model.ReadinessResponse": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string"
+                },
+                "nats": {
+                    "type": "string"
+                },
+                "oidc": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },

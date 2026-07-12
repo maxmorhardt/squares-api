@@ -20,7 +20,8 @@ const scalarPage = `<!doctype html>
   <div id="app"></div>
   <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.62.5"></script>
   <script>
-    Scalar.createApiReference('#app', { url: '/swagger/doc.json', darkMode: true })
+    var base = window.location.pathname.replace(/\/(index\.html)?$/, '')
+    Scalar.createApiReference('#app', { url: base + '/doc.json', darkMode: true })
   </script>
 </body>
 </html>`

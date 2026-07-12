@@ -2,6 +2,17 @@ package model
 
 import "github.com/google/uuid"
 
+type LivenessResponse struct {
+	Status string `json:"status"`
+}
+
+type ReadinessResponse struct {
+	Status   string `json:"status"`
+	Database string `json:"database"`
+	Nats     string `json:"nats"`
+	OIDC     string `json:"oidc"`
+}
+
 type PaginatedContestResponse struct {
 	Contests    []Contest `json:"contests"`
 	Page        int       `json:"page"`

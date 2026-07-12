@@ -196,6 +196,11 @@ definitions:
       role:
         type: string
     type: object
+  model.LivenessResponse:
+    properties:
+      status:
+        type: string
+    type: object
   model.PaginatedContestResponseSwagger:
     properties:
       contests:
@@ -264,6 +269,17 @@ definitions:
         maximum: 9999
         minimum: 0
         type: integer
+    type: object
+  model.ReadinessResponse:
+    properties:
+      database:
+        type: string
+      nats:
+        type: string
+      oidc:
+        type: string
+      status:
+        type: string
     type: object
   model.Square:
     properties:
@@ -1009,9 +1025,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/model.LivenessResponse'
       summary: Liveness check
       tags:
       - health
@@ -1024,15 +1038,11 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/model.ReadinessResponse'
         "503":
           description: Service Unavailable
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/model.ReadinessResponse'
       summary: Readiness check
       tags:
       - health

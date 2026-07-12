@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/nats-io/nats.go"
 	"gorm.io/gorm"
 )
@@ -33,10 +34,10 @@ func NewHealthHandler(db *gorm.DB, natsConn *nats.Conn, oidcVerifier middleware.
 // @Description Returns UP if the service process is running
 // @Tags health
 // @Produce json
-// @Success 200 {object} map[string]string
+// @Success 200 {object} model.LivenessResponse
 // @Router /health/live [get]
 func (h *healthHandler) Liveness(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "UP"})
+	c.JSON(http.StatusOK, model.LivenessResponse{Status: "UP"})
 }
 
 // Readiness godoc
@@ -44,11 +45,11 @@ func (h *healthHandler) Liveness(c *gin.Context) {
 // @Description Checks database, NATS, and OIDC provider connectivity
 // @Tags health
 // @Produce json
-// @Success 200 {object} map[string]string
-// @Failure 503 {object} map[string]string
+// @Success 200 {object} model.ReadinessResponse
+// @Failure 503 {object} model.ReadinessResponse
 // @Router /health/ready [get]
 func (h *healthHandler) Readiness(c *gin.Context) {
-	checks := gin.H{}
+	checks := model.ReadinessResponse{}
 	ready := true
 
 	// database
@@ -58,37 +59,37 @@ func (h *healthHandler) Readiness(c *gin.Context) {
 			err = sqlDB.Ping()
 		}
 		if err != nil {
-			checks["database"] = "DOWN"
+			checks.Database = "DOWN"
 			ready = false
 		} else {
-			checks["database"] = "UP"
+			checks.Database = "UP"
 		}
 	} else {
-		checks["database"] = "DOWN"
+		checks.Database = "DOWN"
 		ready = false
 	}
 
 	// nats
 	if h.natsConn != nil && h.natsConn.IsConnected() {
-		checks["nats"] = "UP"
+		checks.Nats = "UP"
 	} else {
-		checks["nats"] = "DOWN"
+		checks.Nats = "DOWN"
 		ready = false
 	}
 
 	// oidc
 	if h.oidcVerifier != nil {
-		checks["oidc"] = "UP"
+		checks.OIDC = "UP"
 	} else {
-		checks["oidc"] = "DOWN"
+		checks.OIDC = "DOWN"
 		ready = false
 	}
 
 	if ready {
-		checks["status"] = "UP"
+		checks.Status = "UP"
 		c.JSON(http.StatusOK, checks)
 	} else {
-		checks["status"] = "DOWN"
+		checks.Status = "DOWN"
 		c.JSON(http.StatusServiceUnavailable, checks)
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const ContactStatusPending = "pending"
+
 type ContactSubmission struct {
 	ID        uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
 	Name      string    `json:"name" gorm:"type:varchar(100);not null"`
@@ -26,7 +28,7 @@ func (cs *ContactSubmission) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 
 	if cs.Status == "" {
-		cs.Status = "pending"
+		cs.Status = ContactStatusPending
 	}
 
 	return
