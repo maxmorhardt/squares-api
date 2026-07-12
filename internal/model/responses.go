@@ -28,6 +28,13 @@ type UserProfileResponse struct {
 	CreatedAt   string `json:"createdAt" example:"2026-07-11T00:00:00Z"`
 }
 
+type UserActiveContest struct {
+	ID    string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Name  string `json:"name" example:"test"`
+	Owner string `json:"owner" example:"user@example.com"`
+	Role  string `json:"role" example:"owner"`
+}
+
 type UserStatsResponse struct {
 	ContestsCreated int64 `json:"contestsCreated" example:"3"`
 	ContestsJoined  int64 `json:"contestsJoined" example:"7"`

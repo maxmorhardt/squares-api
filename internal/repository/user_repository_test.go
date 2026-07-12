@@ -135,32 +135,35 @@ func TestUserRepository_GetStats_Error(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUserRepository_GetOwnedActiveContestIDs_Success(t *testing.T) {
+func TestUserRepository_GetActiveContests_Success(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewUserRepository(gdb)
 
-	id := uuid.New()
-	mock.ExpectQuery(`SELECT "id" FROM "contests"`).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(id.String()))
+	mock.ExpectQuery(`SELECT c.id, c.name, c.owner`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "owner", "role"}).
+			AddRow(uuid.NewString(), "test", "a@b.com", "owner").
+			AddRow(uuid.NewString(), "pool", "other@b.com", "participant"))
 
-	ids, err := repo.GetOwnedActiveContestIDs(context.Background(), "a@b.com")
+	contests, err := repo.GetActiveContests(context.Background(), "a@b.com")
 
 	require.NoError(t, err)
-	assert.Equal(t, []uuid.UUID{id}, ids)
+	require.Len(t, contests, 2)
+	assert.Equal(t, "owner", contests[0].Role)
+	assert.Equal(t, "participant", contests[1].Role)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUserRepository_GetOwnedActiveContestIDs_Error(t *testing.T) {
+func TestUserRepository_GetActiveContests_Error(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewUserRepository(gdb)
 
-	mock.ExpectQuery(`SELECT "id" FROM "contests"`).
+	mock.ExpectQuery(`SELECT c.id, c.name, c.owner`).
 		WillReturnError(errors.New("query failed"))
 
-	ids, err := repo.GetOwnedActiveContestIDs(context.Background(), "a@b.com")
+	contests, err := repo.GetActiveContests(context.Background(), "a@b.com")
 
 	require.Error(t, err)
-	assert.Nil(t, ids)
+	assert.Nil(t, contests)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

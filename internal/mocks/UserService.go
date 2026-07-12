@@ -69,6 +69,65 @@ func (_c *UserService_DeleteAccount_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// GetActiveContests provides a mock function with given fields: ctx, email
+func (_m *UserService) GetActiveContests(ctx context.Context, email string) ([]model.UserActiveContest, error) {
+	ret := _m.Called(ctx, email)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetActiveContests")
+	}
+
+	var r0 []model.UserActiveContest
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]model.UserActiveContest, error)); ok {
+		return rf(ctx, email)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []model.UserActiveContest); ok {
+		r0 = rf(ctx, email)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.UserActiveContest)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, email)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UserService_GetActiveContests_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetActiveContests'
+type UserService_GetActiveContests_Call struct {
+	*mock.Call
+}
+
+// GetActiveContests is a helper method to define mock.On call
+//   - ctx context.Context
+//   - email string
+func (_e *UserService_Expecter) GetActiveContests(ctx interface{}, email interface{}) *UserService_GetActiveContests_Call {
+	return &UserService_GetActiveContests_Call{Call: _e.mock.On("GetActiveContests", ctx, email)}
+}
+
+func (_c *UserService_GetActiveContests_Call) Run(run func(ctx context.Context, email string)) *UserService_GetActiveContests_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *UserService_GetActiveContests_Call) Return(_a0 []model.UserActiveContest, _a1 error) *UserService_GetActiveContests_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *UserService_GetActiveContests_Call) RunAndReturn(run func(context.Context, string) ([]model.UserActiveContest, error)) *UserService_GetActiveContests_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetProfile provides a mock function with given fields: ctx, email, defaultDisplayName
 func (_m *UserService) GetProfile(ctx context.Context, email string, defaultDisplayName string) (*model.User, error) {
 	ret := _m.Called(ctx, email, defaultDisplayName)

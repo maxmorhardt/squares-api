@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -14,7 +13,7 @@ import (
 type UserRepository interface {
 	GetOrCreate(ctx context.Context, email, defaultDisplayName string) (*model.User, error)
 	GetStats(ctx context.Context, email string) (*model.UserStatsResponse, error)
-	GetOwnedActiveContestIDs(ctx context.Context, email string) ([]uuid.UUID, error)
+	GetActiveContests(ctx context.Context, email string) ([]model.UserActiveContest, error)
 	ScrubUserData(ctx context.Context, email string) error
 }
 
@@ -103,17 +102,22 @@ func (r *userRepository) GetStats(ctx context.Context, email string) (*model.Use
 	return &stats, nil
 }
 
-func (r *userRepository) GetOwnedActiveContestIDs(ctx context.Context, email string) ([]uuid.UUID, error) {
-	var ids []uuid.UUID
+func (r *userRepository) GetActiveContests(ctx context.Context, email string) ([]model.UserActiveContest, error) {
+	var contests []model.UserActiveContest
 
-	if err := r.db.WithContext(ctx).
-		Model(&model.Contest{}).
-		Where("owner = ? AND status NOT IN ?", email, []model.ContestStatus{model.ContestStatusFinished, model.ContestStatusDeleted}).
-		Pluck("id", &ids).Error; err != nil {
+	// contests that still receive live updates, where the user is the owner or a participant
+	if err := r.db.WithContext(ctx).Raw(
+		`SELECT c.id, c.name, c.owner, CASE WHEN c.owner = ? THEN 'owner' ELSE 'participant' END AS role
+		FROM contests c
+		WHERE c.status NOT IN ?
+		AND (c.owner = ? OR c.id IN (SELECT contest_id FROM contest_participants WHERE user_id = ?))
+		ORDER BY c.created_at`,
+		email, []model.ContestStatus{model.ContestStatusFinished, model.ContestStatusDeleted}, email, email).
+		Scan(&contests).Error; err != nil {
 		return nil, err
 	}
 
-	return ids, nil
+	return contests, nil
 }
 
 func (r *userRepository) ScrubUserData(ctx context.Context, email string) error {

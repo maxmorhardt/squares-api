@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 func newUserRouter(t *testing.T) (*mocks.UserService, *gin.Engine) {
@@ -25,6 +24,7 @@ func newUserRouter(t *testing.T) (*mocks.UserService, *gin.Engine) {
 	r.GET("/users/me", h.GetMe)
 	r.DELETE("/users/me", h.DeleteMe)
 	r.GET("/users/me/stats", h.GetMyStats)
+	r.GET("/users/me/active-contests", h.GetMyActiveContests)
 
 	return svc, r
 }
@@ -90,6 +90,38 @@ func TestGetMyStats_ServiceError(t *testing.T) {
 }
 
 // ====================
+// GetMyActiveContests
+// ====================
+
+func TestGetMyActiveContests_Success(t *testing.T) {
+	svc, r := newUserRouter(t)
+	active := []model.UserActiveContest{
+		{ID: "id1", Name: "pool", Owner: "a@b.com", Role: "owner"},
+		{ID: "id2", Name: "office", Owner: "other@b.com", Role: "participant"},
+	}
+	svc.EXPECT().GetActiveContests(mock.Anything, "a@b.com").Return(active, nil)
+
+	req, _ := http.NewRequest(http.MethodGet, "/users/me/active-contests", http.NoBody)
+	w := doRequest(r, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp []model.UserActiveContest
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Len(t, resp, 2)
+	assert.Equal(t, "owner", resp[0].Role)
+}
+
+func TestGetMyActiveContests_ServiceError(t *testing.T) {
+	svc, r := newUserRouter(t)
+	svc.EXPECT().GetActiveContests(mock.Anything, "a@b.com").Return(nil, errs.ErrDatabaseUnavailable)
+
+	req, _ := http.NewRequest(http.MethodGet, "/users/me/active-contests", http.NoBody)
+	w := doRequest(r, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// ====================
 // DeleteMe
 // ====================
 
@@ -103,6 +135,16 @@ func TestDeleteMe_Success(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
+func TestDeleteMe_BlockedByActiveContests(t *testing.T) {
+	svc, r := newUserRouter(t)
+	svc.EXPECT().DeleteAccount(mock.Anything, "a@b.com").Return(errs.ErrAccountActiveContests)
+
+	req, _ := http.NewRequest(http.MethodDelete, "/users/me", http.NoBody)
+	w := doRequest(r, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
 func TestDeleteMe_ServiceError(t *testing.T) {
 	svc, r := newUserRouter(t)
 	svc.EXPECT().DeleteAccount(mock.Anything, "a@b.com").Return(errs.ErrDatabaseUnavailable)
@@ -111,34 +153,4 @@ func TestDeleteMe_ServiceError(t *testing.T) {
 	w := doRequest(r, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestDeleteMe_ContestNotFound(t *testing.T) {
-	svc, r := newUserRouter(t)
-	svc.EXPECT().DeleteAccount(mock.Anything, "a@b.com").Return(gorm.ErrRecordNotFound)
-
-	req, _ := http.NewRequest(http.MethodDelete, "/users/me", http.NoBody)
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestDeleteMe_ContestFinalized(t *testing.T) {
-	svc, r := newUserRouter(t)
-	svc.EXPECT().DeleteAccount(mock.Anything, "a@b.com").Return(errs.ErrContestFinalized)
-
-	req, _ := http.NewRequest(http.MethodDelete, "/users/me", http.NoBody)
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusForbidden, w.Code)
-}
-
-func TestDeleteMe_UnauthorizedContestDelete(t *testing.T) {
-	svc, r := newUserRouter(t)
-	svc.EXPECT().DeleteAccount(mock.Anything, "a@b.com").Return(errs.ErrUnauthorizedContestDelete)
-
-	req, _ := http.NewRequest(http.MethodDelete, "/users/me", http.NoBody)
-	w := doRequest(r, req)
-
-	assert.Equal(t, http.StatusForbidden, w.Code)
 }

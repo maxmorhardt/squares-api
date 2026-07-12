@@ -12,4 +12,5 @@ func RegisterUserRoutes(rg *gin.RouterGroup, h handler.UserHandler, verifier mid
 	rg.GET("", auth, h.GetMe)
 	rg.DELETE("", auth, h.DeleteMe)
 	rg.GET("/stats", auth, h.GetMyStats)
+	rg.GET("/active-contests", auth, h.GetMyActiveContests)
 }

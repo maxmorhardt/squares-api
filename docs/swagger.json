@@ -573,7 +573,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Owner removes a participant and clears their squares",
+                "description": "Owner removes a participant, or a participant removes themselves; the removed participant's squares are cleared. The owner cannot be removed.",
                 "tags": [
                     "participants"
                 ],
@@ -1162,7 +1162,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Deletes active owned contests, releases squares in live contests, and anonymizes contest history under the ghost identity",
+                "description": "Anonymizes contest history under the ghost identity and deletes the account; blocked while the user owns or participates in any active contest",
                 "tags": [
                     "users"
                 ],
@@ -1171,16 +1171,44 @@
                     "204": {
                         "description": "No Content"
                     },
-                    "403": {
-                        "description": "Forbidden",
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/me/active-contests": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the non-terminal contests the user owns or participates in, which block account deletion",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get the current user's active contests",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.UserActiveContest"
+                            }
                         }
                     },
                     "500": {
@@ -1764,6 +1792,27 @@
                     "type": "string",
                     "maxLength": 3,
                     "minLength": 1
+                }
+            }
+        },
+        "model.UserActiveContest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "test"
+                },
+                "owner": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "owner"
                 }
             }
         },

@@ -31,5 +31,6 @@ func (s *statsService) GetStats(ctx context.Context) (*model.StatsResponse, erro
 		return nil, err
 	}
 
+	log.Info("retrieved platform stats")
 	return stats, nil
 }

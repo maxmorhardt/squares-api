@@ -155,7 +155,7 @@ func (h *participantHandler) UpdateParticipant(c *gin.Context) {
 }
 
 // @Summary Remove a participant from a contest
-// @Description Owner removes a participant and clears their squares
+// @Description Owner removes a participant, or a participant removes themselves; the removed participant's squares are cleared. The owner cannot be removed.
 // @Tags participants
 // @Param id path string true "Contest ID"
 // @Param userId path string true "Target user ID"

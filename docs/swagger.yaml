@@ -340,6 +340,21 @@ definitions:
     - owner
     - value
     type: object
+  model.UserActiveContest:
+    properties:
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      name:
+        example: test
+        type: string
+      owner:
+        example: user@example.com
+        type: string
+      role:
+        example: owner
+        type: string
+    type: object
   model.UserProfileResponse:
     properties:
       createdAt:
@@ -663,7 +678,8 @@ paths:
       - participants
   /contests/{id}/participants/{userId}:
     delete:
-      description: Owner removes a participant and clears their squares
+      description: Owner removes a participant, or a participant removes themselves;
+        the removed participant's squares are cleared. The owner cannot be removed.
       parameters:
       - description: Contest ID
         in: path
@@ -1100,17 +1116,13 @@ paths:
       - stats
   /users/me:
     delete:
-      description: Deletes active owned contests, releases squares in live contests,
-        and anonymizes contest history under the ghost identity
+      description: Anonymizes contest history under the ghost identity and deletes
+        the account; blocked while the user owns or participates in any active contest
       responses:
         "204":
           description: No Content
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/model.APIError'
-        "404":
-          description: Not Found
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/model.APIError'
         "500":
@@ -1139,6 +1151,28 @@ paths:
       security:
       - BearerAuth: []
       summary: Get the current user's profile
+      tags:
+      - users
+  /users/me/active-contests:
+    get:
+      description: Returns the non-terminal contests the user owns or participates
+        in, which block account deletion
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.UserActiveContest'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get the current user's active contests
       tags:
       - users
   /users/me/stats:

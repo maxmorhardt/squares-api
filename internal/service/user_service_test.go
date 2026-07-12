@@ -15,15 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newUserService(t *testing.T) (service.UserService, *mocks.UserRepository, *mocks.ContestService) {
+func newUserService(t *testing.T) (service.UserService, *mocks.UserRepository) {
 	t.Helper()
 	repo := mocks.NewUserRepository(t)
-	contestSvc := mocks.NewContestService(t)
-	return service.NewUserService(repo, contestSvc), repo, contestSvc
+	return service.NewUserService(repo), repo
 }
 
 func TestUserService_GetProfile_Success(t *testing.T) {
-	svc, repo, _ := newUserService(t)
+	svc, repo := newUserService(t)
 	repo.EXPECT().GetOrCreate(mock.Anything, "a@b.com", "Max").
 		Return(&model.User{Email: "a@b.com", DisplayName: "Max"}, nil)
 
@@ -34,7 +33,7 @@ func TestUserService_GetProfile_Success(t *testing.T) {
 }
 
 func TestUserService_GetProfile_Error(t *testing.T) {
-	svc, repo, _ := newUserService(t)
+	svc, repo := newUserService(t)
 	repo.EXPECT().GetOrCreate(mock.Anything, "a@b.com", "Max").
 		Return(nil, errors.New("db down"))
 
@@ -45,7 +44,7 @@ func TestUserService_GetProfile_Error(t *testing.T) {
 }
 
 func TestUserService_GetStats_Success(t *testing.T) {
-	svc, repo, _ := newUserService(t)
+	svc, repo := newUserService(t)
 	repo.EXPECT().GetStats(mock.Anything, "a@b.com").
 		Return(&model.UserStatsResponse{ContestsCreated: 2, QuarterWins: 1}, nil)
 
@@ -57,7 +56,7 @@ func TestUserService_GetStats_Success(t *testing.T) {
 }
 
 func TestUserService_GetStats_Error(t *testing.T) {
-	svc, repo, _ := newUserService(t)
+	svc, repo := newUserService(t)
 	repo.EXPECT().GetStats(mock.Anything, "a@b.com").
 		Return(nil, errors.New("db down"))
 
@@ -68,12 +67,9 @@ func TestUserService_GetStats_Error(t *testing.T) {
 }
 
 func TestUserService_DeleteAccount_Success(t *testing.T) {
-	svc, repo, contestSvc := newUserService(t)
-	id1, id2 := uuid.New(), uuid.New()
+	svc, repo := newUserService(t)
 
-	repo.EXPECT().GetOwnedActiveContestIDs(mock.Anything, "a@b.com").Return([]uuid.UUID{id1, id2}, nil)
-	contestSvc.EXPECT().DeleteContest(mock.Anything, id1, "a@b.com").Return(nil)
-	contestSvc.EXPECT().DeleteContest(mock.Anything, id2, "a@b.com").Return(nil)
+	repo.EXPECT().GetActiveContests(mock.Anything, "a@b.com").Return([]model.UserActiveContest{}, nil)
 	repo.EXPECT().ScrubUserData(mock.Anything, "a@b.com").Return(nil)
 
 	err := svc.DeleteAccount(context.Background(), "a@b.com")
@@ -81,35 +77,57 @@ func TestUserService_DeleteAccount_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestUserService_DeleteAccount_BlockedByActiveContests(t *testing.T) {
+	svc, repo := newUserService(t)
+	blockers := []model.UserActiveContest{
+		{ID: uuid.NewString(), Name: "test", Owner: "a@b.com", Role: "owner"},
+		{ID: uuid.NewString(), Name: "pool", Owner: "other@b.com", Role: "participant"},
+	}
+
+	repo.EXPECT().GetActiveContests(mock.Anything, "a@b.com").Return(blockers, nil)
+
+	err := svc.DeleteAccount(context.Background(), "a@b.com")
+
+	require.ErrorIs(t, err, errs.ErrAccountActiveContests)
+}
+
 func TestUserService_DeleteAccount_ListError(t *testing.T) {
-	svc, repo, _ := newUserService(t)
-	repo.EXPECT().GetOwnedActiveContestIDs(mock.Anything, "a@b.com").Return(nil, errors.New("db down"))
+	svc, repo := newUserService(t)
+	repo.EXPECT().GetActiveContests(mock.Anything, "a@b.com").Return(nil, errors.New("db down"))
 
 	err := svc.DeleteAccount(context.Background(), "a@b.com")
 
 	require.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
 }
 
-func TestUserService_DeleteAccount_DeleteContestError(t *testing.T) {
-	svc, repo, contestSvc := newUserService(t)
-	id1 := uuid.New()
-	deleteErr := errs.ErrContestFinalized
-
-	repo.EXPECT().GetOwnedActiveContestIDs(mock.Anything, "a@b.com").Return([]uuid.UUID{id1}, nil)
-	contestSvc.EXPECT().DeleteContest(mock.Anything, id1, "a@b.com").Return(deleteErr)
-
-	err := svc.DeleteAccount(context.Background(), "a@b.com")
-
-	require.ErrorIs(t, err, deleteErr)
-}
-
 func TestUserService_DeleteAccount_ScrubError(t *testing.T) {
-	svc, repo, _ := newUserService(t)
+	svc, repo := newUserService(t)
 
-	repo.EXPECT().GetOwnedActiveContestIDs(mock.Anything, "a@b.com").Return([]uuid.UUID{}, nil)
+	repo.EXPECT().GetActiveContests(mock.Anything, "a@b.com").Return([]model.UserActiveContest{}, nil)
 	repo.EXPECT().ScrubUserData(mock.Anything, "a@b.com").Return(errors.New("scrub failed"))
 
 	err := svc.DeleteAccount(context.Background(), "a@b.com")
 
 	require.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
+}
+
+func TestUserService_GetActiveContests_Success(t *testing.T) {
+	svc, repo := newUserService(t)
+	active := []model.UserActiveContest{{ID: uuid.NewString(), Name: "pool", Owner: "a@b.com", Role: "owner"}}
+	repo.EXPECT().GetActiveContests(mock.Anything, "a@b.com").Return(active, nil)
+
+	got, err := svc.GetActiveContests(context.Background(), "a@b.com")
+
+	require.NoError(t, err)
+	assert.Equal(t, active, got)
+}
+
+func TestUserService_GetActiveContests_Error(t *testing.T) {
+	svc, repo := newUserService(t)
+	repo.EXPECT().GetActiveContests(mock.Anything, "a@b.com").Return(nil, errors.New("db down"))
+
+	got, err := svc.GetActiveContests(context.Background(), "a@b.com")
+
+	require.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
+	assert.Nil(t, got)
 }

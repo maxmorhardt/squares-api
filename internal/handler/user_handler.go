@@ -10,12 +10,12 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/service"
 	"github.com/maxmorhardt/squares-api/internal/util"
-	"gorm.io/gorm"
 )
 
 type UserHandler interface {
 	GetMe(c *gin.Context)
 	GetMyStats(c *gin.Context)
+	GetMyActiveContests(c *gin.Context)
 	DeleteMe(c *gin.Context)
 }
 
@@ -85,13 +85,33 @@ func (h *userHandler) GetMyStats(c *gin.Context) {
 	c.JSON(http.StatusOK, stats)
 }
 
+// GetMyActiveContests godoc
+// @Summary Get the current user's active contests
+// @Description Returns the non-terminal contests the user owns or participates in, which block account deletion
+// @Tags users
+// @Produce json
+// @Success 200 {array} model.UserActiveContest
+// @Failure 500 {object} model.APIError
+// @Security BearerAuth
+// @Router /users/me/active-contests [get]
+func (h *userHandler) GetMyActiveContests(c *gin.Context) {
+	user := c.GetString(model.UserKey)
+
+	active, err := h.userService.GetActiveContests(c.Request.Context(), user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
+		return
+	}
+
+	c.JSON(http.StatusOK, active)
+}
+
 // DeleteMe godoc
 // @Summary Delete the current user's account
-// @Description Deletes active owned contests, releases squares in live contests, and anonymizes contest history under the ghost identity
+// @Description Anonymizes contest history under the ghost identity and deletes the account; blocked while the user owns or participates in any active contest
 // @Tags users
 // @Success 204
-// @Failure 403 {object} model.APIError
-// @Failure 404 {object} model.APIError
+// @Failure 409 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /users/me [delete]
@@ -100,14 +120,10 @@ func (h *userHandler) DeleteMe(c *gin.Context) {
 
 	if err := h.userService.DeleteAccount(c.Request.Context(), user); err != nil {
 		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-		case errors.Is(err, errs.ErrContestFinalized):
-			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		case errors.Is(err, errs.ErrUnauthorizedContestDelete):
-			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrAccountActiveContests):
+			c.JSON(http.StatusConflict, model.NewAPIError(http.StatusConflict, util.CapitalizeFirstLetter(err), c))
 		default:
-			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to delete account", c))
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
 		}
 		return
 	}

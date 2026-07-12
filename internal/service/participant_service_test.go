@@ -371,6 +371,7 @@ func TestRemoveParticipant_AuthorizeFails(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(&model.ContestParticipant{Role: model.ParticipantRoleParticipant}, nil)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "caller").Return(nil, gorm.ErrRecordNotFound)
 
 	svc := service.NewParticipantService(p, c, anyNats())
@@ -378,11 +379,31 @@ func TestRemoveParticipant_AuthorizeFails(t *testing.T) {
 	assert.ErrorIs(t, err, errs.ErrNotParticipant)
 }
 
-func TestRemoveParticipant_TargetNotFound(t *testing.T) {
+func TestRemoveParticipant_SelfRemovalSuccess(t *testing.T) {
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "self").Return(&model.ContestParticipant{Role: model.ParticipantRoleParticipant}, nil)
+	p.EXPECT().Delete(mock.Anything, mock.Anything, "self").Return(nil)
+
+	svc := service.NewParticipantService(p, c, anyNats())
+	require.NoError(t, svc.RemoveParticipant(context.Background(), uuid.New(), "self", "self"))
+}
+
+func TestRemoveParticipant_OwnerCannotRemoveSelf(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	p := mocks.NewParticipantRepository(t)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner}, nil)
+
+	svc := service.NewParticipantService(p, c, anyNats())
+	assert.ErrorIs(t, svc.RemoveParticipant(context.Background(), uuid.New(), "owner", "owner"), errs.ErrCannotRemoveOwner)
+}
+
+func TestRemoveParticipant_TargetNotFound(t *testing.T) {
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	p := mocks.NewParticipantRepository(t)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(nil, gorm.ErrRecordNotFound)
 
 	svc := service.NewParticipantService(p, c, anyNats())
@@ -394,7 +415,6 @@ func TestRemoveParticipant_TargetDBError(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	p := mocks.NewParticipantRepository(t)
-	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner}, nil)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(nil, errors.New("db"))
 
 	svc := service.NewParticipantService(p, c, anyNats())

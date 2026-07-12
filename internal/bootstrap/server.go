@@ -97,7 +97,7 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 	statsService := service.NewStatsService(statsRepo)
 
 	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo, contestService)
+	userService := service.NewUserService(userRepo)
 
 	contestHandler := handler.NewContestHandler(contestService)
 	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo, participantService, deps.Config.Server.AllowedOrigins, deps.NATS)
