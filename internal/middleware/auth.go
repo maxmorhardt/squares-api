@@ -67,7 +67,7 @@ func AuthMiddlewareWS(verifier TokenVerifier) gin.HandlerFunc {
 func authMiddleware(c *gin.Context, claims *model.Claims) {
 	// abort if token verification failed
 	if claims == nil {
-		c.Abort()
+		c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		return
 	}
 
