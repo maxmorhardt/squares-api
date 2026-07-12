@@ -54,10 +54,10 @@ func IncNATSMessagePublished(subject string) {
 	natsMessagesPublishedTotal.WithLabelValues(subject).Inc()
 }
 
-func IncNATSReconnect() { 
-	natsReconnectsTotal.Inc() 
+func IncNATSReconnect() {
+	natsReconnectsTotal.Inc()
 }
 
-func IncNATSDisconnect() { 
-	natsDisconnectsTotal.Inc() 
+func IncNATSDisconnect() {
+	natsDisconnectsTotal.Inc()
 }
