@@ -87,7 +87,7 @@ func sanitizeHeader(v string) string {
 func (s *contactService) sendEmailNotification(req *model.ContactRequest) error {
 	msg, err := s.buildContactEmail(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", errs.ErrEmailNotification, err)
 	}
 
 	auth := smtp.PlainAuth("", s.cfg.SMTP.User, s.cfg.SMTP.Password, s.cfg.SMTP.Host)
@@ -152,10 +152,10 @@ func writeMIMEPart(mpw *multipart.Writer, contentType string, body []byte) error
 
 	pw, err := mpw.CreatePart(header)
 	if err != nil {
-		return fmt.Errorf("failed to create MIME part: %w", err)
+		return fmt.Errorf("failed to create MIME part %q: %w", contentType, err)
 	}
 	if _, err := pw.Write(body); err != nil {
-		return fmt.Errorf("failed to write MIME part body: %w", err)
+		return fmt.Errorf("failed to write MIME part %q: %w", contentType, err)
 	}
 
 	return nil
@@ -203,7 +203,7 @@ func (s *contactService) validateTurnstile(ctx context.Context, token, remoteIP 
 	}
 
 	if !turnstileResp.Success {
-		return fmt.Errorf("%w: %v", errs.ErrTurnstileVerification, turnstileResp.ErrorCodes)
+		return fmt.Errorf("%w: %v", errs.ErrInvalidTurnstile, turnstileResp.ErrorCodes)
 	}
 
 	return nil
