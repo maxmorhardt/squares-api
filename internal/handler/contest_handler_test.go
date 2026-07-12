@@ -45,7 +45,7 @@ func TestGetContestsByOwner_Success(t *testing.T) {
 
 func authenticatedMiddleware(userID string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		claims := &model.Claims{Username: userID, Name: "Test", Expire: 9999999999}
+		claims := &model.Claims{Email: userID, EmailVerified: true, Name: "Test", Expire: 9999999999}
 		util.SetGinContextValue(c, model.UserKey, userID)
 		util.SetGinContextValue(c, model.ClaimsKey, claims)
 		c.Next()

@@ -51,6 +51,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
                     }
                 }
             }
@@ -137,6 +143,12 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/model.ContestSwagger"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
                         }
                     }
                 }
@@ -243,25 +255,25 @@ const docTemplate = `{
                         "description": "Contest deleted successfully"
                     },
                     "400": {
-                        "description": "Invalid contest id",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
                     "403": {
-                        "description": "Forbidden - user is not the owner",
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
                     "404": {
-                        "description": "Contest not found",
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -421,10 +433,10 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.InviteResponse"
+                            "$ref": "#/definitions/model.ContestInvite"
                         }
                     },
                     "400": {
@@ -441,6 +453,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -563,7 +581,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Owner removes a participant and clears their squares",
+                "description": "Owner removes a participant, or a participant removes themselves; the removed participant's squares are cleared. The owner cannot be removed.",
                 "tags": [
                     "participants"
                 ],
@@ -596,6 +614,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -659,6 +683,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -1011,14 +1041,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.InvitePreviewResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
-                    "410": {
-                        "description": "Gone",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -1074,12 +1104,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
-                    },
-                    "410": {
-                        "description": "Gone",
-                        "schema": {
-                            "$ref": "#/definitions/model.APIError"
-                        }
                     }
                 }
             }
@@ -1110,7 +1134,132 @@ const docTemplate = `{
                 }
             }
         },
-        "/ws/contests/owner/{owner}/name/{name}": {
+        "/users/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the profile of the authenticated user, creating it on first access",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get the current user's profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.UserProfileResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Anonymizes contest history under the ghost identity and deletes the account; blocked while the user owns or participates in any active contest",
+                "tags": [
+                    "users"
+                ],
+                "summary": "Delete the current user's account",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/me/active-contests": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the non-terminal contests the user owns or participates in, which block account deletion",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get the current user's active contests",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.UserActiveContest"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/me/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns contest and square stats for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get the current user's stats",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.UserStatsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/ws/contests/{id}": {
             "get": {
                 "security": [
                     {
@@ -1125,15 +1274,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Contest Owner",
-                        "name": "owner",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Contest Name",
-                        "name": "name",
+                        "description": "Contest ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -1434,6 +1576,9 @@ const docTemplate = `{
         "model.InvitePreviewResponse": {
             "type": "object",
             "properties": {
+                "contestId": {
+                    "type": "string"
+                },
                 "contestName": {
                     "type": "string"
                 },
@@ -1444,17 +1589,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.InviteResponse": {
-            "type": "object",
-            "properties": {
-                "inviteUrl": {
-                    "type": "string"
-                },
-                "token": {
                     "type": "string"
                 }
             }
@@ -1666,6 +1800,65 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 3,
                     "minLength": 1
+                }
+            }
+        },
+        "model.UserActiveContest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "test"
+                },
+                "owner": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "owner"
+                }
+            }
+        },
+        "model.UserProfileResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string",
+                    "example": "2026-07-11T00:00:00Z"
+                },
+                "displayName": {
+                    "type": "string",
+                    "example": "Max"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                }
+            }
+        },
+        "model.UserStatsResponse": {
+            "type": "object",
+            "properties": {
+                "contestsCreated": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "contestsJoined": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "quarterWins": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "squaresClaimed": {
+                    "type": "integer",
+                    "example": 42
                 }
             }
         }

@@ -8,5 +8,5 @@ import (
 )
 
 func RegisterWebSocketRoutes(rg *gin.RouterGroup, h handler.WebSocketHandler, verifier middleware.TokenVerifier) {
-	rg.GET("/contests/owner/:owner/name/:name", middleware.AuthMiddlewareWS(verifier), h.ContestWSConnection)
+	rg.GET("/contests/:id", middleware.AuthMiddlewareWS(verifier), h.ContestWSConnection)
 }

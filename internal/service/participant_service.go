@@ -133,6 +133,7 @@ func (s *participantService) fetchParticipants(ctx context.Context, contestID uu
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
+	log.Info("retrieved participants", "contest_id", contestID, "count", len(participants))
 	return participants, nil
 }
 
@@ -145,6 +146,7 @@ func (s *participantService) GetMyContests(ctx context.Context, user, search str
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
+	log.Info("retrieved joined contests", "count", len(contests))
 	return contests, nil
 }
 
@@ -244,9 +246,11 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 		return errs.ErrContestNotEditable
 	}
 
-	// verify caller is owner
-	if authErr := s.Authorize(ctx, contestID, user, ActionManageInvites); authErr != nil {
-		return authErr
+	// removing someone else requires owner permissions
+	if targetUserID != user {
+		if authErr := s.Authorize(ctx, contestID, user, ActionManageInvites); authErr != nil {
+			return authErr
+		}
 	}
 
 	// get the target participant
@@ -259,7 +263,7 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 		return errs.ErrDatabaseUnavailable
 	}
 
-	// cannot remove the owner
+	// the owner cannot be removed by anyone, including themselves — they must delete the contest
 	if participant.Role == model.ParticipantRoleOwner {
 		return errs.ErrCannotRemoveOwner
 	}

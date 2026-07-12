@@ -99,31 +99,49 @@ func init() {
 	)
 }
 
-func IncContestCreated() { contestsCreatedTotal.Inc() }
+func IncContestCreated() {
+	contestsCreatedTotal.Inc()
+}
 
-func IncContestDeleted() { contestsDeletedTotal.Inc() }
+func IncContestDeleted() {
+	contestsDeletedTotal.Inc()
+}
 
-func IncContestStarted() { contestsStartedTotal.Inc() }
+func IncContestStarted() {
+	contestsStartedTotal.Inc()
+}
 
 func IncQuarterResult(quarter int) {
 	quarterResultsRecordedTotal.WithLabelValues(quarterLabel(quarter)).Inc()
 }
 
-func IncChatMessage() { chatMessagesTotal.Inc() }
+func IncChatMessage() {
+	chatMessagesTotal.Inc()
+}
 
-func IncInviteCreated() { invitesCreatedTotal.Inc() }
+func IncInviteCreated() {
+	invitesCreatedTotal.Inc()
+}
 
-func IncInviteRedeemed() { invitesRedeemedTotal.Inc() }
+func IncInviteRedeemed() {
+	invitesRedeemedTotal.Inc()
+}
 
 func IncParticipantJoined(role string) {
 	participantsJoinedTotal.WithLabelValues(role).Inc()
 }
 
-func IncParticipantRemoved() { participantsRemovedTotal.Inc() }
+func IncParticipantRemoved() {
+	participantsRemovedTotal.Inc()
+}
 
-func IncSquareClaimed() { squaresClaimedTotal.Inc() }
+func IncSquareClaimed() {
+	squaresClaimedTotal.Inc()
+}
 
-func IncSquareCleared() { squaresClearedTotal.Inc() }
+func IncSquareCleared() {
+	squaresClearedTotal.Inc()
+}
 
 func quarterLabel(q int) string {
 	switch q {

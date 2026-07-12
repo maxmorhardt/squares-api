@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	"github.com/google/uuid"
@@ -57,8 +56,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 		defer server.Close()
 
 		wsURL := "ws://" + server.Listener.Addr().String() +
-			"/ws/contests/owner/" + url.PathEscape(ownerUser) +
-			"/name/" + url.PathEscape("Super Bowl")
+			"/ws/contests/" + contestID.String()
 
 		header := http.Header{}
 		header.Set("Origin", "http://localhost:3000")
@@ -85,7 +83,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 			MaxSquares: 50,
 			Role:       "participant",
 		})
-		require.Equal(t, http.StatusCreated, status)
+		require.Equal(t, http.StatusOK, status)
 		require.NotEmpty(t, invite.Token)
 		inviteToken = invite.Token
 	})
@@ -122,7 +120,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 	})
 
 	t.Run("fill all squares", func(t *testing.T) {
-		contest, status := getContest(t)
+		contest, status := getContest(t, contestID)
 		require.Equal(t, http.StatusOK, status)
 		require.Len(t, contest.Squares, 100, "contest must have 100 squares")
 
@@ -142,7 +140,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 		}
 
 		// confirm no empty squares remain
-		filled, status2 := getContest(t)
+		filled, status2 := getContest(t, contestID)
 		require.Equal(t, http.StatusOK, status2)
 		for _, sq := range filled.Squares {
 			assert.NotEmpty(t, sq.Owner, "square row=%d col=%d should be claimed", sq.Row, sq.Col)
@@ -158,7 +156,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 	t.Run("record Q1 result transitions to Q2", func(t *testing.T) {
 		status := submitQuarterResult(t, contestID, model.QuarterResultRequest{HomeTeamScore: 7, AwayTeamScore: 3})
 		require.Equal(t, http.StatusOK, status)
-		contest, s := getContest(t)
+		contest, s := getContest(t, contestID)
 		require.Equal(t, http.StatusOK, s)
 		assert.Equal(t, model.ContestStatusQ2, contest.Status)
 		require.Len(t, contest.QuarterResults, 1)
@@ -168,7 +166,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 	t.Run("record Q2 result transitions to Q3", func(t *testing.T) {
 		status := submitQuarterResult(t, contestID, model.QuarterResultRequest{HomeTeamScore: 14, AwayTeamScore: 10})
 		require.Equal(t, http.StatusOK, status)
-		contest, s := getContest(t)
+		contest, s := getContest(t, contestID)
 		require.Equal(t, http.StatusOK, s)
 		assert.Equal(t, model.ContestStatusQ3, contest.Status)
 		require.Len(t, contest.QuarterResults, 2)
@@ -177,7 +175,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 	t.Run("record Q3 result transitions to Q4", func(t *testing.T) {
 		status := submitQuarterResult(t, contestID, model.QuarterResultRequest{HomeTeamScore: 21, AwayTeamScore: 17})
 		require.Equal(t, http.StatusOK, status)
-		contest, s := getContest(t)
+		contest, s := getContest(t, contestID)
 		require.Equal(t, http.StatusOK, s)
 		assert.Equal(t, model.ContestStatusQ4, contest.Status)
 		require.Len(t, contest.QuarterResults, 3)
@@ -186,7 +184,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 	t.Run("record Q4 result transitions to FINISHED", func(t *testing.T) {
 		status := submitQuarterResult(t, contestID, model.QuarterResultRequest{HomeTeamScore: 28, AwayTeamScore: 24})
 		require.Equal(t, http.StatusOK, status)
-		contest, s := getContest(t)
+		contest, s := getContest(t, contestID)
 		require.Equal(t, http.StatusOK, s)
 		assert.Equal(t, model.ContestStatusFinished, contest.Status)
 		require.Len(t, contest.QuarterResults, 4)
@@ -232,14 +230,13 @@ func getContestsByOwner(t *testing.T, owner, token string) (resp model.Paginated
 	return resp, code
 }
 
-func getContest(t *testing.T) (contest *model.Contest, status int) {
+func getContest(t *testing.T, contestID uuid.UUID) (contest *model.Contest, status int) {
 	t.Helper()
 	server := httptest.NewServer(router)
 	defer server.Close()
 
 	wsURL := "ws://" + server.Listener.Addr().String() +
-		"/ws/contests/owner/" + url.PathEscape(ownerUser) +
-		"/name/" + url.PathEscape("Super Bowl")
+		"/ws/contests/" + contestID.String()
 
 	header := http.Header{}
 	header.Set("Origin", "http://localhost:3000")
@@ -277,7 +274,7 @@ func updateContest(t *testing.T, contestID uuid.UUID, token string, req model.Up
 	return c, code
 }
 
-func createInvite(t *testing.T, contestID uuid.UUID, token string, req model.CreateInviteRequest) (resp model.InviteResponse, status int) {
+func createInvite(t *testing.T, contestID uuid.UUID, token string, req model.CreateInviteRequest) (resp model.ContestInvite, status int) {
 	t.Helper()
 	body, _ := json.Marshal(req)
 	code, respBody := doRequest(t, http.MethodPost, fmt.Sprintf("/contests/%s/invites", contestID), token, body)

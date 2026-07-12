@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
@@ -55,31 +56,22 @@ func NewWebSocketHandler(websocketService service.WebSocketService, contestRepo 
 // @Summary Connect to WebSocket for real-time contest updates
 // @Description Establishes a persistent WebSocket connection to receive real-time updates for a specific contest
 // @Tags ws
-// @Param owner path string true "Contest Owner"
-// @Param name path string true "Contest Name"
+// @Param id path string true "Contest ID"
 // @Success 101 {string} string "WebSocket connection upgraded"
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /ws/contests/owner/{owner}/name/{name} [get]
+// @Router /ws/contests/{id} [get]
 func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
 	// parse path vars
-	owner := c.Param("owner")
-	if owner == "" {
-		log.Warn("contest owner not provided")
+	contestID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		log.Warn("invalid contest id", "error", err)
 		metrics.RecordWSConnectionResult(model.WSResultBadRequest)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Owner is required", c))
-		return
-	}
-
-	name := c.Param("name")
-	if name == "" {
-		log.Warn("contest name not provided")
-		metrics.RecordWSConnectionResult(model.WSResultBadRequest)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest Name is required", c))
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID", c))
 		return
 	}
 
@@ -97,7 +89,7 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 	}
 
 	// validate contest exists and check status
-	contest, err := h.contestRepo.GetByOwnerAndName(c.Request.Context(), owner, name)
+	contest, err := h.contestRepo.GetByID(c.Request.Context(), contestID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Warn("contest not found, closing websocket")
@@ -146,7 +138,6 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 		return
 	}
 
-	// hand off to service which records the final connection result once the
-	// connection is fully initialized (NATS subscribed and connected message sent)
+	// hand off to service which records the final connection result
 	h.websocketService.HandleWebSocketConnection(c.Request.Context(), contest, participants, conn)
 }

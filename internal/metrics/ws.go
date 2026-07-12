@@ -74,9 +74,13 @@ func RecordWSDisconnect(reason model.WSDisconnectReason) {
 	wsDisconnectsTotal.WithLabelValues(string(reason)).Inc()
 }
 
-func IncWSActiveConnections() { wsConnectionsActive.Inc() }
+func IncWSActiveConnections() {
+	wsConnectionsActive.Inc()
+}
 
-func DecWSActiveConnections() { wsConnectionsActive.Dec() }
+func DecWSActiveConnections() {
+	wsConnectionsActive.Dec()
+}
 
 func ObserveWSConnectionDuration(d time.Duration) {
 	wsConnectionDuration.Observe(d.Seconds())
@@ -86,4 +90,6 @@ func IncWSMessageSent(msgType string) {
 	wsMessagesSent.WithLabelValues(msgType).Inc()
 }
 
-func IncWSMessageReceived() { wsMessagesReceived.Inc() }
+func IncWSMessageReceived() {
+	wsMessagesReceived.Inc()
+}

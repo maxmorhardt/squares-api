@@ -119,7 +119,9 @@ func (s *inviteService) GetInvitePreview(ctx context.Context, token string) (*mo
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
+	log.Info("retrieved invite preview", "contest_id", contest.ID)
 	return &model.InvitePreviewResponse{
+		ContestID:   contest.ID,
 		ContestName: contest.Name,
 		Owner:       contest.Owner,
 		Role:        string(invite.Role),
@@ -226,6 +228,7 @@ func (s *inviteService) GetInvitesByContestID(ctx context.Context, contestID uui
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
+	log.Info("retrieved invites by contest", "contest_id", contestID, "count", len(invites))
 	return invites, nil
 }
 

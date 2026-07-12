@@ -77,6 +77,7 @@ func (h *participantHandler) GetParticipants(c *gin.Context) {
 // @Produce json
 // @Param search query string false "Filter contests by name (case-insensitive)"
 // @Success 200 {array} model.ContestSwagger
+// @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/me [get]
 func (h *participantHandler) GetMyContests(c *gin.Context) {
@@ -105,6 +106,7 @@ func (h *participantHandler) GetMyContests(c *gin.Context) {
 // @Success 200 {object} model.ContestParticipant
 // @Failure 400 {object} model.APIError
 // @Failure 403 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id}/participants/{userId} [patch]
 func (h *participantHandler) UpdateParticipant(c *gin.Context) {
@@ -153,13 +155,14 @@ func (h *participantHandler) UpdateParticipant(c *gin.Context) {
 }
 
 // @Summary Remove a participant from a contest
-// @Description Owner removes a participant and clears their squares
+// @Description Owner removes a participant, or a participant removes themselves; the removed participant's squares are cleared. The owner cannot be removed.
 // @Tags participants
 // @Param id path string true "Contest ID"
 // @Param userId path string true "Target user ID"
 // @Success 204
 // @Failure 400 {object} model.APIError
 // @Failure 403 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id}/participants/{userId} [delete]
 func (h *participantHandler) RemoveParticipant(c *gin.Context) {

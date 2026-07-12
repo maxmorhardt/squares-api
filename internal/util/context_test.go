@@ -64,7 +64,7 @@ func TestLoggerFromGinContext_WithoutLogger(t *testing.T) {
 }
 
 func TestClaimsFromContext_WithClaims(t *testing.T) {
-	claims := &model.Claims{Username: "testuser"}
+	claims := &model.Claims{Email: "testuser", EmailVerified: true}
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, claims)
 
 	result := ClaimsFromContext(ctx)

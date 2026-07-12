@@ -62,7 +62,7 @@ func TestLoadEnv_Defaults(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.False(t, cfg.Server.MetricsEnabled)
-	assert.Equal(t, "https://login.maxstash.io/application/o/squares/", cfg.OIDC.Issuer)
+	assert.Equal(t, "https://login.maxstash.io", cfg.OIDC.Issuer)
 }
 
 func TestLoadEnv_MetricsEnabled(t *testing.T) {

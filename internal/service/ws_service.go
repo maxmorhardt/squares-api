@@ -169,7 +169,7 @@ func (s *websocketService) handleChatMessage(ctx context.Context, contestID uuid
 		return
 	}
 
-	chatMsg := model.NewChatMessage(contestID, claims.Username, message)
+	chatMsg := model.NewChatMessage(contestID, claims.Email, message)
 	jsonData, err := json.Marshal(chatMsg)
 	if err != nil {
 		log.Error("failed to marshal chat message", "error", err)
@@ -188,7 +188,7 @@ func (s *websocketService) handleChatMessage(ctx context.Context, contestID uuid
 	}
 
 	metrics.IncChatMessage()
-	log.Info("chat message sent", "sender", claims.Username, "message", message)
+	log.Info("chat message sent", "sender", claims.Email, "message", message)
 }
 
 func (s *websocketService) handleOutgoingMessages(

@@ -37,7 +37,7 @@ func TestHandleChatMessage(t *testing.T) {
 	s := &websocketService{}
 	log := slog.Default()
 	contestID := uuid.New()
-	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Username: "u"})
+	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Email: "u", EmailVerified: true})
 
 	s.handleChatMessage(ctx, contestID, "", log)                        // empty
 	s.handleChatMessage(ctx, contestID, string(make([]byte, 300)), log) // too long

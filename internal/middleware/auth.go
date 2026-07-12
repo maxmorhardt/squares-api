@@ -9,14 +9,13 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/metrics"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
 const authErrorMessage = "Authentication required. Please log in to continue"
-
-var errClaimsParse = errors.New("claims parse failed")
 
 type TokenVerifier interface {
 	Verify(ctx context.Context, token string) (*model.Claims, error)
@@ -38,7 +37,12 @@ func (v *oidcTokenVerifier) Verify(ctx context.Context, token string) (*model.Cl
 
 	claims := &model.Claims{}
 	if err := idToken.Claims(claims); err != nil {
-		return nil, fmt.Errorf("%w: %w", errClaimsParse, err)
+		return nil, fmt.Errorf("%w: %w", errs.ErrClaimsParse, err)
+	}
+
+	// email is the identity key across providers, so it must be present and verified
+	if claims.Email == "" || !claims.EmailVerified {
+		return nil, errs.ErrEmailUnverified
 	}
 
 	return claims, nil
@@ -63,17 +67,19 @@ func AuthMiddlewareWS(verifier TokenVerifier) gin.HandlerFunc {
 func authMiddleware(c *gin.Context, claims *model.Claims) {
 	// abort if token verification failed
 	if claims == nil {
-		c.Abort()
+		if !c.IsAborted() {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
+		}
 		return
 	}
 
 	// add user and claims to context
-	util.SetGinContextValue(c, model.UserKey, claims.Username)
+	util.SetGinContextValue(c, model.UserKey, claims.Email)
 	util.SetGinContextValue(c, model.ClaimsKey, claims)
 
 	// add user to logger
 	log := util.LoggerFromGinContext(c)
-	log = log.With("user", claims.Username)
+	log = log.With("user", claims.Email)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
 	c.Next()
@@ -118,12 +124,14 @@ func verifyToken(c *gin.Context, verifier TokenVerifier, isWebSocket bool) *mode
 	claims, err := verifier.Verify(c.Request.Context(), token)
 	if err != nil {
 		log.Warn("failed to verify token", "error", err)
-		if errors.Is(err, errClaimsParse) {
+		if errors.Is(err, errs.ErrClaimsParse) {
 			metrics.RecordAuthFailure(model.AuthFailureClaimsParse)
 		} else {
 			metrics.RecordAuthFailure(model.AuthFailureVerifyFailed)
 		}
-		if !isWebSocket {
+		if isWebSocket {
+			c.AbortWithStatus(http.StatusUnauthorized)
+		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}
 

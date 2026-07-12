@@ -185,6 +185,8 @@ definitions:
     type: object
   model.InvitePreviewResponse:
     properties:
+      contestId:
+        type: string
       contestName:
         type: string
       maxSquares:
@@ -192,13 +194,6 @@ definitions:
       owner:
         type: string
       role:
-        type: string
-    type: object
-  model.InviteResponse:
-    properties:
-      inviteUrl:
-        type: string
-      token:
         type: string
     type: object
   model.PaginatedContestResponseSwagger:
@@ -345,6 +340,48 @@ definitions:
     - owner
     - value
     type: object
+  model.UserActiveContest:
+    properties:
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      name:
+        example: test
+        type: string
+      owner:
+        example: user@example.com
+        type: string
+      role:
+        example: owner
+        type: string
+    type: object
+  model.UserProfileResponse:
+    properties:
+      createdAt:
+        example: "2026-07-11T00:00:00Z"
+        type: string
+      displayName:
+        example: Max
+        type: string
+      email:
+        example: user@example.com
+        type: string
+    type: object
+  model.UserStatsResponse:
+    properties:
+      contestsCreated:
+        example: 3
+        type: integer
+      contestsJoined:
+        example: 7
+        type: integer
+      quarterWins:
+        example: 5
+        type: integer
+      squaresClaimed:
+        example: 42
+        type: integer
+    type: object
 info:
   contact: {}
   description: API for squares.maxstash.io
@@ -372,6 +409,10 @@ paths:
             $ref: '#/definitions/model.ContactResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
       summary: Submit a contact form
@@ -426,19 +467,19 @@ paths:
         "204":
           description: Contest deleted successfully
         "400":
-          description: Invalid contest id
+          description: Bad Request
           schema:
             $ref: '#/definitions/model.APIError'
         "403":
-          description: Forbidden - user is not the owner
+          description: Forbidden
           schema:
             $ref: '#/definitions/model.APIError'
         "404":
-          description: Contest not found
+          description: Not Found
           schema:
             $ref: '#/definitions/model.APIError'
         "500":
-          description: Internal server error
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
       security:
@@ -540,10 +581,10 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
+        "200":
+          description: OK
           schema:
-            $ref: '#/definitions/model.InviteResponse'
+            $ref: '#/definitions/model.ContestInvite'
         "400":
           description: Bad Request
           schema:
@@ -554,6 +595,10 @@ paths:
             $ref: '#/definitions/model.APIError'
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
       security:
@@ -633,7 +678,8 @@ paths:
       - participants
   /contests/{id}/participants/{userId}:
     delete:
-      description: Owner removes a participant and clears their squares
+      description: Owner removes a participant, or a participant removes themselves;
+        the removed participant's squares are cleared. The owner cannot be removed.
       parameters:
       - description: Contest ID
         in: path
@@ -654,6 +700,10 @@ paths:
             $ref: '#/definitions/model.APIError'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
       security:
@@ -695,6 +745,10 @@ paths:
             $ref: '#/definitions/model.APIError'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
       security:
@@ -891,6 +945,10 @@ paths:
             items:
               $ref: '#/definitions/model.ContestSwagger'
             type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
       security:
       - BearerAuth: []
       summary: Get all contests the user participates in
@@ -994,12 +1052,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/model.InvitePreviewResponse'
-        "404":
-          description: Not Found
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/model.APIError'
-        "410":
-          description: Gone
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/model.APIError'
       summary: Preview an invite link
@@ -1033,10 +1091,6 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/model.APIError'
-        "410":
-          description: Gone
-          schema:
-            $ref: '#/definitions/model.APIError'
       security:
       - BearerAuth: []
       summary: Redeem an invite link
@@ -1060,19 +1114,94 @@ paths:
       summary: Get platform stats
       tags:
       - stats
-  /ws/contests/owner/{owner}/name/{name}:
+  /users/me:
+    delete:
+      description: Anonymizes contest history under the ghost identity and deletes
+        the account; blocked while the user owns or participates in any active contest
+      responses:
+        "204":
+          description: No Content
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Delete the current user's account
+      tags:
+      - users
+    get:
+      description: Returns the profile of the authenticated user, creating it on first
+        access
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserProfileResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get the current user's profile
+      tags:
+      - users
+  /users/me/active-contests:
+    get:
+      description: Returns the non-terminal contests the user owns or participates
+        in, which block account deletion
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.UserActiveContest'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get the current user's active contests
+      tags:
+      - users
+  /users/me/stats:
+    get:
+      description: Returns contest and square stats for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserStatsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get the current user's stats
+      tags:
+      - users
+  /ws/contests/{id}:
     get:
       description: Establishes a persistent WebSocket connection to receive real-time
         updates for a specific contest
       parameters:
-      - description: Contest Owner
+      - description: Contest ID
         in: path
-        name: owner
-        required: true
-        type: string
-      - description: Contest Name
-        in: path
-        name: name
+        name: id
         required: true
         type: string
       responses:

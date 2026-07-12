@@ -96,12 +96,16 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 	statsRepo := repository.NewStatsRepository(db)
 	statsService := service.NewStatsService(statsRepo)
 
+	userRepo := repository.NewUserRepository(db)
+	userService := service.NewUserService(userRepo)
+
 	contestHandler := handler.NewContestHandler(contestService)
 	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo, participantService, deps.Config.Server.AllowedOrigins, deps.NATS)
 	contactHandler := handler.NewContactHandler(contactService)
 	statsHandler := handler.NewStatsHandler(statsService)
 	inviteHandler := handler.NewInviteHandler(inviteService)
 	participantHandler := handler.NewParticipantHandler(participantService)
+	userHandler := handler.NewUserHandler(userService)
 	healthHandler := handler.NewHealthHandler(db, deps.NATS, deps.Verifier)
 
 	routes.RegisterRootRoutes(r.Group(""), healthHandler)
@@ -115,4 +119,6 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 
 	routes.RegisterMyContestsRoute(r.Group("/contests/me"), participantHandler, verifier)
 	routes.RegisterParticipantRoutes(r.Group("/contests/:id/participants"), participantHandler, verifier)
+
+	routes.RegisterUserRoutes(r.Group("/users/me"), userHandler, verifier)
 }

@@ -38,10 +38,11 @@ func NewInviteHandler(inviteService service.InviteService) InviteHandler {
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Param invite body model.CreateInviteRequest true "Invite details"
-// @Success 201 {object} model.InviteResponse
+// @Success 200 {object} model.ContestInvite
 // @Failure 400 {object} model.APIError
 // @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id}/invites [post]
 func (h *inviteHandler) CreateInvite(c *gin.Context) {
@@ -77,9 +78,7 @@ func (h *inviteHandler) CreateInvite(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, model.InviteResponse{
-		Token: invite.Token,
-	})
+	c.JSON(http.StatusOK, invite)
 }
 
 // @Summary Preview an invite link
@@ -88,8 +87,8 @@ func (h *inviteHandler) CreateInvite(c *gin.Context) {
 // @Produce json
 // @Param token path string true "Invite token"
 // @Success 200 {object} model.InvitePreviewResponse
+// @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
-// @Failure 410 {object} model.APIError
 // @Router /invites/{token} [get]
 func (h *inviteHandler) GetInvitePreview(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
@@ -106,7 +105,7 @@ func (h *inviteHandler) GetInvitePreview(c *gin.Context) {
 		case errors.Is(err, errs.ErrInviteNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInviteExpired), errors.Is(err, errs.ErrInviteMaxUsesReached):
-			c.JSON(http.StatusGone, model.NewAPIError(http.StatusGone, util.CapitalizeFirstLetter(err), c))
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		default:
 			log.Error("failed to get invite preview", "error", err)
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get invite", c))
@@ -126,7 +125,6 @@ func (h *inviteHandler) GetInvitePreview(c *gin.Context) {
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 409 {object} model.APIError
-// @Failure 410 {object} model.APIError
 // @Security BearerAuth
 // @Router /invites/{token}/redeem [post]
 func (h *inviteHandler) RedeemInvite(c *gin.Context) {
@@ -145,7 +143,7 @@ func (h *inviteHandler) RedeemInvite(c *gin.Context) {
 		case errors.Is(err, errs.ErrInviteNotFound):
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInviteExpired), errors.Is(err, errs.ErrInviteMaxUsesReached):
-			c.JSON(http.StatusGone, model.NewAPIError(http.StatusGone, util.CapitalizeFirstLetter(err), c))
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrContestFinalized):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrAlreadyParticipant):

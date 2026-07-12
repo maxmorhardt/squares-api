@@ -29,10 +29,14 @@ var (
 )
 
 var (
-	ErrContestNotFound    = errors.New("contest not found")
-	ErrSquareNotFound     = errors.New("square not found")
-	ErrInvalidRequestBody = errors.New("invalid request body")
-	ErrClaimsNotFound     = errors.New("authentication required")
+	ErrContestNotFound       = errors.New("contest not found")
+	ErrSquareNotFound        = errors.New("square not found")
+	ErrUserNotFound          = errors.New("user not found")
+	ErrAccountActiveContests = errors.New("you must delete or leave your active contests before deleting your account")
+	ErrInvalidRequestBody    = errors.New("invalid request body")
+	ErrClaimsNotFound        = errors.New("authentication required")
+	ErrClaimsParse           = errors.New("claims parse failed")
+	ErrEmailUnverified       = errors.New("token has no verified email")
 )
 
 var (

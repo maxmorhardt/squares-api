@@ -132,25 +132,6 @@ func TestContestRepository_GetByID(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestContestRepository_GetByOwnerAndName(t *testing.T) {
-	gdb, mock := newMockDB(t)
-	repo := NewContestRepository(gdb)
-
-	id := uuid.New()
-	mock.ExpectQuery(`SELECT \* FROM "contests"`).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "owner", "name"}).AddRow(id, "owner", "C1"))
-	mock.ExpectQuery(`SELECT \* FROM "squares"`).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "contest_id"}))
-	mock.ExpectQuery(`SELECT \* FROM "quarter_results"`).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "contest_id"}))
-
-	contest, err := repo.GetByOwnerAndName(context.Background(), "owner", "C1")
-
-	require.NoError(t, err)
-	assert.Equal(t, id, contest.ID)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
 func TestContestRepository_Create(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewContestRepository(gdb)

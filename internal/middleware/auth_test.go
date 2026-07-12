@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,7 +47,7 @@ func (f *fakeVerifier) Verify(_ context.Context, _ string) (*model.Claims, error
 }
 
 func TestAuthMiddleware_EmptyToken(t *testing.T) {
-	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{claims: &model.Claims{Username: "alice"}}))
+	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{claims: &model.Claims{Email: "alice@example.com", EmailVerified: true}}))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Authorization", "Bearer ")
@@ -82,7 +83,7 @@ func TestAuthMiddleware_VerifyError(t *testing.T) {
 }
 
 func TestAuthMiddleware_ClaimsParseError(t *testing.T) {
-	claimsErr := fmt.Errorf("%w: %w", errClaimsParse, errors.New("json: cannot unmarshal"))
+	claimsErr := fmt.Errorf("%w: %w", errs.ErrClaimsParse, errors.New("json: cannot unmarshal"))
 	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{err: claimsErr}))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
@@ -95,7 +96,7 @@ func TestAuthMiddleware_ClaimsParseError(t *testing.T) {
 }
 
 func TestAuthMiddleware_Success(t *testing.T) {
-	verifier := &fakeVerifier{claims: &model.Claims{Username: "alice"}}
+	verifier := &fakeVerifier{claims: &model.Claims{Email: "alice@example.com", EmailVerified: true}}
 	r, reached := buildRouter(AuthMiddleware(verifier))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
@@ -105,7 +106,7 @@ func TestAuthMiddleware_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.True(t, *reached, "handler should run on valid auth")
-	assert.Equal(t, "alice", w.Body.String(), "authenticated user should be in context")
+	assert.Equal(t, "alice@example.com", w.Body.String(), "authenticated user should be in context")
 }
 
 func TestAuthMiddlewareWS_MissingProtocolHeader(t *testing.T) {
@@ -127,12 +128,14 @@ func TestAuthMiddlewareWS_VerifyError_Aborts(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	// WS path does not write a JSON error body, but it must still abort
+	// WS path does not write a JSON error body, but it must still abort with a 401
 	assert.False(t, *reached, "handler should not run when ws token is invalid")
+	assert.Equal(t, http.StatusUnauthorized, w.Code, "response status should be 401, not gin's default 200")
+	assert.Equal(t, 0, w.Body.Len(), "no response body should be written for ws verify failures")
 }
 
 func TestAuthMiddlewareWS_Success(t *testing.T) {
-	verifier := &fakeVerifier{claims: &model.Claims{Username: "bob"}}
+	verifier := &fakeVerifier{claims: &model.Claims{Email: "bob@example.com", EmailVerified: true}}
 	r, reached := buildRouter(AuthMiddlewareWS(verifier))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
@@ -142,5 +145,5 @@ func TestAuthMiddlewareWS_Success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.True(t, *reached)
-	assert.Equal(t, "bob", w.Body.String())
+	assert.Equal(t, "bob@example.com", w.Body.String())
 }

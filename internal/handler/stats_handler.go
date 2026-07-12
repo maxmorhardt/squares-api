@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/service"
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
@@ -36,7 +37,7 @@ func (h *statsHandler) GetStats(c *gin.Context) {
 	stats, err := h.statsService.GetStats(c.Request.Context())
 	if err != nil {
 		log.Error("failed to get stats", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get stats"})
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to get stats", c))
 		return
 	}
 

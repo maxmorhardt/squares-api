@@ -248,10 +248,10 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Success 204 "Contest deleted successfully"
-// @Failure 400 {object} model.APIError "Invalid contest id"
-// @Failure 403 {object} model.APIError "Forbidden - user is not the owner"
-// @Failure 404 {object} model.APIError "Contest not found"
-// @Failure 500 {object} model.APIError "Internal server error"
+// @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
+// @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id} [delete]
 func (h *contestHandler) DeleteContest(c *gin.Context) {
