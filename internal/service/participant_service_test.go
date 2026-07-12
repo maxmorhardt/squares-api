@@ -371,12 +371,22 @@ func TestRemoveParticipant_AuthorizeFails(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	p := mocks.NewParticipantRepository(t)
-	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(&model.ContestParticipant{Role: model.ParticipantRoleParticipant}, nil)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "caller").Return(nil, gorm.ErrRecordNotFound)
 
 	svc := service.NewParticipantService(p, c, anyNats())
 	err := svc.RemoveParticipant(context.Background(), uuid.New(), "target", "caller")
 	assert.ErrorIs(t, err, errs.ErrNotParticipant)
+}
+
+func TestRemoveParticipant_UnauthorizedCallerCannotLearnOwnerIdentity(t *testing.T) {
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "caller").Return(&model.ContestParticipant{Role: model.ParticipantRoleParticipant}, nil)
+
+	svc := service.NewParticipantService(p, c, anyNats())
+	err := svc.RemoveParticipant(context.Background(), uuid.New(), "owner", "caller")
+	assert.ErrorIs(t, err, errs.ErrInsufficientRole)
 }
 
 func TestRemoveParticipant_SelfRemovalSuccess(t *testing.T) {
@@ -404,6 +414,7 @@ func TestRemoveParticipant_TargetNotFound(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner}, nil)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(nil, gorm.ErrRecordNotFound)
 
 	svc := service.NewParticipantService(p, c, anyNats())
@@ -415,6 +426,7 @@ func TestRemoveParticipant_TargetDBError(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner}, nil)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(nil, errors.New("db"))
 
 	svc := service.NewParticipantService(p, c, anyNats())
