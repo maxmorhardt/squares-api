@@ -128,8 +128,9 @@ func TestAuthMiddlewareWS_VerifyError_Aborts(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	// WS path does not write a JSON error body, but it must still abort
+	// WS path does not write a JSON error body, but it must still abort with a 401
 	assert.False(t, *reached, "handler should not run when ws token is invalid")
+	assert.Equal(t, http.StatusUnauthorized, w.Code, "response status should be 401, not gin's default 200")
 	assert.Equal(t, 0, w.Body.Len(), "no response body should be written for ws verify failures")
 }
 

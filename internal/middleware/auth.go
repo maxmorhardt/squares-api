@@ -130,8 +130,7 @@ func verifyToken(c *gin.Context, verifier TokenVerifier, isWebSocket bool) *mode
 			metrics.RecordAuthFailure(model.AuthFailureVerifyFailed)
 		}
 		if isWebSocket {
-			// avoid writing a body for websocket upgrade failures, caller closes socket
-			c.Abort()
+			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, authErrorMessage, c))
 		}

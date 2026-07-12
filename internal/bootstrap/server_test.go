@@ -36,6 +36,10 @@ func TestNewServer_WiresRoutesWithoutInfra(t *testing.T) {
 		"POST /contests/:id/invites",
 		"GET /invites/:token",
 		"GET /ws/contests/:id",
+		"GET /users/me",
+		"DELETE /users/me",
+		"GET /users/me/stats",
+		"GET /users/me/active-contests",
 	}
 
 	for _, route := range expected {
