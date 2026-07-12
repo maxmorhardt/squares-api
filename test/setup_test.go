@@ -39,7 +39,7 @@ var (
 type fakeTokenVerifier struct{}
 
 func (fakeTokenVerifier) Verify(_ context.Context, token string) (*model.Claims, error) {
-	return &model.Claims{Username: token, Name: token}, nil
+	return &model.Claims{Email: token, EmailVerified: true, Name: token}, nil
 }
 
 func TestMain(m *testing.M) {

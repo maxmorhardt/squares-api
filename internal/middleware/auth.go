@@ -16,7 +16,10 @@ import (
 
 const authErrorMessage = "Authentication required. Please log in to continue"
 
-var errClaimsParse = errors.New("claims parse failed")
+var (
+	errClaimsParse     = errors.New("claims parse failed")
+	errEmailUnverified = errors.New("token has no verified email")
+)
 
 type TokenVerifier interface {
 	Verify(ctx context.Context, token string) (*model.Claims, error)
@@ -39,6 +42,11 @@ func (v *oidcTokenVerifier) Verify(ctx context.Context, token string) (*model.Cl
 	claims := &model.Claims{}
 	if err := idToken.Claims(claims); err != nil {
 		return nil, fmt.Errorf("%w: %w", errClaimsParse, err)
+	}
+
+	// email is the identity key across providers, so it must be present and verified
+	if claims.Email == "" || !claims.EmailVerified {
+		return nil, errEmailUnverified
 	}
 
 	return claims, nil
@@ -68,12 +76,12 @@ func authMiddleware(c *gin.Context, claims *model.Claims) {
 	}
 
 	// add user and claims to context
-	util.SetGinContextValue(c, model.UserKey, claims.Username)
+	util.SetGinContextValue(c, model.UserKey, claims.Email)
 	util.SetGinContextValue(c, model.ClaimsKey, claims)
 
 	// add user to logger
 	log := util.LoggerFromGinContext(c)
-	log = log.With("user", claims.Username)
+	log = log.With("user", claims.Email)
 	util.SetGinContextValue(c, model.LoggerKey, log)
 
 	c.Next()

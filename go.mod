@@ -121,8 +121,6 @@ require (
 	github.com/prometheus/procfs v0.20.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
-	github.com/swaggo/files v1.0.1
-	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect

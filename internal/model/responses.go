@@ -20,6 +20,19 @@ type StatsResponse struct {
 	TotalActiveContests  int64 `json:"totalActiveContests" example:"12"`
 }
 
+type UserProfileResponse struct {
+	Email       string `json:"email" example:"user@example.com"`
+	DisplayName string `json:"displayName" example:"Max"`
+	CreatedAt   string `json:"createdAt" example:"2026-07-11T00:00:00Z"`
+}
+
+type UserStatsResponse struct {
+	ContestsCreated int64 `json:"contestsCreated" example:"3"`
+	ContestsJoined  int64 `json:"contestsJoined" example:"7"`
+	SquaresClaimed  int64 `json:"squaresClaimed" example:"42"`
+	QuarterWins     int64 `json:"quarterWins" example:"5"`
+}
+
 type InvitePreviewResponse struct {
 	ContestName string `json:"contestName"`
 	Owner       string `json:"owner"`

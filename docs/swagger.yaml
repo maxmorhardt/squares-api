@@ -345,6 +345,33 @@ definitions:
     - owner
     - value
     type: object
+  model.UserProfileResponse:
+    properties:
+      createdAt:
+        example: "2026-07-11T00:00:00Z"
+        type: string
+      displayName:
+        example: Max
+        type: string
+      email:
+        example: user@example.com
+        type: string
+    type: object
+  model.UserStatsResponse:
+    properties:
+      contestsCreated:
+        example: 3
+        type: integer
+      contestsJoined:
+        example: 7
+        type: integer
+      quarterWins:
+        example: 5
+        type: integer
+      squaresClaimed:
+        example: 42
+        type: integer
+    type: object
 info:
   contact: {}
   description: API for squares.maxstash.io
@@ -1060,6 +1087,72 @@ paths:
       summary: Get platform stats
       tags:
       - stats
+  /users/me:
+    delete:
+      description: Deletes owned contests, releases claimed squares, and removes all
+        personal data
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Delete the current user's account
+      tags:
+      - users
+    get:
+      description: Returns the profile of the authenticated user, creating it on first
+        access
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserProfileResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get the current user's profile
+      tags:
+      - users
+  /users/me/stats:
+    get:
+      description: Returns contest and square stats for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserStatsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get the current user's stats
+      tags:
+      - users
   /ws/contests/owner/{owner}/name/{name}:
     get:
       description: Establishes a persistent WebSocket connection to receive real-time

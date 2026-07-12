@@ -46,7 +46,7 @@ func (f *fakeVerifier) Verify(_ context.Context, _ string) (*model.Claims, error
 }
 
 func TestAuthMiddleware_EmptyToken(t *testing.T) {
-	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{claims: &model.Claims{Username: "alice"}}))
+	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{claims: &model.Claims{Email: "alice@example.com", EmailVerified: true}}))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Authorization", "Bearer ")
@@ -95,7 +95,7 @@ func TestAuthMiddleware_ClaimsParseError(t *testing.T) {
 }
 
 func TestAuthMiddleware_Success(t *testing.T) {
-	verifier := &fakeVerifier{claims: &model.Claims{Username: "alice"}}
+	verifier := &fakeVerifier{claims: &model.Claims{Email: "alice@example.com", EmailVerified: true}}
 	r, reached := buildRouter(AuthMiddleware(verifier))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
@@ -105,7 +105,7 @@ func TestAuthMiddleware_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.True(t, *reached, "handler should run on valid auth")
-	assert.Equal(t, "alice", w.Body.String(), "authenticated user should be in context")
+	assert.Equal(t, "alice@example.com", w.Body.String(), "authenticated user should be in context")
 }
 
 func TestAuthMiddlewareWS_MissingProtocolHeader(t *testing.T) {
@@ -132,7 +132,7 @@ func TestAuthMiddlewareWS_VerifyError_Aborts(t *testing.T) {
 }
 
 func TestAuthMiddlewareWS_Success(t *testing.T) {
-	verifier := &fakeVerifier{claims: &model.Claims{Username: "bob"}}
+	verifier := &fakeVerifier{claims: &model.Claims{Email: "bob@example.com", EmailVerified: true}}
 	r, reached := buildRouter(AuthMiddlewareWS(verifier))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
@@ -142,5 +142,5 @@ func TestAuthMiddlewareWS_Success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.True(t, *reached)
-	assert.Equal(t, "bob", w.Body.String())
+	assert.Equal(t, "bob@example.com", w.Body.String())
 }

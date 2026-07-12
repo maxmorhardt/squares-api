@@ -31,6 +31,7 @@ var (
 var (
 	ErrContestNotFound    = errors.New("contest not found")
 	ErrSquareNotFound     = errors.New("square not found")
+	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidRequestBody = errors.New("invalid request body")
 	ErrClaimsNotFound     = errors.New("authentication required")
 )

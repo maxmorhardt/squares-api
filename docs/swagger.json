@@ -1102,6 +1102,109 @@
                 }
             }
         },
+        "/users/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the profile of the authenticated user, creating it on first access",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get the current user's profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.UserProfileResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes owned contests, releases claimed squares, and removes all personal data",
+                "tags": [
+                    "users"
+                ],
+                "summary": "Delete the current user's account",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/me/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns contest and square stats for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get the current user's stats",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.UserStatsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/ws/contests/owner/{owner}/name/{name}": {
             "get": {
                 "security": [
@@ -1658,6 +1761,44 @@
                     "type": "string",
                     "maxLength": 3,
                     "minLength": 1
+                }
+            }
+        },
+        "model.UserProfileResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string",
+                    "example": "2026-07-11T00:00:00Z"
+                },
+                "displayName": {
+                    "type": "string",
+                    "example": "Max"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                }
+            }
+        },
+        "model.UserStatsResponse": {
+            "type": "object",
+            "properties": {
+                "contestsCreated": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "contestsJoined": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "quarterWins": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "squaresClaimed": {
+                    "type": "integer",
+                    "example": 42
                 }
             }
         }

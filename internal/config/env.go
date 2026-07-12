@@ -48,7 +48,7 @@ type smtpConfig struct {
 
 type oidcConfig struct {
 	ClientID string `env:"OIDC_CLIENT_ID,required"`
-	Issuer   string `env:"OIDC_ISSUER" envDefault:"https://login.maxstash.io/application/o/squares/"`
+	Issuer   string `env:"OIDC_ISSUER" envDefault:"https://login.maxstash.io"`
 }
 
 type natsConfig struct {
