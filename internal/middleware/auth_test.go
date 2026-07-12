@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,7 +83,7 @@ func TestAuthMiddleware_VerifyError(t *testing.T) {
 }
 
 func TestAuthMiddleware_ClaimsParseError(t *testing.T) {
-	claimsErr := fmt.Errorf("%w: %w", errClaimsParse, errors.New("json: cannot unmarshal"))
+	claimsErr := fmt.Errorf("%w: %w", errs.ErrClaimsParse, errors.New("json: cannot unmarshal"))
 	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{err: claimsErr}))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)

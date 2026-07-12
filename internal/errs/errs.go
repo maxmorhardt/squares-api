@@ -34,6 +34,8 @@ var (
 	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidRequestBody = errors.New("invalid request body")
 	ErrClaimsNotFound     = errors.New("authentication required")
+	ErrClaimsParse        = errors.New("claims parse failed")
+	ErrEmailUnverified    = errors.New("token has no verified email")
 )
 
 var (

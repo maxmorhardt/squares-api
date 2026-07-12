@@ -17,13 +17,10 @@ func userRows(email, displayName string) *sqlmock.Rows {
 		AddRow(uuid.New().String(), email, displayName, time.Now(), time.Now())
 }
 
-func TestUserRepository_GetOrCreate_Success(t *testing.T) {
+func TestUserRepository_GetOrCreate_Existing(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewUserRepository(gdb)
 
-	mock.ExpectBegin()
-	mock.ExpectExec(`INSERT INTO "users"`).WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectCommit()
 	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows("a@b.com", "Max"))
 
 	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
@@ -34,10 +31,49 @@ func TestUserRepository_GetOrCreate_Success(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestUserRepository_GetOrCreate_CreatesWithFirstActivity(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	first := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectQuery(`SELECT MIN`).WillReturnRows(sqlmock.NewRows([]string{"min"}).AddRow(first))
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO "users"`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows("a@b.com", "Max"))
+
+	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
+
+	require.NoError(t, err)
+	assert.Equal(t, "a@b.com", user.Email)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_GetOrCreate_CreatesWithoutActivity(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectQuery(`SELECT MIN`).WillReturnRows(sqlmock.NewRows([]string{"min"}).AddRow(nil))
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO "users"`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows("a@b.com", "Max"))
+
+	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
+
+	require.NoError(t, err)
+	assert.Equal(t, "Max", user.DisplayName)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestUserRepository_GetOrCreate_InsertError(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewUserRepository(gdb)
 
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectQuery(`SELECT MIN`).WillReturnRows(sqlmock.NewRows([]string{"min"}).AddRow(nil))
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "users"`).WillReturnError(errors.New("insert failed"))
 	mock.ExpectRollback()
@@ -53,9 +89,6 @@ func TestUserRepository_GetOrCreate_SelectError(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewUserRepository(gdb)
 
-	mock.ExpectBegin()
-	mock.ExpectExec(`INSERT INTO "users"`).WillReturnResult(sqlmock.NewResult(1, 0))
-	mock.ExpectCommit()
 	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnError(errors.New("select failed"))
 
 	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
@@ -136,9 +169,17 @@ func TestUserRepository_ScrubUserData_Success(t *testing.T) {
 	repo := NewUserRepository(gdb)
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`UPDATE "squares"`).WillReturnResult(sqlmock.NewResult(0, 2))
-	mock.ExpectExec(`UPDATE "squares"`).WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(`UPDATE "quarter_results"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	// free squares in live contests, then anonymize owner/created_by/updated_by
+	for i := 0; i < 4; i++ {
+		mock.ExpectExec(`UPDATE "squares"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	}
+	for i := 0; i < 3; i++ {
+		mock.ExpectExec(`UPDATE "quarter_results"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	}
+	for i := 0; i < 3; i++ {
+		mock.ExpectExec(`UPDATE "contests"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	}
+	mock.ExpectExec(`UPDATE "contest_invites"`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`DELETE FROM "contest_participants"`).WillReturnResult(sqlmock.NewResult(0, 3))
 	mock.ExpectExec(`DELETE FROM "users"`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()

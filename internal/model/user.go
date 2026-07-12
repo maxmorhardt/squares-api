@@ -7,6 +7,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// replaces the email of deleted accounts in surviving rows (same convention as github)
+const GhostUser = "ghost"
+
 type User struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
 	Email       string    `json:"email" gorm:"not null;uniqueIndex:idx_users_email"`

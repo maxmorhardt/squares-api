@@ -1152,7 +1152,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Deletes owned contests, releases claimed squares, and removes all personal data",
+                "description": "Deletes active owned contests, releases squares in live contests, and anonymizes contest history under the ghost identity",
                 "tags": [
                     "users"
                 ],

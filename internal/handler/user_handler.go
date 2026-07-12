@@ -86,7 +86,7 @@ func (h *userHandler) GetMyStats(c *gin.Context) {
 
 // DeleteMe godoc
 // @Summary Delete the current user's account
-// @Description Deletes owned contests, releases claimed squares, and removes all personal data
+// @Description Deletes active owned contests, releases squares in live contests, and anonymizes contest history under the ghost identity
 // @Tags users
 // @Success 204
 // @Failure 401 {object} model.APIError

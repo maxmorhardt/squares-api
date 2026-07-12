@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/model"
@@ -27,15 +29,39 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 }
 
 func (r *userRepository) GetOrCreate(ctx context.Context, email, defaultDisplayName string) (*model.User, error) {
-	// first authenticated visit creates the row; later visits return the existing one
+	user := &model.User{}
+	err := r.db.WithContext(ctx).Where("email = ?", email).First(user).Error
+	if err == nil {
+		return user, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	// member since reflects the user's first activity, not their first profile visit
+	var firstActivity sql.NullTime
+	if err := r.db.WithContext(ctx).Raw(
+		`SELECT MIN(t) FROM (
+			SELECT MIN(created_at) AS t FROM contests WHERE owner = ?
+			UNION ALL
+			SELECT MIN(joined_at) FROM contest_participants WHERE user_id = ?
+		) activity`, email, email).Scan(&firstActivity).Error; err != nil {
+		return nil, err
+	}
+
+	newUser := &model.User{Email: email, DisplayName: defaultDisplayName}
+	if firstActivity.Valid {
+		newUser.CreatedAt = firstActivity.Time
+	}
+
 	if err := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "email"}}, DoNothing: true}).
-		Create(&model.User{Email: email, DisplayName: defaultDisplayName}).Error; err != nil {
+		Create(newUser).Error; err != nil {
 		return nil, err
 	}
 
 	// select into a fresh struct so the created struct's id is not added to the where clause
-	user := &model.User{}
+	user = &model.User{}
 	if err := r.db.WithContext(ctx).Where("email = ?", email).First(user).Error; err != nil {
 		return nil, err
 	}
@@ -101,17 +127,28 @@ func (r *userRepository) ScrubUserData(ctx context.Context, email string) error 
 			return err
 		}
 
-		// finished/deleted contests keep their history but drop the email
-		if err := tx.Model(&model.Square{}).
-			Where("owner = ?", email).
-			Update("owner", "").Error; err != nil {
-			return err
+		// finished/deleted contests keep their history under the ghost identity
+		anonymize := []struct {
+			tableModel any
+			column     string
+		}{
+			{&model.Square{}, "owner"},
+			{&model.Square{}, "created_by"},
+			{&model.Square{}, "updated_by"},
+			{&model.QuarterResult{}, "winner"},
+			{&model.QuarterResult{}, "created_by"},
+			{&model.QuarterResult{}, "updated_by"},
+			{&model.Contest{}, "owner"},
+			{&model.Contest{}, "created_by"},
+			{&model.Contest{}, "updated_by"},
+			{&model.ContestInvite{}, "created_by"},
 		}
-
-		if err := tx.Model(&model.QuarterResult{}).
-			Where("winner = ?", email).
-			Update("winner", "").Error; err != nil {
-			return err
+		for _, a := range anonymize {
+			if err := tx.Model(a.tableModel).
+				Where(a.column+" = ?", email).
+				Update(a.column, model.GhostUser).Error; err != nil {
+				return err
+			}
 		}
 
 		if err := tx.Where("user_id = ?", email).Delete(&model.ContestParticipant{}).Error; err != nil {
