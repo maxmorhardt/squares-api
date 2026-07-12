@@ -246,6 +246,13 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 		return errs.ErrContestNotEditable
 	}
 
+	// removing someone else requires owner permissions
+	if targetUserID != user {
+		if authErr := s.Authorize(ctx, contestID, user, ActionManageInvites); authErr != nil {
+			return authErr
+		}
+	}
+
 	// get the target participant
 	participant, err := s.participantRepo.GetByContestAndUser(ctx, contestID, targetUserID)
 	if err != nil {
@@ -259,13 +266,6 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 	// the owner cannot be removed by anyone, including themselves — they must delete the contest
 	if participant.Role == model.ParticipantRoleOwner {
 		return errs.ErrCannotRemoveOwner
-	}
-
-	// participants may remove themselves; removing anyone else requires owner permissions
-	if targetUserID != user {
-		if authErr := s.Authorize(ctx, contestID, user, ActionManageInvites); authErr != nil {
-			return authErr
-		}
 	}
 
 	// clear the participant's squares
