@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"mime/multipart"
+	"net/http"
 	"net/smtp"
 	"net/textproto"
 	"strings"
@@ -54,7 +55,7 @@ func (s *contactService) SubmitContact(ctx context.Context, req *model.ContactRe
 		Subject:   req.Subject,
 		Message:   req.Message,
 		IPAddress: ipAddress,
-		Status:    "pending",
+		Status:    model.ContactStatusPending,
 	}
 
 	// save to database
@@ -84,9 +85,28 @@ func sanitizeHeader(v string) string {
 }
 
 func (s *contactService) sendEmailNotification(req *model.ContactRequest) error {
-	from := s.cfg.SMTP.User
+	msg, err := s.buildContactEmail(req)
+	if err != nil {
+		return err
+	}
+
+	auth := smtp.PlainAuth("", s.cfg.SMTP.User, s.cfg.SMTP.Password, s.cfg.SMTP.Host)
+	addr := fmt.Sprintf("%s:%d", s.cfg.SMTP.Host, s.cfg.SMTP.Port)
 	to := []string{s.cfg.SMTP.SupportEmail}
-	subject := sanitizeHeader(fmt.Sprintf("Contact Form: %s", req.Subject))
+
+	if err := smtp.SendMail(addr, auth, s.cfg.SMTP.User, to, msg); err != nil {
+		return fmt.Errorf("%w: %w", errs.ErrEmailNotification, err)
+	}
+
+	return nil
+}
+
+func (s *contactService) buildContactEmail(req *model.ContactRequest) ([]byte, error) {
+	var htmlBody bytes.Buffer
+	if err := contactEmailTmpl.Execute(&htmlBody, req); err != nil {
+		return nil, fmt.Errorf("failed to render contact email template: %w", err)
+	}
+
 	plainBody := fmt.Sprintf(
 		"New contact form submission:\n\n"+
 			"Name: %s\n"+
@@ -99,19 +119,12 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 		req.Message,
 	)
 
-	// render html body
-	var htmlBody bytes.Buffer
-	if err := contactEmailTmpl.Execute(&htmlBody, req); err != nil {
-		return fmt.Errorf("failed to render contact email template: %w", err)
-	}
-
-	// build a multipart/alternative message with both plain text and html parts
 	var msg bytes.Buffer
 
-	// write top-level headers
-	fmt.Fprintf(&msg, "From: %s\r\n", sanitizeHeader(from))
+	// top-level headers
+	fmt.Fprintf(&msg, "From: %s\r\n", sanitizeHeader(s.cfg.SMTP.User))
 	fmt.Fprintf(&msg, "To: %s\r\n", sanitizeHeader(s.cfg.SMTP.SupportEmail))
-	fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
+	fmt.Fprintf(&msg, "Subject: %s\r\n", sanitizeHeader(fmt.Sprintf("Contact Form: %s", req.Subject)))
 	fmt.Fprintf(&msg, "Reply-To: %s\r\n", sanitizeHeader(req.Email))
 	fmt.Fprintf(&msg, "MIME-Version: 1.0\r\n")
 
@@ -119,46 +132,33 @@ func (s *contactService) sendEmailNotification(req *model.ContactRequest) error 
 	fmt.Fprintf(&msg, "Content-Type: multipart/alternative; boundary=%q\r\n", mpw.Boundary())
 	fmt.Fprintf(&msg, "\r\n")
 
-	// plain text part
-	partHeader := make(textproto.MIMEHeader)
-	partHeader.Set("Content-Type", `text/plain; charset="UTF-8"`)
-	pw, err := mpw.CreatePart(partHeader)
-	if err != nil {
-		return fmt.Errorf("failed to create plain text MIME part: %w", err)
+	if err := writeMIMEPart(mpw, `text/plain; charset="UTF-8"`, []byte(plainBody)); err != nil {
+		return nil, err
 	}
-	if _, err = pw.Write([]byte(plainBody)); err != nil {
-		return fmt.Errorf("failed to write plain text body: %w", err)
+	if err := writeMIMEPart(mpw, `text/html; charset="UTF-8"`, htmlBody.Bytes()); err != nil {
+		return nil, err
 	}
 
-	// html part
-	partHeader = make(textproto.MIMEHeader)
-	partHeader.Set("Content-Type", `text/html; charset="UTF-8"`)
-	pw, err = mpw.CreatePart(partHeader)
-	if err != nil {
-		return fmt.Errorf("failed to create HTML MIME part: %w", err)
-	}
-	if _, err = pw.Write(htmlBody.Bytes()); err != nil {
-		return fmt.Errorf("failed to write HTML body: %w", err)
+	if err := mpw.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
-	if err = mpw.Close(); err != nil {
-		return fmt.Errorf("failed to close multipart writer: %w", err)
-	}
-
-	// send email via smtp
-	auth := smtp.PlainAuth("", s.cfg.SMTP.User, s.cfg.SMTP.Password, s.cfg.SMTP.Host)
-	addr := fmt.Sprintf("%s:%d", s.cfg.SMTP.Host, s.cfg.SMTP.Port)
-
-	return smtp.SendMail(addr, auth, from, to, msg.Bytes())
+	return msg.Bytes(), nil
 }
 
-type turnstileResponse struct {
-	Success     bool     `json:"success"`
-	ChallengeTS string   `json:"challenge_ts"`
-	Hostname    string   `json:"hostname"`
-	ErrorCodes  []string `json:"error-codes"`
-	Action      string   `json:"action"`
-	CData       string   `json:"cdata"`
+func writeMIMEPart(mpw *multipart.Writer, contentType string, body []byte) error {
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Type", contentType)
+
+	pw, err := mpw.CreatePart(header)
+	if err != nil {
+		return fmt.Errorf("failed to create MIME part: %w", err)
+	}
+	if _, err := pw.Write(body); err != nil {
+		return fmt.Errorf("failed to write MIME part body: %w", err)
+	}
+
+	return nil
 }
 
 func (s *contactService) validateTurnstile(ctx context.Context, token, remoteIP string) error {
@@ -169,9 +169,21 @@ func (s *contactService) validateTurnstile(ctx context.Context, token, remoteIP 
 
 	client := resty.New().
 		SetTimeout(10 * time.Second).
-		SetBaseURL(baseURL)
+		SetBaseURL(baseURL).
+		SetRetryCount(2).
+		SetRetryWaitTime(200 * time.Millisecond).
+		SetRetryMaxWaitTime(1 * time.Second).
+		AddRetryCondition(func(r *resty.Response, err error) bool {
+			if ctx.Err() != nil {
+				return false
+			}
+			if err != nil {
+				return true
+			}
+			return r.StatusCode() >= http.StatusInternalServerError
+		})
 
-	var turnstileResp turnstileResponse
+	var turnstileResp model.TurnstileResponse
 	resp, err := client.R().
 		SetContext(ctx).
 		SetFormData(map[string]string{
@@ -183,15 +195,15 @@ func (s *contactService) validateTurnstile(ctx context.Context, token, remoteIP 
 		Post("/turnstile/v0/siteverify")
 
 	if err != nil {
-		return fmt.Errorf("failed to verify turnstile token: %w", err)
+		return fmt.Errorf("%w: %w", errs.ErrTurnstileVerification, err)
 	}
 
 	if !resp.IsSuccess() {
-		return fmt.Errorf("turnstile API returned status %d", resp.StatusCode())
+		return fmt.Errorf("%w: status %d", errs.ErrTurnstileVerification, resp.StatusCode())
 	}
 
 	if !turnstileResp.Success {
-		return fmt.Errorf("turnstile validation failed: %v", turnstileResp.ErrorCodes)
+		return fmt.Errorf("%w: %v", errs.ErrTurnstileVerification, turnstileResp.ErrorCodes)
 	}
 
 	return nil
