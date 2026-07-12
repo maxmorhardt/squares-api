@@ -83,7 +83,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 			MaxSquares: 50,
 			Role:       "participant",
 		})
-		require.Equal(t, http.StatusCreated, status)
+		require.Equal(t, http.StatusOK, status)
 		require.NotEmpty(t, invite.Token)
 		inviteToken = invite.Token
 	})
@@ -274,7 +274,7 @@ func updateContest(t *testing.T, contestID uuid.UUID, token string, req model.Up
 	return c, code
 }
 
-func createInvite(t *testing.T, contestID uuid.UUID, token string, req model.CreateInviteRequest) (resp model.InviteResponse, status int) {
+func createInvite(t *testing.T, contestID uuid.UUID, token string, req model.CreateInviteRequest) (resp model.ContestInvite, status int) {
 	t.Helper()
 	body, _ := json.Marshal(req)
 	code, respBody := doRequest(t, http.MethodPost, fmt.Sprintf("/contests/%s/invites", contestID), token, body)

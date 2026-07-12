@@ -38,7 +38,7 @@ func NewInviteHandler(inviteService service.InviteService) InviteHandler {
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Param invite body model.CreateInviteRequest true "Invite details"
-// @Success 201 {object} model.InviteResponse
+// @Success 200 {object} model.ContestInvite
 // @Failure 400 {object} model.APIError
 // @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
@@ -78,9 +78,7 @@ func (h *inviteHandler) CreateInvite(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, model.InviteResponse{
-		Token: invite.Token,
-	})
+	c.JSON(http.StatusOK, invite)
 }
 
 // @Summary Preview an invite link

@@ -433,10 +433,10 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.InviteResponse"
+                            "$ref": "#/definitions/model.ContestInvite"
                         }
                     },
                     "400": {
@@ -1561,17 +1561,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.InviteResponse": {
-            "type": "object",
-            "properties": {
-                "inviteUrl": {
-                    "type": "string"
-                },
-                "token": {
                     "type": "string"
                 }
             }

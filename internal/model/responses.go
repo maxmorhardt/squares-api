@@ -42,8 +42,3 @@ type InvitePreviewResponse struct {
 	Role        string    `json:"role"`
 	MaxSquares  int       `json:"maxSquares"`
 }
-
-type InviteResponse struct {
-	InviteURL string `json:"inviteUrl"`
-	Token     string `json:"token"`
-}

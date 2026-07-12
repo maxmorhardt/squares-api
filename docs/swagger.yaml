@@ -196,13 +196,6 @@ definitions:
       role:
         type: string
     type: object
-  model.InviteResponse:
-    properties:
-      inviteUrl:
-        type: string
-      token:
-        type: string
-    type: object
   model.PaginatedContestResponseSwagger:
     properties:
       contests:
@@ -573,10 +566,10 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
+        "200":
+          description: OK
           schema:
-            $ref: '#/definitions/model.InviteResponse'
+            $ref: '#/definitions/model.ContestInvite'
         "400":
           description: Bad Request
           schema:

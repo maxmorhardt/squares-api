@@ -33,8 +33,8 @@ func TestCreateInvite_Success(t *testing.T) {
 	r.POST("/contests/:id/invites", h.CreateInvite)
 
 	w := doRequest(r, jsonReq(http.MethodPost, fmt.Sprintf("/contests/%s/invites", uuid.New()), model.CreateInviteRequest{MaxSquares: 10, Role: "participant"}))
-	assert.Equal(t, http.StatusCreated, w.Code)
-	var resp model.InviteResponse
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp model.ContestInvite
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, "abc123", resp.Token)
 }
