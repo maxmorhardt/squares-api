@@ -1,0 +1,9 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  pr-title:
+    uses: maxmorhardt/workflows/.github/workflows/pr-title.yml@main

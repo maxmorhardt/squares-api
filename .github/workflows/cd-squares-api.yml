@@ -1,6 +1,8 @@
 name: Squares API CD
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       image_tag:
@@ -15,7 +17,16 @@ on:
         default: ''
 
 jobs:
+  approve:
+    if: ${{ github.event_name == 'release' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "Deploy of ${{ github.event.release.tag_name }} approved"
+
   cd:
+    needs: approve
+    if: ${{ always() && (needs.approve.result == 'success' || needs.approve.result == 'skipped') }}
     uses: maxmorhardt/workflows/.github/workflows/cd-helm.yml@main
     with:
       repository: maxmorhardt/${{ github.event.repository.name }}
@@ -23,5 +34,15 @@ jobs:
       namespace: squares
       chart: oci://docker.io/maxmorhardt/${{ github.event.repository.name }}-chart
       chart_version: ${{ inputs.chart_version }}
-      image_tag: ${{ inputs.image_tag }}
+      image_tag: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.image_tag }}
+    secrets: inherit
+
+  smoke:
+    needs: cd
+    uses: maxmorhardt/workflows/.github/workflows/smoke-go.yml@main
+    with:
+      repository: maxmorhardt/${{ github.event.repository.name }}
+      release_name: ${{ github.event.repository.name }}
+      namespace: squares
+      smoke_url: https://api.maxstash.io/squares
     secrets: inherit
