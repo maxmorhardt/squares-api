@@ -50,7 +50,7 @@ test-all: ## Run all tests
 	go test $(RACE) ./...
 
 .PHONY: test-smoke
-test-smoke: ## Run smoke tests against a live deployment (set SMOKE_BASE_URL)
+test-smoke: ## Run smoke tests against a live deployment
 	go test -count=1 -v -run TestSmoke ./test/smoke/...
 
 .PHONY: cover
