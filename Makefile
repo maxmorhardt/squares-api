@@ -25,7 +25,7 @@ run: ## Run the API locally
 	go run $(MAIN)
 
 .PHONY: build
-build: ## Build the binary (override OUT/MAIN/BUILD_FLAGS/LDFLAGS for cross-compiles)
+build: ## Build the binary
 	@mkdir -p $(dir $(OUT))
 	go build $(BUILD_FLAGS) $(if $(LDFLAGS),-ldflags="$(LDFLAGS)",) -o $(OUT) $(MAIN)
 
@@ -38,16 +38,20 @@ vet: ## Run go vet
 	go vet ./...
 
 .PHONY: test
-test: ## Run unit tests (no Docker required)
+test: ## Run unit tests
 	go test $(RACE) ./internal/... ./cmd/...
 
 .PHONY: test-integration
 test-integration: ## Run integration tests (requires Docker)
-	go test $(RACE) ./test/...
+	go test $(RACE) ./test/integration/...
 
 .PHONY: test-all
 test-all: ## Run all tests
 	go test $(RACE) ./...
+
+.PHONY: test-smoke
+test-smoke: ## Run smoke tests against a live deployment
+	go test -count=1 -v -run TestSmoke ./test/smoke/...
 
 .PHONY: cover
 cover: ## Run unit tests with coverage and enforce the threshold
@@ -67,19 +71,19 @@ fmt: ## Format all Go files
 	gofmt -w .
 
 .PHONY: mocks
-mocks: ## Regenerate testify mocks (mockery)
+mocks: ## Regenerate testify mocks
 	$(MOCKERY)
 
 .PHONY: migrate-create
-migrate-create: ## Create a new migration pair: make migrate-create NAME=add_foo
+migrate-create: ## Create a new migration pair
 	$(MIGRATE) create -ext sql -dir $(MIGRATIONS) -seq $(NAME)
 
 .PHONY: migrate-up
-migrate-up: ## Apply migrations (DATABASE_URL=postgres://user:pass@host:port/db?sslmode=disable)
+migrate-up: ## Apply migrations
 	$(MIGRATE) -path $(MIGRATIONS) -database "$(DATABASE_URL)" up
 
 .PHONY: migrate-down
-migrate-down: ## Roll back the last migration (set DATABASE_URL)
+migrate-down: ## Roll back the last migration
 	$(MIGRATE) -path $(MIGRATIONS) -database "$(DATABASE_URL)" down 1
 
 .PHONY: swag
