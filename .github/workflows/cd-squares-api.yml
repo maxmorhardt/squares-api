@@ -32,7 +32,7 @@ jobs:
       repository: maxmorhardt/${{ github.event.repository.name }}
       release_name: ${{ github.event.repository.name }}
       namespace: squares
-      chart: oci://docker.io/maxmorhardt/${{ github.event.repository.name }}-chart
+      chart: oci://ghcr.io/${{ github.repository_owner }}/charts/${{ github.event.repository.name }}
       chart_version: ${{ inputs.chart_version }}
       image_tag: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.image_tag }}
     secrets: inherit
