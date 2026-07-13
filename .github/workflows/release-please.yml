@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   release-please:
     uses: maxmorhardt/workflows/.github/workflows/release-please.yml@main
