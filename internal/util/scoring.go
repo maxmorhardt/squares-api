@@ -31,7 +31,7 @@ func RandomizedLabels() (xLabels, yLabels []byte, err error) {
 
 func InitialLabels() (xLabels, yLabels []byte) {
 	labels := make([]int8, 10)
-	for i := range int8(10) {
+	for i := range labels {
 		labels[i] = -1
 	}
 
@@ -43,8 +43,8 @@ func InitialLabels() (xLabels, yLabels []byte) {
 
 func shuffledDigits() ([]int8, error) {
 	labels := make([]int8, 10)
-	for i := range int8(10) {
-		labels[i] = i
+	for i := range labels {
+		labels[i] = int8(i)
 	}
 
 	// fisher-yates shuffle with a cryptographic source
