@@ -176,14 +176,14 @@ func startFakeNATSServer(t *testing.T) string {
 
 		scanner := bufio.NewScanner(conn)
 		for scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				return
-			}
 			if scanner.Text() == "PING" {
 				_, _ = fmt.Fprint(conn, "PONG\r\n")
 				time.Sleep(300 * time.Millisecond)
 				return
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			return
 		}
 	}()
 
