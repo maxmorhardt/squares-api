@@ -168,7 +168,7 @@ func TestCreateContest_OwnerMismatch(t *testing.T) {
 	r.PUT("/contests", h.CreateContest)
 
 	w := doRequest(r, jsonReq(http.MethodPut, "/contests", model.CreateContestRequest{Owner: "someone-else", Name: "Test", MaxSquares: 10}))
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
 func TestCreateContest_AlreadyExists(t *testing.T) {

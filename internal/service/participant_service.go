@@ -146,6 +146,11 @@ func (s *participantService) GetMyContests(ctx context.Context, user, search str
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
+	// game-linked contests read their quarter results from the shared game record
+	for i := range contests {
+		util.SynthesizeFromGame(&contests[i])
+	}
+
 	log.Info("retrieved joined contests", "count", len(contests))
 	return contests, nil
 }
@@ -192,7 +197,28 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 		participant.Role = model.ParticipantRole(*req.Role)
 	}
 
+	// viewers always 0, participants must be >= 1, owners may be 0-100
+	targetMax := participant.MaxSquares
 	if req.MaxSquares != nil {
+		targetMax = *req.MaxSquares
+	}
+
+	switch participant.Role {
+	case model.ParticipantRoleViewer:
+		// a viewer explicitly given squares is a client bug; reject it outright
+		if req.MaxSquares != nil && *req.MaxSquares > 0 {
+			return nil, errs.ErrViewerCannotHaveSquares
+		}
+		targetMax = 0
+	case model.ParticipantRoleParticipant:
+		if targetMax < 1 {
+			return nil, errs.ErrInvalidSquareCount
+		}
+	case model.ParticipantRoleOwner:
+		// owners may hold anywhere from 0 to 100 squares
+	}
+
+	if targetMax != participant.MaxSquares {
 		// new limit can't be below currently claimed squares
 		claimed, err := s.participantRepo.CountSquaresByUser(ctx, contestID, targetUserID)
 		if err != nil {
@@ -200,7 +226,7 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 			return nil, errs.ErrDatabaseUnavailable
 		}
 
-		if *req.MaxSquares < claimed {
+		if targetMax < claimed {
 			return nil, errs.ErrSquareLimitTooLow
 		}
 
@@ -211,12 +237,12 @@ func (s *participantService) UpdateParticipant(ctx context.Context, contestID uu
 			return nil, errs.ErrDatabaseUnavailable
 		}
 
-		newTotal := totalAllocated - participant.MaxSquares + *req.MaxSquares
+		newTotal := totalAllocated - participant.MaxSquares + targetMax
 		if newTotal > 100 {
 			return nil, errs.ErrNotEnoughSquares
 		}
 
-		participant.MaxSquares = *req.MaxSquares
+		participant.MaxSquares = targetMax
 	}
 
 	if err := s.participantRepo.Update(ctx, participant); err != nil {

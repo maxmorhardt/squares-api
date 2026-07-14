@@ -10,6 +10,7 @@ packages:
   github.com/maxmorhardt/squares-api/internal/repository:
     interfaces:
       ContestRepository:
+      GameRepository:
       ParticipantRepository:
       InviteRepository:
       ContactRepository:
@@ -20,6 +21,7 @@ packages:
       ParticipantService:
       NatsService:
       ContestService:
+      GameService:
       InviteService:
       ContactService:
       StatsService:

@@ -191,6 +191,9 @@ func TestUpdateParticipant_Success(t *testing.T) {
 	p := mocks.NewParticipantRepository(t)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner}, nil)
 	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(&model.ContestParticipant{Role: model.ParticipantRoleParticipant, MaxSquares: 10}, nil)
+	// demoting a participant to viewer drops their allotment to 0, which runs the square checks
+	p.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, "target").Return(0, nil)
+	p.EXPECT().GetTotalAllocatedSquares(mock.Anything, mock.Anything).Return(10, nil)
 	p.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
 
 	svc := service.NewParticipantService(p, c, anyNats())
@@ -198,6 +201,50 @@ func TestUpdateParticipant_Success(t *testing.T) {
 	got, err := svc.UpdateParticipant(context.Background(), uuid.New(), "target", &model.UpdateParticipantRequest{Role: &role}, "owner")
 	require.NoError(t, err)
 	assert.Equal(t, model.ParticipantRoleViewer, got.Role)
+	assert.Equal(t, 0, got.MaxSquares)
+}
+
+func TestUpdateParticipant_ViewerCannotHaveSquares(t *testing.T) {
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner}, nil)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(&model.ContestParticipant{Role: model.ParticipantRoleViewer}, nil)
+
+	svc := service.NewParticipantService(p, c, anyNats())
+	maxSq := 5
+	_, err := svc.UpdateParticipant(context.Background(), uuid.New(), "target", &model.UpdateParticipantRequest{MaxSquares: &maxSq}, "owner")
+	assert.ErrorIs(t, err, errs.ErrViewerCannotHaveSquares)
+}
+
+func TestUpdateParticipant_ParticipantZeroSquares(t *testing.T) {
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner}, nil)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(&model.ContestParticipant{Role: model.ParticipantRoleParticipant, MaxSquares: 5}, nil)
+
+	svc := service.NewParticipantService(p, c, anyNats())
+	maxSq := 0
+	_, err := svc.UpdateParticipant(context.Background(), uuid.New(), "target", &model.UpdateParticipantRequest{MaxSquares: &maxSq}, "owner")
+	assert.ErrorIs(t, err, errs.ErrInvalidSquareCount)
+}
+
+func TestUpdateParticipant_OwnerZeroSquaresAllowed(t *testing.T) {
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner}, nil)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "owner-target").Return(&model.ContestParticipant{Role: model.ParticipantRoleOwner, MaxSquares: 5}, nil)
+	p.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, "owner-target").Return(0, nil)
+	p.EXPECT().GetTotalAllocatedSquares(mock.Anything, mock.Anything).Return(5, nil)
+	p.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+
+	svc := service.NewParticipantService(p, c, anyNats())
+	maxSq := 0
+	got, err := svc.UpdateParticipant(context.Background(), uuid.New(), "owner-target", &model.UpdateParticipantRequest{MaxSquares: &maxSq}, "owner")
+	require.NoError(t, err)
+	assert.Equal(t, 0, got.MaxSquares)
 }
 
 func TestUpdateParticipant_ContestDBError(t *testing.T) {

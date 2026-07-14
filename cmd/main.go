@@ -15,6 +15,12 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/bootstrap"
 )
 
+const (
+	readHeaderTimeout = 10 * time.Second
+	readTimeout       = 30 * time.Second
+	idleTimeout       = 120 * time.Second
+)
+
 func init() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level:     slog.LevelInfo,
@@ -49,12 +55,17 @@ func main() {
 
 	router := bootstrap.NewServer(deps)
 
+	// start background schedule sync + score polling; cancelled on shutdown
+	scoresCtx, stopScores := context.WithCancel(context.Background())
+	defer stopScores()
+	bootstrap.StartScoresWorker(scoresCtx, deps)
+
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", deps.Config.Server.Port),
 		Handler:           router,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		IdleTimeout:       idleTimeout,
 		// no write timeout: it would kill long-lived /ws websocket connections
 	}
 
@@ -74,6 +85,9 @@ func main() {
 	<-quit
 
 	slog.Info("shutting down server...")
+
+	// stop background scores loops before tearing down connections
+	stopScores()
 
 	// give active connections time to finish
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

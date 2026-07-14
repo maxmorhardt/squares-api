@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ContestRepository interface {
@@ -14,6 +15,7 @@ type ContestRepository interface {
 	ExistsByOwnerAndName(ctx context.Context, owner, name string) (bool, error)
 	GetAllByOwnerPaginated(ctx context.Context, owner string, page, limit int, search string) ([]model.Contest, int64, error)
 	GetAllByParticipantUserID(ctx context.Context, userID, search string) ([]model.Contest, error)
+	GetByGameID(ctx context.Context, gameID uuid.UUID) ([]model.Contest, error)
 
 	Create(ctx context.Context, contest *model.Contest, owner *model.ContestParticipant) error
 	Update(ctx context.Context, contest *model.Contest) error
@@ -43,6 +45,9 @@ func (r *contestRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.C
 	err := r.db.WithContext(ctx).
 		Preload("Squares").
 		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
+			return db.Order("quarter ASC")
+		}).
+		Preload("Game.Scores", func(db *gorm.DB) *gorm.DB {
 			return db.Order("quarter ASC")
 		}).
 		First(&contest, "id = ? AND status != ?", id, model.ContestStatusDeleted).Error
@@ -103,6 +108,9 @@ func (r *contestRepository) GetAllByParticipantUserID(ctx context.Context, userI
 		Preload("QuarterResults", func(db *gorm.DB) *gorm.DB {
 			return db.Order("quarter ASC")
 		}).
+		Preload("Game.Scores", func(db *gorm.DB) *gorm.DB {
+			return db.Order("quarter ASC")
+		}).
 		Joins("JOIN contest_participants cp ON cp.contest_id = contests.id").
 		Where("cp.user_id = ? AND cp.role != ? AND contests.status != ?", userID, model.ParticipantRoleOwner, model.ContestStatusDeleted)
 
@@ -111,6 +119,15 @@ func (r *contestRepository) GetAllByParticipantUserID(ctx context.Context, userI
 	}
 
 	err := q.Order("cp.joined_at DESC").Find(&contests).Error
+	return contests, err
+}
+
+func (r *contestRepository) GetByGameID(ctx context.Context, gameID uuid.UUID) ([]model.Contest, error) {
+	var contests []model.Contest
+	err := r.db.WithContext(ctx).
+		Preload("Squares").
+		Where("game_id = ? AND status != ?", gameID, model.ContestStatusDeleted).
+		Find(&contests).Error
 	return contests, err
 }
 
@@ -149,7 +166,8 @@ func (r *contestRepository) Create(ctx context.Context, contest *model.Contest, 
 }
 
 func (r *contestRepository) Update(ctx context.Context, contest *model.Contest) error {
-	return r.db.WithContext(ctx).Save(contest).Error
+	// only persist the contest row itself; never write preloaded associations
+	return r.db.WithContext(ctx).Omit(clause.Associations).Save(contest).Error
 }
 
 func (r *contestRepository) Delete(ctx context.Context, id uuid.UUID) error {

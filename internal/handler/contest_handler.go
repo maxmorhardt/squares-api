@@ -137,6 +137,7 @@ func (h *contestHandler) extractPaginationParams(c *gin.Context) (page, limit in
 // @Param contest body model.CreateContestRequest true "Contest"
 // @Success 200 {object} model.ContestSwagger
 // @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests [put]
@@ -156,7 +157,7 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 
 	if req.Owner != user {
 		log.Warn("user not authorized to create contest", "user", user, "owner", req.Owner)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "User not authorized to create contest for specified owner", c))
+		c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, "User not authorized to create contest for specified owner", c))
 		return
 	}
 
@@ -168,6 +169,8 @@ func (h *contestHandler) CreateContest(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrContestAlreadyExists):
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrGameNotFound):
+			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(err), c))
 		default:
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to create contest", c))
 		}
@@ -383,12 +386,15 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			log.Warn("contest not found", "contest_id", contestID)
 			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
-		case errors.Is(err, gorm.ErrInvalidData):
+		case errors.Is(err, gorm.ErrInvalidData), errors.Is(err, errs.ErrWinnerNotDeterminable):
 			log.Warn("invalid quarter data", "error", err)
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid quarter data", c))
+		case errors.Is(err, errs.ErrContestIsGameLinked):
+			log.Warn("manual scoring blocked for game-linked contest", "contest_id", contestID)
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrQuarterResultAlreadyExists):
 			log.Warn("quarter results already exists for given quarter")
-			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrQuarterResultAlreadyExists), c))
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrQuarterResultAlreadyExists), c))
 		default:
 			log.Error("failed to record quarter result", "error", err)
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to record quarter result", c))

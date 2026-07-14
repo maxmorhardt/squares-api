@@ -412,6 +412,65 @@ func (_c *ContestRepository_GetAllByParticipantUserID_Call) RunAndReturn(run fun
 	return _c
 }
 
+// GetByGameID provides a mock function with given fields: ctx, gameID
+func (_m *ContestRepository) GetByGameID(ctx context.Context, gameID uuid.UUID) ([]model.Contest, error) {
+	ret := _m.Called(ctx, gameID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByGameID")
+	}
+
+	var r0 []model.Contest
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) ([]model.Contest, error)); ok {
+		return rf(ctx, gameID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) []model.Contest); ok {
+		r0 = rf(ctx, gameID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.Contest)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, gameID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ContestRepository_GetByGameID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByGameID'
+type ContestRepository_GetByGameID_Call struct {
+	*mock.Call
+}
+
+// GetByGameID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - gameID uuid.UUID
+func (_e *ContestRepository_Expecter) GetByGameID(ctx interface{}, gameID interface{}) *ContestRepository_GetByGameID_Call {
+	return &ContestRepository_GetByGameID_Call{Call: _e.mock.On("GetByGameID", ctx, gameID)}
+}
+
+func (_c *ContestRepository_GetByGameID_Call) Run(run func(ctx context.Context, gameID uuid.UUID)) *ContestRepository_GetByGameID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *ContestRepository_GetByGameID_Call) Return(_a0 []model.Contest, _a1 error) *ContestRepository_GetByGameID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ContestRepository_GetByGameID_Call) RunAndReturn(run func(context.Context, uuid.UUID) ([]model.Contest, error)) *ContestRepository_GetByGameID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetByID provides a mock function with given fields: ctx, id
 func (_m *ContestRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Contest, error) {
 	ret := _m.Called(ctx, id)

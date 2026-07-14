@@ -30,7 +30,11 @@ func TestGetContestsByOwnerPaginated(t *testing.T) {
 }
 
 func contestSvc(repo *mocks.ContestRepository, pRepo *mocks.ParticipantRepository, pSvc *mocks.ParticipantService) service.ContestService {
-	return service.NewContestService(repo, pRepo, anyNats(), pSvc)
+	return service.NewContestService(repo, pRepo, &mocks.GameRepository{}, anyNats(), pSvc)
+}
+
+func contestSvcWithGame(repo *mocks.ContestRepository, pRepo *mocks.ParticipantRepository, gameRepo *mocks.GameRepository, pSvc *mocks.ParticipantService) service.ContestService {
+	return service.NewContestService(repo, pRepo, gameRepo, anyNats(), pSvc)
 }
 
 func TestCreateContest_AlreadyExists(t *testing.T) {
@@ -61,6 +65,38 @@ func TestCreateContest_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, model.ContestVisibilityPublic, got.Visibility)
 	assert.Equal(t, model.ContestStatusActive, got.Status)
+}
+
+func TestCreateContest_WithGame(t *testing.T) {
+	gameID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().ExistsByOwnerAndName(mock.Anything, mock.Anything, mock.Anything).Return(false, nil)
+	// the foreign key is set (not the association) and teams come from the game
+	repo.EXPECT().Create(mock.Anything, mock.MatchedBy(func(c *model.Contest) bool {
+		return c.GameID != nil && *c.GameID == gameID && c.HomeTeam == "Chiefs" && c.AwayTeam == "Eagles"
+	}), mock.Anything).Return(nil)
+	gameRepo := mocks.NewGameRepository(t)
+	gameRepo.EXPECT().GetByID(mock.Anything, gameID).Return(&model.Game{ID: gameID, HomeTeam: "Chiefs", AwayTeam: "Eagles"}, nil)
+
+	got, err := contestSvcWithGame(repo, mocks.NewParticipantRepository(t), gameRepo, mocks.NewParticipantService(t)).
+		CreateContest(context.Background(), &model.CreateContestRequest{Owner: "o", Name: "n", MaxSquares: 10, GameID: gameID.String()}, "o")
+	require.NoError(t, err)
+	require.NotNil(t, got.GameID)
+	assert.Equal(t, gameID, *got.GameID)
+	assert.Equal(t, "Chiefs", got.HomeTeam)
+	assert.Equal(t, "Eagles", got.AwayTeam)
+}
+
+func TestCreateContest_GameNotFound(t *testing.T) {
+	gameID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().ExistsByOwnerAndName(mock.Anything, mock.Anything, mock.Anything).Return(false, nil)
+	gameRepo := mocks.NewGameRepository(t)
+	gameRepo.EXPECT().GetByID(mock.Anything, gameID).Return(nil, gorm.ErrRecordNotFound)
+
+	_, err := contestSvcWithGame(repo, mocks.NewParticipantRepository(t), gameRepo, mocks.NewParticipantService(t)).
+		CreateContest(context.Background(), &model.CreateContestRequest{Owner: "o", Name: "n", MaxSquares: 10, GameID: gameID.String()}, "o")
+	assert.ErrorIs(t, err, errs.ErrGameNotFound)
 }
 
 func TestUpdateContest_NotFound(t *testing.T) {
@@ -161,6 +197,19 @@ func TestStartContest_Success(t *testing.T) {
 		StartContest(context.Background(), uuid.New(), "u")
 	require.NoError(t, err)
 	assert.Equal(t, model.ContestStatusQ1, got.Status)
+}
+
+func TestStartContest_GameLinked(t *testing.T) {
+	gameID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status: model.ContestStatusActive,
+		GameID: &gameID,
+	}, nil)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		StartContest(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, errs.ErrContestIsGameLinked)
 }
 
 func TestRecordQuarterResult_InvalidStatus(t *testing.T) {
