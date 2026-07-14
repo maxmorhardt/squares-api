@@ -142,7 +142,8 @@ func (h *participantHandler) UpdateParticipant(c *gin.Context) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInsufficientRole), errors.Is(err, errs.ErrCannotChangeOwner):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		case errors.Is(err, errs.ErrSquareLimitTooLow), errors.Is(err, errs.ErrNotEnoughSquares):
+		case errors.Is(err, errs.ErrSquareLimitTooLow), errors.Is(err, errs.ErrNotEnoughSquares),
+			errors.Is(err, errs.ErrInvalidSquareCount), errors.Is(err, errs.ErrViewerCannotHaveSquares):
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		default:
 			log.Error("failed to update participant", "error", err)

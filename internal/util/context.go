@@ -16,6 +16,13 @@ func LoggerFromContext(ctx context.Context) *slog.Logger {
 	return slog.Default()
 }
 
+func ContextWithLogger(ctx context.Context, log *slog.Logger) context.Context {
+	if log == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, model.LoggerKey, log)
+}
+
 func LoggerFromGinContext(c *gin.Context) *slog.Logger {
 	if log, ok := c.Get(model.LoggerKey); ok {
 		return log.(*slog.Logger)

@@ -182,6 +182,9 @@ func startFakeNATSServer(t *testing.T) string {
 				return
 			}
 		}
+		if err := scanner.Err(); err != nil {
+			return
+		}
 	}()
 
 	return fmt.Sprintf("nats://127.0.0.1:%d", port)

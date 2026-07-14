@@ -1,0 +1,4 @@
+DROP INDEX IF EXISTS idx_contests_game_id;
+ALTER TABLE contests DROP COLUMN IF EXISTS game_id;
+DROP TABLE IF EXISTS game_scores;
+DROP TABLE IF EXISTS games;

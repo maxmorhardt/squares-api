@@ -103,6 +103,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -960,6 +966,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/games/upcoming": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns NFL games available to link a contest to when creating one",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "games"
+                ],
+                "summary": "Get upcoming games",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Game"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/health/live": {
             "get": {
                 "description": "Returns UP if the service process is running",
@@ -1498,7 +1538,6 @@ const docTemplate = `{
         "model.CreateContestRequest": {
             "type": "object",
             "required": [
-                "maxSquares",
                 "name",
                 "owner"
             ],
@@ -1507,6 +1546,9 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 20
                 },
+                "gameId": {
+                    "type": "string"
+                },
                 "homeTeam": {
                     "type": "string",
                     "maxLength": 20
@@ -1514,7 +1556,7 @@ const docTemplate = `{
                 "maxSquares": {
                     "type": "integer",
                     "maximum": 100,
-                    "minimum": 1
+                    "minimum": 0
                 },
                 "name": {
                     "type": "string",
@@ -1537,7 +1579,6 @@ const docTemplate = `{
         "model.CreateInviteRequest": {
             "type": "object",
             "required": [
-                "maxSquares",
                 "role"
             ],
             "properties": {
@@ -1549,7 +1590,7 @@ const docTemplate = `{
                 "maxSquares": {
                     "type": "integer",
                     "maximum": 100,
-                    "minimum": 1
+                    "minimum": 0
                 },
                 "maxUses": {
                     "type": "integer",
@@ -1563,6 +1604,104 @@ const docTemplate = `{
                     ]
                 }
             }
+        },
+        "model.Game": {
+            "type": "object",
+            "properties": {
+                "awayAbbr": {
+                    "type": "string"
+                },
+                "awayScore": {
+                    "type": "integer"
+                },
+                "awayTeam": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "espnId": {
+                    "type": "string"
+                },
+                "gameTime": {
+                    "type": "string"
+                },
+                "homeAbbr": {
+                    "type": "string"
+                },
+                "homeScore": {
+                    "type": "integer"
+                },
+                "homeTeam": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "integer"
+                },
+                "scores": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.GameScore"
+                    }
+                },
+                "season": {
+                    "type": "integer"
+                },
+                "seasonType": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.GameStatus"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "week": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.GameScore": {
+            "type": "object",
+            "properties": {
+                "awayScore": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "gameId": {
+                    "type": "string"
+                },
+                "homeScore": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "quarter": {
+                    "type": "integer"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.GameStatus": {
+            "type": "string",
+            "enum": [
+                "scheduled",
+                "in_progress",
+                "final"
+            ],
+            "x-enum-varnames": [
+                "GameStatusScheduled",
+                "GameStatusInProgress",
+                "GameStatusFinal"
+            ]
         },
         "model.InvitePreviewResponse": {
             "type": "object",

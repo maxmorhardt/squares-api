@@ -81,6 +81,23 @@ func TestContestRepository_Update(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestContestRepository_GetByGameID(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	gameID := uuid.New()
+	contestID := uuid.New()
+	mock.ExpectQuery(`SELECT \* FROM "contests"`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "game_id"}).AddRow(contestID, gameID))
+	mock.ExpectQuery(`SELECT \* FROM "squares"`).
+		WillReturnRows(sqlmock.NewRows([]string{"contest_id"}).AddRow(contestID))
+
+	contests, err := repo.GetByGameID(context.Background(), gameID)
+	require.NoError(t, err)
+	assert.Len(t, contests, 1)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestContestRepository_UpdateSquare(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewContestRepository(gdb)

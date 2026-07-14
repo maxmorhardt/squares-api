@@ -2,10 +2,7 @@ package service
 
 import (
 	"context"
-	cryptorand "crypto/rand"
-	"encoding/json"
 	"errors"
-	"math/big"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
@@ -32,6 +29,7 @@ type ContestService interface {
 type contestService struct {
 	repo               repository.ContestRepository
 	participantRepo    repository.ParticipantRepository
+	gameRepo           repository.GameRepository
 	natsService        NatsService
 	participantService ParticipantService
 }
@@ -39,12 +37,14 @@ type contestService struct {
 func NewContestService(
 	repo repository.ContestRepository,
 	participantRepo repository.ParticipantRepository,
+	gameRepo repository.GameRepository,
 	natsService NatsService,
 	participantService ParticipantService,
 ) ContestService {
 	return &contestService{
 		repo:               repo,
 		participantRepo:    participantRepo,
+		gameRepo:           gameRepo,
 		natsService:        natsService,
 		participantService: participantService,
 	}
@@ -87,11 +87,12 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 	}
 
 	// build contest with initial labels
-	xLabelsJSON, yLabelsJSON := initLabels()
+	xLabelsJSON, yLabelsJSON := util.InitialLabels()
 	visibility := model.ContestVisibilityPrivate
 	if req.Visibility == "public" {
 		visibility = model.ContestVisibilityPublic
 	}
+
 	contest := model.Contest{
 		Name:       req.Name,
 		XLabels:    xLabelsJSON,
@@ -101,6 +102,28 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 		Owner:      req.Owner,
 		Visibility: visibility,
 		Status:     model.ContestStatusActive,
+	}
+
+	// game-linked contest scores automatically and takes its teams from the game
+	if req.GameID != "" {
+		gameID, parseErr := uuid.Parse(req.GameID)
+		if parseErr != nil {
+			return nil, errs.ErrGameNotFound
+		}
+		game, gameErr := s.gameRepo.GetByID(ctx, gameID)
+		if gameErr != nil {
+			if errors.Is(gameErr, gorm.ErrRecordNotFound) {
+				return nil, errs.ErrGameNotFound
+			}
+
+			log.Error("failed to get game for contest link", "game_id", gameID, "error", gameErr)
+			return nil, errs.ErrDatabaseUnavailable
+		}
+
+		// set the foreign key and team names
+		contest.GameID = &game.ID
+		contest.HomeTeam = game.HomeTeam
+		contest.AwayTeam = game.AwayTeam
 	}
 
 	// atomically create contest, squares, and owner participant
@@ -120,19 +143,6 @@ func (s *contestService) CreateContest(ctx context.Context, req *model.CreateCon
 	return &contest, nil
 }
 
-func initLabels() (xLabelsJSON, yLabelsJSON []byte) {
-	// initialize labels to -1 (unset)
-	labels := make([]int8, 10)
-	for i := range int8(10) {
-		labels[i] = -1
-	}
-
-	xLabelsJSON, _ = json.Marshal(labels)
-	yLabelsJSON, _ = json.Marshal(labels)
-
-	return xLabelsJSON, yLabelsJSON
-}
-
 func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error) {
 	log := util.LoggerFromContext(ctx)
 
@@ -147,6 +157,9 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 		log.Error("failed to get contest for ownership validation", "contest_id", contestID, "error", err)
 		return nil, errs.ErrDatabaseUnavailable
 	}
+
+	// game-linked contests read their quarter results from the shared game record
+	util.SynthesizeFromGame(contest)
 
 	if contest.Status.IsTerminal() {
 		log.Warn("cannot update contest in terminal state", "contest_id", contestID, "status", contest.Status)
@@ -216,16 +229,20 @@ func (s *contestService) StartContest(ctx context.Context, contestID uuid.UUID, 
 		return nil, err
 	}
 
+	// game-linked contests start automatically at kickoff; owners can't start them
+	if contest.GameID != nil {
+		log.Warn("cannot manually start a game-linked contest", "contest_id", contestID)
+		return nil, errs.ErrContestIsGameLinked
+	}
+
 	if contest.Status != model.ContestStatusActive {
-		log.Warn("cannot start contest - not in ACTIVE status", "contest_id", contestID, "current_status", contest.Status)
+		log.Warn("cannot start contest, not in ACTIVE status", "contest_id", contestID, "current_status", contest.Status)
 		return nil, errors.New("contest must be in ACTIVE status to start")
 	}
 
-	for i := range contest.Squares {
-		if contest.Squares[i].Owner == "" {
-			log.Warn("cannot start contest - unclaimed squares remain", "contest_id", contestID)
-			return nil, errs.ErrContestNotReady
-		}
+	if !util.AllSquaresClaimed(contest) {
+		log.Warn("cannot start contest - unclaimed squares remain", "contest_id", contestID)
+		return nil, errs.ErrContestNotReady
 	}
 
 	// transition to q1 and randomize labels
@@ -243,31 +260,14 @@ func (s *contestService) transitionToQ1(ctx context.Context, contest *model.Cont
 	log := util.LoggerFromContext(ctx)
 
 	// randomize the x and y labels
-	xLabels, err := generateRandomizedLabels()
+	xLabels, yLabels, err := util.RandomizedLabels()
 	if err != nil {
-		log.Error("failed to generate randomized X labels", "contest_id", contest.ID, "error", err)
-		return err
-	}
-	yLabels, err := generateRandomizedLabels()
-	if err != nil {
-		log.Error("failed to generate randomized Y labels", "contest_id", contest.ID, "error", err)
+		log.Error("failed to generate randomized labels", "contest_id", contest.ID, "error", err)
 		return err
 	}
 
-	xLabelsJSON, err := json.Marshal(xLabels)
-	if err != nil {
-		log.Error("failed to marshal X labels", "contest_id", contest.ID, "error", err)
-		return err
-	}
-
-	yLabelsJSON, err := json.Marshal(yLabels)
-	if err != nil {
-		log.Error("failed to marshal Y labels", "contest_id", contest.ID, "error", err)
-		return err
-	}
-
-	contest.XLabels = xLabelsJSON
-	contest.YLabels = yLabelsJSON
+	contest.XLabels = xLabels
+	contest.YLabels = yLabels
 	contest.Status = model.ContestStatusQ1
 	contest.UpdatedBy = user
 
@@ -288,26 +288,6 @@ func (s *contestService) transitionToQ1(ctx context.Context, contest *model.Cont
 	return nil
 }
 
-func generateRandomizedLabels() ([]int8, error) {
-	// create labels 0-9
-	labels := make([]int8, 10)
-	for i := range int8(10) {
-		labels[i] = i
-	}
-
-	// fisher-yates shuffle
-	for i := len(labels) - 1; i > 0; i-- {
-		n, err := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(i+1)))
-		if err != nil {
-			return nil, err
-		}
-		j := int(n.Int64())
-		labels[i], labels[j] = labels[j], labels[i]
-	}
-
-	return labels, nil
-}
-
 func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error) {
 	log := util.LoggerFromContext(ctx)
 
@@ -318,26 +298,19 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 		return nil, err
 	}
 
+	// game-linked contests are scored automatically
+	if contest.GameID != nil {
+		log.Warn("cannot manually record quarter result for a game-linked contest", "contest_id", contestID)
+		return nil, errs.ErrContestIsGameLinked
+	}
+
 	// determine quarter and next status from current contest status
-	var quarter int
-	var nextStatus model.ContestStatus
-	switch contest.Status {
-	case model.ContestStatusQ1:
-		quarter = 1
-		nextStatus = model.ContestStatusQ2
-	case model.ContestStatusQ2:
-		quarter = 2
-		nextStatus = model.ContestStatusQ3
-	case model.ContestStatusQ3:
-		quarter = 3
-		nextStatus = model.ContestStatusQ4
-	case model.ContestStatusQ4:
-		quarter = 4
-		nextStatus = model.ContestStatusFinished
-	default:
-		log.Warn("invalid contest status for recording quarter result", "status", contest.Status)
+	quarter, ok := contest.Status.Quarter()
+	if !ok {
+		log.Warn("invalid contest status for recording quarter result", "contest_id", contestID, "status", contest.Status)
 		return nil, errors.New("contest must be in Q1, Q2, Q3, or Q4 status to record quarter result")
 	}
+	nextStatus, _ := model.StatusAfterQuarter(quarter)
 
 	// no duplicate quarter results
 	for i := range contest.QuarterResults {
@@ -347,44 +320,11 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 		}
 	}
 
-	// parse labels
-	var xLabels, yLabels []int8
-	if unmarshalErr := json.Unmarshal(contest.XLabels, &xLabels); unmarshalErr != nil {
-		log.Error("failed to unmarshal X labels", "contest_id", contestID, "error", unmarshalErr)
-		return nil, unmarshalErr
-	}
-	if unmarshalErr := json.Unmarshal(contest.YLabels, &yLabels); unmarshalErr != nil {
-		log.Error("failed to unmarshal Y labels", "contest_id", contestID, "error", unmarshalErr)
-		return nil, unmarshalErr
-	}
-
-	// calculate winner coordinates
-	winnerRow, winnerCol, err := calculateWinnerCoordinates(homeScore, awayScore, xLabels, yLabels)
+	// compute the winning square from this contest's labels
+	result, err := util.QuarterResultFor(contest, quarter, homeScore, awayScore)
 	if err != nil {
-		log.Error("failed to calculate winner coordinates", "contest_id", contestID, "error", err)
+		log.Error("failed to compute quarter result", "contest_id", contestID, "error", err)
 		return nil, err
-	}
-
-	// find the winning square and get owner details
-	var winner, winnerName string
-	for i := range contest.Squares {
-		if contest.Squares[i].Row == winnerRow && contest.Squares[i].Col == winnerCol {
-			winner = contest.Squares[i].Owner
-			winnerName = contest.Squares[i].OwnerName
-			break
-		}
-	}
-
-	// create quarter result
-	result := &model.QuarterResult{
-		ContestID:     contestID,
-		Quarter:       quarter,
-		HomeTeamScore: homeScore,
-		AwayTeamScore: awayScore,
-		WinnerRow:     winnerRow,
-		WinnerCol:     winnerCol,
-		Winner:        winner,
-		WinnerName:    winnerName,
 	}
 
 	if err := s.repo.CreateQuarterResult(ctx, result); err != nil {
@@ -399,7 +339,7 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 	}
 
 	metrics.IncQuarterResult(quarter)
-	log.Info("quarter result recorded and status transitioned", "contest_id", contestID, "quarter", quarter, "winner", winner, "new_status", nextStatus)
+	log.Info("quarter result recorded and status transitioned", "contest_id", contestID, "quarter", quarter, "winner", result.Winner, "new_status", nextStatus)
 	return result, nil
 }
 
@@ -421,36 +361,6 @@ func (s *contestService) transitionContestAfterQuarter(ctx context.Context, cont
 
 	log.Info("contest transitioned after quarter", "contest_id", contest.ID, "quarter", result.Quarter, "new_status", newStatus)
 	return nil
-}
-
-func calculateWinnerCoordinates(homeScore, awayScore int, xLabels, yLabels []int8) (row, col int, err error) {
-	// get last digit of each score
-	homeLastDigit := homeScore % 10
-	awayLastDigit := awayScore % 10
-
-	// find row (away team - y axis)
-	row = -1
-	for i, label := range yLabels {
-		if int(label) == awayLastDigit {
-			row = i
-			break
-		}
-	}
-
-	// find col (home team - x axis)
-	col = -1
-	for i, label := range xLabels {
-		if int(label) == homeLastDigit {
-			col = i
-			break
-		}
-	}
-
-	if row == -1 || col == -1 {
-		return 0, 0, gorm.ErrInvalidData
-	}
-
-	return row, col, nil
 }
 
 func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error {

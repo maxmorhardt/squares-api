@@ -68,8 +68,34 @@ func TestCreateInvite_RepoCreateFails(t *testing.T) {
 	inv.EXPECT().Create(mock.Anything, mock.Anything).Return(errors.New("db write failed"))
 
 	_, err := inviteSvc(inv, mocks.NewParticipantRepository(t), c, pSvc).
-		CreateInvite(context.Background(), uuid.New(), &model.CreateInviteRequest{}, "u")
+		CreateInvite(context.Background(), uuid.New(), &model.CreateInviteRequest{MaxSquares: 5, Role: "participant"}, "u")
 	require.Error(t, err)
+}
+
+func TestCreateInvite_ParticipantZeroSquares(t *testing.T) {
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	_, err := inviteSvc(mocks.NewInviteRepository(t), mocks.NewParticipantRepository(t), c, pSvc).
+		CreateInvite(context.Background(), uuid.New(), &model.CreateInviteRequest{MaxSquares: 0, Role: "participant"}, "u")
+	assert.ErrorIs(t, err, errs.ErrInvalidSquareCount)
+}
+
+func TestCreateInvite_ViewerForcesZeroSquares(t *testing.T) {
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inv := mocks.NewInviteRepository(t)
+	inv.EXPECT().Create(mock.Anything, mock.Anything).Return(nil)
+
+	got, err := inviteSvc(inv, mocks.NewParticipantRepository(t), c, pSvc).
+		CreateInvite(context.Background(), uuid.New(), &model.CreateInviteRequest{MaxSquares: 50, Role: "viewer"}, "owner")
+	require.NoError(t, err)
+	assert.Equal(t, model.ParticipantRoleViewer, got.Role)
+	assert.Equal(t, 0, got.MaxSquares)
 }
 
 func TestCreateInvite_Success(t *testing.T) {

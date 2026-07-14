@@ -72,6 +72,8 @@ func (h *inviteHandler) CreateInvite(c *gin.Context) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrInsufficientRole):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrInvalidSquareCount):
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
 		default:
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to create invite", c))
 		}

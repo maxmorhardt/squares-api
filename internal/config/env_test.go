@@ -8,6 +8,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestLoadEnv_Success(t *testing.T) {
+	setRequiredEnv(t)
+
+	cfg, err := LoadEnv()
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	assert.Equal(t, "localhost", cfg.DB.Host)
+	assert.Equal(t, 5432, cfg.DB.Port)
+	assert.Equal(t, "testuser", cfg.DB.User)
+	assert.Equal(t, "testpass", cfg.DB.Password)
+	assert.Equal(t, "testdb", cfg.DB.Name)
+	assert.Equal(t, "disable", cfg.DB.SSLMode)
+	assert.Equal(t, "smtp.test.com", cfg.SMTP.Host)
+	assert.Equal(t, 587, cfg.SMTP.Port)
+	assert.Equal(t, "smtpuser", cfg.SMTP.User)
+	assert.Equal(t, "smtppass", cfg.SMTP.Password)
+	assert.Equal(t, "support@test.com", cfg.SMTP.SupportEmail)
+	assert.Equal(t, "test-client", cfg.OIDC.ClientID)
+	assert.Equal(t, "nats://localhost:4222", cfg.NATS.URL)
+	assert.Equal(t, "secret", cfg.Turnstile.SecretKey)
+}
+
 func setRequiredEnv(t *testing.T) {
 	t.Helper()
 	envVars := map[string]string{
@@ -30,29 +53,6 @@ func setRequiredEnv(t *testing.T) {
 	for k, v := range envVars {
 		t.Setenv(k, v)
 	}
-}
-
-func TestLoadEnv_Success(t *testing.T) {
-	setRequiredEnv(t)
-
-	cfg, err := LoadEnv()
-
-	require.NoError(t, err)
-	require.NotNil(t, cfg)
-	assert.Equal(t, "localhost", cfg.DB.Host)
-	assert.Equal(t, 5432, cfg.DB.Port)
-	assert.Equal(t, "testuser", cfg.DB.User)
-	assert.Equal(t, "testpass", cfg.DB.Password)
-	assert.Equal(t, "testdb", cfg.DB.Name)
-	assert.Equal(t, "disable", cfg.DB.SSLMode)
-	assert.Equal(t, "smtp.test.com", cfg.SMTP.Host)
-	assert.Equal(t, 587, cfg.SMTP.Port)
-	assert.Equal(t, "smtpuser", cfg.SMTP.User)
-	assert.Equal(t, "smtppass", cfg.SMTP.Password)
-	assert.Equal(t, "support@test.com", cfg.SMTP.SupportEmail)
-	assert.Equal(t, "test-client", cfg.OIDC.ClientID)
-	assert.Equal(t, "nats://localhost:4222", cfg.NATS.URL)
-	assert.Equal(t, "secret", cfg.Turnstile.SecretKey)
 }
 
 func TestLoadEnv_Defaults(t *testing.T) {
@@ -95,23 +95,6 @@ func TestLoadEnv_OptionalReadReplica(t *testing.T) {
 	assert.Equal(t, "require", cfg.DB.ReadSSLMode)
 }
 
-func TestLoadEnv_MissingRequired_Errors(t *testing.T) {
-	// unset only the required keys instead of clearing the entire process environment
-	for _, key := range []string{
-		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSL_MODE",
-		"SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL",
-		"OIDC_CLIENT_ID", "NATS_URL", "TURNSTILE_SECRET_KEY",
-	} {
-		t.Setenv(key, "")
-		require.NoError(t, os.Unsetenv(key))
-	}
-
-	cfg, err := LoadEnv()
-
-	require.Error(t, err)
-	assert.Nil(t, cfg)
-}
-
 func TestLoadEnv_AllowedOrigins_Default(t *testing.T) {
 	setRequiredEnv(t)
 
@@ -129,4 +112,20 @@ func TestLoadEnv_AllowedOrigins_Custom(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"https://app.example.com", "https://admin.example.com"}, cfg.Server.AllowedOrigins)
+}
+
+func TestLoadEnv_MissingRequired_Errors(t *testing.T) {
+	for _, key := range []string{
+		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSL_MODE",
+		"SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SUPPORT_EMAIL",
+		"OIDC_CLIENT_ID", "NATS_URL", "TURNSTILE_SECRET_KEY",
+	} {
+		t.Setenv(key, "")
+		require.NoError(t, os.Unsetenv(key))
+	}
+
+	cfg, err := LoadEnv()
+
+	require.Error(t, err)
+	assert.Nil(t, cfg)
 }

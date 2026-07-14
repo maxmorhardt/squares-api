@@ -106,6 +106,9 @@ func (h *websocketHandler) ContestWSConnection(c *gin.Context) {
 		return
 	}
 
+	// game-linked contests read their quarter results from the shared game record
+	util.SynthesizeFromGame(contest)
+
 	// check if user has permission to view this contest
 	user := c.GetString(model.UserKey)
 	if authErr := h.participantService.Authorize(c.Request.Context(), contest.ID, user, service.ActionView); authErr != nil {

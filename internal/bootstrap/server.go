@@ -85,10 +85,12 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 	contactRepo := repository.NewContactRepository(db)
 	inviteRepo := repository.NewInviteRepository(db)
 	participantRepo := repository.NewParticipantRepository(db)
+	gameRepo := repository.NewGameRepository(db)
 
 	natsService := service.NewNatsService(deps.NATS)
 	participantService := service.NewParticipantService(participantRepo, contestRepo, natsService)
-	contestService := service.NewContestService(contestRepo, participantRepo, natsService, participantService)
+	contestService := service.NewContestService(contestRepo, participantRepo, gameRepo, natsService, participantService)
+	gameService := service.NewGameService(gameRepo, contestRepo, natsService)
 	wsService := service.NewWebSocketService(deps.NATS)
 	contactService := service.NewContactService(contactRepo, deps.Config)
 	inviteService := service.NewInviteService(inviteRepo, participantRepo, contestRepo, participantService, natsService)
@@ -104,6 +106,7 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 	contactHandler := handler.NewContactHandler(contactService)
 	statsHandler := handler.NewStatsHandler(statsService)
 	inviteHandler := handler.NewInviteHandler(inviteService)
+	gameHandler := handler.NewGameHandler(gameService)
 	participantHandler := handler.NewParticipantHandler(participantService)
 	userHandler := handler.NewUserHandler(userService)
 	healthHandler := handler.NewHealthHandler(db, deps.NATS, deps.Verifier)
@@ -116,6 +119,8 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 
 	routes.RegisterInviteRoutes(r.Group("/invites"), inviteHandler, verifier)
 	routes.RegisterContestInviteRoutes(r.Group("/contests/:id/invites"), inviteHandler, verifier)
+
+	routes.RegisterGameRoutes(r.Group("/games"), gameHandler, verifier)
 
 	routes.RegisterMyContestsRoute(r.Group("/contests/me"), participantHandler, verifier)
 	routes.RegisterParticipantRoutes(r.Group("/contests/:id/participants"), participantHandler, verifier)
