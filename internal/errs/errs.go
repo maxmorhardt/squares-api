@@ -62,4 +62,5 @@ var (
 	ErrCannotChangeOwner    = errors.New("cannot change the owner's role")
 	ErrSquareLimitReached   = errors.New("you have reached your square limit for this contest")
 	ErrSquareLimitTooLow    = errors.New("new limit cannot be below the number of squares already claimed")
+	ErrInvalidSquareCount   = errors.New("participant invites must grant at least one square")
 )

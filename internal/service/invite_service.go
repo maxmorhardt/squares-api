@@ -69,11 +69,19 @@ func (s *inviteService) CreateInvite(ctx context.Context, contestID uuid.UUID, r
 		return nil, err
 	}
 
+	// viewers never consume squares; participants must be granted at least one
+	role := model.ParticipantRole(req.Role)
+	if role == model.ParticipantRoleViewer {
+		req.MaxSquares = 0
+	} else if req.MaxSquares < 1 {
+		return nil, errs.ErrInvalidSquareCount
+	}
+
 	// build invite
 	invite := &model.ContestInvite{
 		ContestID:  contestID,
 		MaxSquares: req.MaxSquares,
-		Role:       model.ParticipantRole(req.Role),
+		Role:       role,
 		CreatedBy:  user,
 		MaxUses:    req.MaxUses,
 	}
