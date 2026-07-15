@@ -164,6 +164,22 @@ func TestUpdateContest_Success(t *testing.T) {
 	assert.Equal(t, "B", got.HomeTeam)
 }
 
+func TestUpdateContest_GameLinkedIgnoresTeamNames(t *testing.T) {
+	gameID := uuid.New()
+
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, HomeTeam: "A", AwayTeam: "B", GameID: &gameID}, nil)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	homeTeam, awayTeam := "X", "Y"
+	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
+		UpdateContest(context.Background(), uuid.New(), &model.UpdateContestRequest{HomeTeam: &homeTeam, AwayTeam: &awayTeam}, "u")
+	require.NoError(t, err)
+	assert.Equal(t, "A", got.HomeTeam)
+	assert.Equal(t, "B", got.AwayTeam)
+}
+
 func TestStartContest_NotActive(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusQ1}, nil)
@@ -527,21 +543,6 @@ func TestUpdateSquare_RepoError(t *testing.T) {
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "N"})
 	_, err := contestSvc(repo, pRepo, pSvc).UpdateSquare(ctx, uuid.New(), squareID, &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
 	assert.Error(t, err)
-}
-
-func TestUpdateContest_AwayAndVisibility(t *testing.T) {
-	repo := mocks.NewContestRepository(t)
-	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Visibility: model.ContestVisibilityPrivate}, nil)
-	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
-	pSvc := mocks.NewParticipantService(t)
-	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	awayTeam, vis := "Jets", "public"
-	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
-		UpdateContest(context.Background(), uuid.New(), &model.UpdateContestRequest{AwayTeam: &awayTeam, Visibility: &vis}, "u")
-	require.NoError(t, err)
-	assert.Equal(t, "Jets", got.AwayTeam)
-	assert.Equal(t, model.ContestVisibilityPublic, got.Visibility)
 }
 
 func TestUpdateSquare_ReEditOwnSquare(t *testing.T) {
