@@ -392,11 +392,6 @@ definitions:
       homeTeam:
         maxLength: 20
         type: string
-      visibility:
-        enum:
-        - private
-        - public
-        type: string
     type: object
   model.UpdateParticipantRequest:
     properties:

@@ -171,24 +171,19 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 		return nil, errs.ErrUnauthorizedContestEdit
 	}
 
+	// game-linked contests take their team names from the game record
+	canEditTeams := contest.GameID == nil
+
 	// check for changes and build update
 	needsUpdate := false
-	if req.HomeTeam != nil && *req.HomeTeam != contest.HomeTeam {
+	if canEditTeams && req.HomeTeam != nil && *req.HomeTeam != contest.HomeTeam {
 		contest.HomeTeam = *req.HomeTeam
 		needsUpdate = true
 	}
 
-	if req.AwayTeam != nil && *req.AwayTeam != contest.AwayTeam {
+	if canEditTeams && req.AwayTeam != nil && *req.AwayTeam != contest.AwayTeam {
 		contest.AwayTeam = *req.AwayTeam
 		needsUpdate = true
-	}
-
-	if req.Visibility != nil {
-		newVisibility := model.ContestVisibility(*req.Visibility)
-		if newVisibility != contest.Visibility {
-			contest.Visibility = newVisibility
-			needsUpdate = true
-		}
 	}
 
 	if !needsUpdate {

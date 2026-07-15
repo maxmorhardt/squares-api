@@ -1914,13 +1914,6 @@ const docTemplate = `{
                 "homeTeam": {
                     "type": "string",
                     "maxLength": 20
-                },
-                "visibility": {
-                    "type": "string",
-                    "enum": [
-                        "private",
-                        "public"
-                    ]
                 }
             }
         },
