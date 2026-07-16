@@ -3,58 +3,13 @@ package bootstrap
 import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/maxmorhardt/squares-api/docs"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/handler"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/routes"
 	"github.com/maxmorhardt/squares-api/internal/service"
-	"github.com/nats-io/nats.go"
-	"gorm.io/gorm"
 )
-
-type Dependencies struct {
-	Config   *config.Config
-	DB       *gorm.DB
-	NATS     *nats.Conn
-	Verifier middleware.TokenVerifier
-}
-
-func BuildDependencies() (*Dependencies, error) {
-	cfg, err := config.LoadEnv()
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := config.InitDB(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	nc, err := config.InitNATS(cfg)
-	if err != nil {
-		if sqlDB, dbErr := db.DB(); dbErr == nil {
-			_ = sqlDB.Close()
-		}
-		return nil, err
-	}
-
-	oidcVerifier, err := config.InitOIDC(cfg)
-	if err != nil {
-		nc.Close()
-		if sqlDB, dbErr := db.DB(); dbErr == nil {
-			_ = sqlDB.Close()
-		}
-		return nil, err
-	}
-
-	return &Dependencies{
-		Config:   cfg,
-		DB:       db,
-		NATS:     nc,
-		Verifier: middleware.NewOIDCTokenVerifier(oidcVerifier),
-	}, nil
-}
 
 func NewServer(deps *Dependencies) *gin.Engine {
 	r := gin.New()
@@ -67,7 +22,7 @@ func NewServer(deps *Dependencies) *gin.Engine {
 	return r
 }
 
-func setupMiddleware(r *gin.Engine, cfg *config.Config) {
+func setupMiddleware(r *gin.Engine, cfg *model.AppConfig) {
 	r.Use(gin.Recovery())
 	r.Use(middleware.RequestSizeLimitMiddleware())
 	r.Use(middleware.CORSMiddleware(cfg.Server.AllowedOrigins))

@@ -12,12 +12,13 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/maxmorhardt/squares-api/internal/model"
 )
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-func migrationDatabaseURL(cfg *Config) string {
+func migrationDatabaseURL(cfg *model.AppConfig) string {
 	u := &url.URL{
 		Scheme: "postgres",
 		User:   url.UserPassword(cfg.DB.User, cfg.DB.Password),
@@ -30,7 +31,7 @@ func migrationDatabaseURL(cfg *Config) string {
 	return u.String()
 }
 
-func runMigrations(cfg *Config) error {
+func runMigrations(cfg *model.AppConfig) error {
 	src, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
 		return fmt.Errorf("failed to load embedded migrations: %w", err)

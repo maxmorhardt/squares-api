@@ -1,4 +1,4 @@
-package jobs
+package worker
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockery mock would live in internal/mocks, which imports jobs, creating an import cycle with this white-box test package
+// mockery mock would live in internal/mocks, which imports worker, creating an import cycle with this white-box test package
 type fakeEspn struct {
 	games []model.ESPNGame
 	err   error

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +20,7 @@ func TestMigrationsEmbedded(t *testing.T) {
 }
 
 func TestMigrationDatabaseURL(t *testing.T) {
-	cfg := &Config{}
+	cfg := &model.AppConfig{}
 	cfg.DB.Host = "db.example.com"
 	cfg.DB.Port = 5432
 	cfg.DB.User = "user"
@@ -37,7 +38,7 @@ func TestMigrationDatabaseURL(t *testing.T) {
 }
 
 func TestRunMigrations_BadConnection(t *testing.T) {
-	cfg := &Config{}
+	cfg := &model.AppConfig{}
 	cfg.DB.Host = "127.0.0.1"
 	cfg.DB.Port = 1
 	cfg.DB.User = "u"

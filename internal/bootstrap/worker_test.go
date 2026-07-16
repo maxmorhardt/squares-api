@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/maxmorhardt/squares-api/internal/config"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
@@ -15,8 +15,8 @@ import (
 )
 
 func TestStartScoresWorker_Disabled(t *testing.T) {
-	deps := &Dependencies{Config: &config.Config{}}
-	deps.Config.Scores.Enabled = false
+	deps := &Dependencies{Config: &model.AppConfig{}}
+	deps.Config.Worker.Enabled = false
 
 	// disabled: returns immediately without touching the (nil) DB or NATS
 	assert.NotPanics(t, func() {
@@ -33,10 +33,10 @@ func TestStartScoresWorker_Enabled(t *testing.T) {
 		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 
-	deps := &Dependencies{Config: &config.Config{}, DB: gdb}
-	deps.Config.Scores.Enabled = true
-	deps.Config.Scores.PollInterval = time.Hour
-	deps.Config.Scores.ScheduleInterval = time.Hour
+	deps := &Dependencies{Config: &model.AppConfig{}, DB: gdb}
+	deps.Config.Worker.Enabled = true
+	deps.Config.Worker.PollInterval = time.Hour
+	deps.Config.Worker.ScheduleInterval = time.Hour
 
 	// a cancelled context makes the loops start and then exit before polling ESPN
 	ctx, cancel := context.WithCancel(context.Background())

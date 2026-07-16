@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"gorm.io/driver/postgres"
@@ -18,7 +19,7 @@ const (
 	maxConnLifetime time.Duration = time.Hour
 )
 
-func InitDB(cfg *Config) (*gorm.DB, error) {
+func InitDB(cfg *model.AppConfig) (*gorm.DB, error) {
 	db, err := setupPrimary(cfg)
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func InitDB(cfg *Config) (*gorm.DB, error) {
 	return db, nil
 }
 
-func validateReadReplicaConfig(cfg *Config) error {
+func validateReadReplicaConfig(cfg *model.AppConfig) error {
 	var missing []string
 
 	if cfg.DB.ReadPort == 0 {
@@ -68,7 +69,7 @@ func validateReadReplicaConfig(cfg *Config) error {
 	return nil
 }
 
-func setupPrimary(cfg *Config) (*gorm.DB, error) {
+func setupPrimary(cfg *model.AppConfig) (*gorm.DB, error) {
 	dsn := formatDSN(
 		cfg.DB.Host,
 		cfg.DB.Port,
@@ -108,7 +109,7 @@ func setupPrimary(cfg *Config) (*gorm.DB, error) {
 	return db, nil
 }
 
-func setupReadReplica(cfg *Config, db *gorm.DB) error {
+func setupReadReplica(cfg *model.AppConfig, db *gorm.DB) error {
 	dsn := formatDSN(
 		cfg.DB.ReadHost,
 		cfg.DB.ReadPort,

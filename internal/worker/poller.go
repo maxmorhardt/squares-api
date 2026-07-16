@@ -1,8 +1,9 @@
-package jobs
+package worker
 
 import (
 	"context"
 
+	"github.com/maxmorhardt/squares-api/internal/clients"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/service"
@@ -10,12 +11,12 @@ import (
 )
 
 type poller struct {
-	espn        ESPNClient
+	espn        clients.ESPNClient
 	gameRepo    repository.GameRepository
 	gameService service.GameService
 }
 
-func newPoller(espn ESPNClient, gameRepo repository.GameRepository, gameService service.GameService) *poller {
+func newPoller(espn clients.ESPNClient, gameRepo repository.GameRepository, gameService service.GameService) *poller {
 	return &poller{espn: espn, gameRepo: gameRepo, gameService: gameService}
 }
 

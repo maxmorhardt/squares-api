@@ -3,12 +3,13 @@ package config
 import (
 	"testing"
 
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInitNATS_InvalidURL(t *testing.T) {
-	cfg := &Config{}
+	cfg := &model.AppConfig{}
 	cfg.NATS.URL = "nats://127.0.0.1:1"
 
 	conn, err := InitNATS(cfg)
@@ -19,7 +20,7 @@ func TestInitNATS_InvalidURL(t *testing.T) {
 }
 
 func TestInitNATS_MalformedURL(t *testing.T) {
-	cfg := &Config{}
+	cfg := &model.AppConfig{}
 	cfg.NATS.URL = "not-a-valid-url"
 
 	conn, err := InitNATS(cfg)

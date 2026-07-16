@@ -1,8 +1,7 @@
-package jobs
+package worker
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func mockRunner(t *testing.T) (*Runner, sqlmock.Sqlmock) {
+func mockRunner(t *testing.T) (*runner, sqlmock.Sqlmock) {
 	t.Helper()
 
 	sqlDB, mock, err := sqlmock.New()
@@ -25,7 +24,7 @@ func mockRunner(t *testing.T) (*Runner, sqlmock.Sqlmock) {
 		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 
-	return &Runner{db: gdb, log: slog.Default()}, mock
+	return &runner{db: gdb}, mock
 }
 
 func TestRunner_RunGuarded_LockAcquired(t *testing.T) {

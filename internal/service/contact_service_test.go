@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/mocks"
 	"github.com/maxmorhardt/squares-api/internal/model"
@@ -33,8 +32,8 @@ func TestContactService_SubmitContact_TurnstileValidationFails(t *testing.T) {
 	assert.ErrorIs(t, err, errs.ErrInvalidTurnstile)
 }
 
-func contactCfg() *config.Config {
-	cfg := &config.Config{}
+func contactCfg() *model.AppConfig {
+	cfg := &model.AppConfig{}
 	cfg.Turnstile.SecretKey = "test-secret"
 	cfg.SMTP.Host = "127.0.0.1"
 	cfg.SMTP.Port = 1
@@ -64,7 +63,7 @@ func TestContactService_SubmitContact_TurnstileAPIReturnsFail(t *testing.T) {
 	assert.ErrorIs(t, err, errs.ErrInvalidTurnstile)
 }
 
-func turnstileServer(t *testing.T, statusCode int, body string) *config.Config {
+func turnstileServer(t *testing.T, statusCode int, body string) *model.AppConfig {
 	t.Helper()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -73,7 +72,7 @@ func turnstileServer(t *testing.T, statusCode int, body string) *config.Config {
 	}))
 	t.Cleanup(ts.Close)
 
-	cfg := &config.Config{}
+	cfg := &model.AppConfig{}
 	cfg.Turnstile.SecretKey = "test-secret"
 	cfg.Turnstile.BaseURL = ts.URL
 	cfg.SMTP.Host = "127.0.0.1"

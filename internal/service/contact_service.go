@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/maxmorhardt/squares-api/internal/config"
 	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
@@ -29,10 +28,10 @@ type ContactService interface {
 
 type contactService struct {
 	repo repository.ContactRepository
-	cfg  *config.Config
+	cfg  *model.AppConfig
 }
 
-func NewContactService(repo repository.ContactRepository, cfg *config.Config) ContactService {
+func NewContactService(repo repository.ContactRepository, cfg *model.AppConfig) ContactService {
 	return &contactService{
 		repo: repo,
 		cfg:  cfg,
