@@ -1,9 +1,10 @@
-package jobs
+package worker
 
 import (
 	"context"
 	"time"
 
+	"github.com/maxmorhardt/squares-api/internal/clients"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
@@ -11,11 +12,11 @@ import (
 const scheduleWindow = 10 * 24 * time.Hour
 
 type scheduler struct {
-	espn     ESPNClient
+	espn     clients.ESPNClient
 	gameRepo repository.GameRepository
 }
 
-func newScheduler(espn ESPNClient, gameRepo repository.GameRepository) *scheduler {
+func newScheduler(espn clients.ESPNClient, gameRepo repository.GameRepository) *scheduler {
 	return &scheduler{espn: espn, gameRepo: gameRepo}
 }
 

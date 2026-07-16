@@ -5,10 +5,11 @@ import (
 	"log/slog"
 
 	"github.com/maxmorhardt/squares-api/internal/metrics"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/nats-io/nats.go"
 )
 
-func InitNATS(cfg *Config) (*nats.Conn, error) {
+func InitNATS(cfg *model.AppConfig) (*nats.Conn, error) {
 	natsConn, err := nats.Connect(
 		cfg.NATS.URL,
 		nats.ReconnectHandler(func(nc *nats.Conn) {

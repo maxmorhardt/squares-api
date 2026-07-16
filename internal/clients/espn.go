@@ -1,4 +1,4 @@
-package jobs
+package clients
 
 import (
 	"context"
@@ -20,7 +20,7 @@ type espnClient struct {
 	client *resty.Client
 }
 
-func newESPNClient(baseURL string) ESPNClient {
+func NewESPNClient(baseURL string) ESPNClient {
 	return &espnClient{
 		client: resty.New().
 			SetBaseURL(baseURL).

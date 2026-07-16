@@ -1,4 +1,4 @@
-package jobs
+package clients
 
 import (
 	"context"
@@ -32,7 +32,7 @@ func TestESPNClient_FetchScoreboard(t *testing.T) {
 	}))
 	defer server.Close()
 
-	games, err := newESPNClient(server.URL).FetchScoreboard(context.Background(), "")
+	games, err := NewESPNClient(server.URL).FetchScoreboard(context.Background(), "")
 	require.NoError(t, err)
 	require.Len(t, games, 1)
 
@@ -51,6 +51,6 @@ func TestESPNClient_FetchScoreboard_BadStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := newESPNClient(server.URL).FetchScoreboard(context.Background(), "2025")
+	_, err := NewESPNClient(server.URL).FetchScoreboard(context.Background(), "2025")
 	require.Error(t, err)
 }

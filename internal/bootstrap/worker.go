@@ -4,13 +4,14 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/maxmorhardt/squares-api/internal/jobs"
 	"github.com/maxmorhardt/squares-api/internal/repository"
 	"github.com/maxmorhardt/squares-api/internal/service"
+	"github.com/maxmorhardt/squares-api/internal/util"
+	"github.com/maxmorhardt/squares-api/internal/worker"
 )
 
 func StartScoresWorker(ctx context.Context, deps *Dependencies) {
-	cfg := deps.Config.Scores
+	cfg := deps.Config.Worker
 	if !cfg.Enabled {
 		slog.Info("scores worker disabled")
 		return
@@ -21,12 +22,10 @@ func StartScoresWorker(ctx context.Context, deps *Dependencies) {
 	natsService := service.NewNatsService(deps.NATS)
 	gameService := service.NewGameService(gameRepo, contestRepo, natsService)
 
-	runner := jobs.NewRunner(deps.DB, gameRepo, gameService, jobs.Config{
-		ESPNBaseURL:      cfg.ESPNBaseURL,
-		PollInterval:     cfg.PollInterval,
-		ScheduleInterval: cfg.ScheduleInterval,
-		LockKey:          cfg.LockKey,
-	}, slog.Default())
+	runner := worker.NewRunner(deps.DB, gameRepo, gameService, cfg)
+
+	// seed a logger the runner picks up from context, rather than passing it down as a parameter
+	ctx = util.ContextWithLogger(ctx, slog.Default().With("component", "scores-worker"))
 	runner.Start(ctx)
 
 	slog.Info("scores worker started", "poll_interval", cfg.PollInterval, "schedule_interval", cfg.ScheduleInterval)

@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/maxmorhardt/squares-api/internal/config"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func setupMetricsServer(cfg *config.Config) {
+func setupMetricsServer(cfg *model.AppConfig) {
 	if !cfg.Server.MetricsEnabled {
 		slog.Info("metrics disabled")
 		return

@@ -3,12 +3,13 @@ package config
 import (
 	"testing"
 
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInitDB_ConnectionError(t *testing.T) {
-	cfg := &Config{}
+	cfg := &model.AppConfig{}
 	cfg.DB.Host = "127.0.0.1"
 	cfg.DB.Port = 1
 	cfg.DB.User = "u"
@@ -64,7 +65,7 @@ func TestFormatDSN(t *testing.T) {
 }
 
 func TestValidateReadReplicaConfig(t *testing.T) {
-	complete := databaseConfig{
+	complete := model.DatabaseConfig{
 		ReadHost:     "replica",
 		ReadPort:     5432,
 		ReadUser:     "reader",
@@ -75,16 +76,16 @@ func TestValidateReadReplicaConfig(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		mutate    func(c *databaseConfig)
+		mutate    func(c *model.DatabaseConfig)
 		wantErr   bool
 		wantInMsg string
 	}{
-		{name: "complete config", mutate: func(*databaseConfig) {}, wantErr: false},
-		{name: "missing port", mutate: func(c *databaseConfig) { c.ReadPort = 0 }, wantErr: true, wantInMsg: "DB_READ_PORT"},
-		{name: "missing user", mutate: func(c *databaseConfig) { c.ReadUser = "" }, wantErr: true, wantInMsg: "DB_READ_USER"},
-		{name: "missing password", mutate: func(c *databaseConfig) { c.ReadPassword = "" }, wantErr: true, wantInMsg: "DB_READ_PASSWORD"},
-		{name: "missing name", mutate: func(c *databaseConfig) { c.ReadName = "" }, wantErr: true, wantInMsg: "DB_READ_NAME"},
-		{name: "missing ssl mode", mutate: func(c *databaseConfig) { c.ReadSSLMode = "" }, wantErr: true, wantInMsg: "DB_READ_SSL_MODE"},
+		{name: "complete config", mutate: func(*model.DatabaseConfig) {}, wantErr: false},
+		{name: "missing port", mutate: func(c *model.DatabaseConfig) { c.ReadPort = 0 }, wantErr: true, wantInMsg: "DB_READ_PORT"},
+		{name: "missing user", mutate: func(c *model.DatabaseConfig) { c.ReadUser = "" }, wantErr: true, wantInMsg: "DB_READ_USER"},
+		{name: "missing password", mutate: func(c *model.DatabaseConfig) { c.ReadPassword = "" }, wantErr: true, wantInMsg: "DB_READ_PASSWORD"},
+		{name: "missing name", mutate: func(c *model.DatabaseConfig) { c.ReadName = "" }, wantErr: true, wantInMsg: "DB_READ_NAME"},
+		{name: "missing ssl mode", mutate: func(c *model.DatabaseConfig) { c.ReadSSLMode = "" }, wantErr: true, wantInMsg: "DB_READ_SSL_MODE"},
 	}
 
 	for _, tt := range tests {
@@ -92,7 +93,7 @@ func TestValidateReadReplicaConfig(t *testing.T) {
 			dbCfg := complete
 			tt.mutate(&dbCfg)
 
-			err := validateReadReplicaConfig(&Config{DB: dbCfg})
+			err := validateReadReplicaConfig(&model.AppConfig{DB: dbCfg})
 
 			if !tt.wantErr {
 				assert.NoError(t, err)

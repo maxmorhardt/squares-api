@@ -23,7 +23,7 @@ import (
 
 const testOrigin = "http://test-origin"
 
-func wsTestConfig(t *testing.T) *config.Config {
+func wsTestConfig(t *testing.T) *model.AppConfig {
 	t.Helper()
 	t.Setenv("DB_HOST", "localhost")
 	t.Setenv("DB_PORT", "5432")
