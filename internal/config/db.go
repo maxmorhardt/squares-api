@@ -43,32 +43,6 @@ func InitDB(cfg *model.AppConfig) (*gorm.DB, error) {
 	return db, nil
 }
 
-func validateReadReplicaConfig(cfg *model.AppConfig) error {
-	var missing []string
-
-	if cfg.DB.ReadPort == 0 {
-		missing = append(missing, "DB_READ_PORT")
-	}
-	if cfg.DB.ReadUser == "" {
-		missing = append(missing, "DB_READ_USER")
-	}
-	if cfg.DB.ReadPassword == "" {
-		missing = append(missing, "DB_READ_PASSWORD")
-	}
-	if cfg.DB.ReadName == "" {
-		missing = append(missing, "DB_READ_NAME")
-	}
-	if cfg.DB.ReadSSLMode == "" {
-		missing = append(missing, "DB_READ_SSL_MODE")
-	}
-
-	if len(missing) > 0 {
-		return fmt.Errorf("DB_READ_HOST is set but required read replica config is missing: %v", missing)
-	}
-
-	return nil
-}
-
 func setupPrimary(cfg *model.AppConfig) (*gorm.DB, error) {
 	dsn := formatDSN(
 		cfg.DB.Host,
@@ -109,6 +83,39 @@ func setupPrimary(cfg *model.AppConfig) (*gorm.DB, error) {
 	return db, nil
 }
 
+func formatDSN(host string, port int, user, password, dbname, sslmode string) string {
+	return fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		host, port, user, password, dbname, sslmode,
+	)
+}
+
+func validateReadReplicaConfig(cfg *model.AppConfig) error {
+	var missing []string
+
+	if cfg.DB.ReadPort == 0 {
+		missing = append(missing, "DB_READ_PORT")
+	}
+	if cfg.DB.ReadUser == "" {
+		missing = append(missing, "DB_READ_USER")
+	}
+	if cfg.DB.ReadPassword == "" {
+		missing = append(missing, "DB_READ_PASSWORD")
+	}
+	if cfg.DB.ReadName == "" {
+		missing = append(missing, "DB_READ_NAME")
+	}
+	if cfg.DB.ReadSSLMode == "" {
+		missing = append(missing, "DB_READ_SSL_MODE")
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("DB_READ_HOST is set but required read replica config is missing: %v", missing)
+	}
+
+	return nil
+}
+
 func setupReadReplica(cfg *model.AppConfig, db *gorm.DB) error {
 	dsn := formatDSN(
 		cfg.DB.ReadHost,
@@ -138,11 +145,4 @@ func setupReadReplica(cfg *model.AppConfig, db *gorm.DB) error {
 
 	slog.Info("read replica configured")
 	return nil
-}
-
-func formatDSN(host string, port int, user, password, dbname, sslmode string) string {
-	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		host, port, user, password, dbname, sslmode,
-	)
 }

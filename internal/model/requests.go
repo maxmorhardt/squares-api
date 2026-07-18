@@ -10,9 +10,8 @@ type CreateContestRequest struct {
 	GameID     string `json:"gameId,omitempty" binding:"omitempty,uuid"`
 }
 
-type UpdateSquareRequest struct {
-	Value string `json:"value" binding:"required,min=1,max=3,uppercase,alphanum,safestring"`
-	Owner string `json:"owner" binding:"required,safestring"`
+type UpdateUserProfileRequest struct {
+	DefaultInitials string `json:"defaultInitials" binding:"required,min=1,max=3,uppercase,alphanum,safestring"`
 }
 
 type ClearSquareRequest struct{}

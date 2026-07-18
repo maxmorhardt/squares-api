@@ -42,9 +42,11 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 	participantRepo := repository.NewParticipantRepository(db)
 	gameRepo := repository.NewGameRepository(db)
 
+	userRepo := repository.NewUserRepository(db)
+
 	natsService := service.NewNatsService(deps.NATS)
 	participantService := service.NewParticipantService(participantRepo, contestRepo, natsService)
-	contestService := service.NewContestService(contestRepo, participantRepo, gameRepo, natsService, participantService)
+	contestService := service.NewContestService(contestRepo, participantRepo, gameRepo, userRepo, natsService, participantService)
 	gameService := service.NewGameService(gameRepo, contestRepo, natsService)
 	wsService := service.NewWebSocketService(deps.NATS)
 	contactService := service.NewContactService(contactRepo, deps.Config)
@@ -53,8 +55,7 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 	statsRepo := repository.NewStatsRepository(db)
 	statsService := service.NewStatsService(statsRepo)
 
-	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, natsService)
 
 	contestHandler := handler.NewContestHandler(contestService)
 	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo, participantService, deps.Config.Server.AllowedOrigins, deps.NATS)

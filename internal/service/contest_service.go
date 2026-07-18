@@ -22,14 +22,16 @@ type ContestService interface {
 	RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
 
-	UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error)
+	UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error)
 	ClearSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error)
+	ClearUserSquares(ctx context.Context, contestID uuid.UUID, user string) ([]model.Square, error)
 }
 
 type contestService struct {
 	repo               repository.ContestRepository
 	participantRepo    repository.ParticipantRepository
 	gameRepo           repository.GameRepository
+	userRepo           repository.UserRepository
 	natsService        NatsService
 	participantService ParticipantService
 }
@@ -38,6 +40,7 @@ func NewContestService(
 	repo repository.ContestRepository,
 	participantRepo repository.ParticipantRepository,
 	gameRepo repository.GameRepository,
+	userRepo repository.UserRepository,
 	natsService NatsService,
 	participantService ParticipantService,
 ) ContestService {
@@ -45,6 +48,7 @@ func NewContestService(
 		repo:               repo,
 		participantRepo:    participantRepo,
 		gameRepo:           gameRepo,
+		userRepo:           userRepo,
 		natsService:        natsService,
 		participantService: participantService,
 	}
@@ -402,7 +406,7 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 // Square Actions
 // ====================
 
-func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error) {
+func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get contest to check status and find square
@@ -441,14 +445,9 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	// check authorization
-	if req.Owner != user {
-		log.Warn("user not authorized to update square", "square_id", squareID, "requested_owner", req.Owner)
-		return nil, errs.ErrUnauthorizedSquareEdit
-	}
-
+	// a claimed square can only be re-claimed by its owner
 	if square.Owner != "" && square.Owner != user {
-		log.Warn("user not authorized to update square", "square_id", squareID, "owner", square.Owner, "requested_owner", req.Owner)
+		log.Warn("user not authorized to update square", "square_id", squareID, "owner", square.Owner, "user", user)
 		return nil, errs.ErrUnauthorizedSquareEdit
 	}
 
@@ -487,9 +486,21 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 		return nil, errs.ErrClaimsNotFound
 	}
 
-	updatedSquare, err := s.repo.UpdateSquare(ctx, square, req.Value, req.Owner, claims.Name)
+	// the square value is the claimant's profile default initials, seeded from their name on first visit
+	profile, err := s.userRepo.GetOrCreate(ctx, user, claims.Name, util.InitialsFromName(claims.Name))
 	if err != nil {
-		log.Error("failed to update square", "square_id", square.ID, "value", req.Value, "owner", req.Owner, "error", err)
+		log.Error("failed to load profile for square claim", "user", user, "error", err)
+		return nil, errs.ErrDatabaseUnavailable
+	}
+
+	if profile.DefaultInitials == "" {
+		log.Warn("user has no default initials set", "user", user)
+		return nil, errs.ErrMissingInitials
+	}
+
+	updatedSquare, err := s.repo.UpdateSquare(ctx, square, profile.DefaultInitials, user, claims.Name)
+	if err != nil {
+		log.Error("failed to update square", "square_id", square.ID, "value", profile.DefaultInitials, "owner", user, "error", err)
 		return nil, err
 	}
 
@@ -503,7 +514,7 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 		}
 	}()
 
-	log.Info("square updated successfully", "square_id", square.ID, "value", req.Value, "owner", req.Owner)
+	log.Info("square updated successfully", "square_id", square.ID, "value", profile.DefaultInitials, "owner", user)
 	return updatedSquare, nil
 }
 
@@ -565,4 +576,45 @@ func (s *contestService) ClearSquare(ctx context.Context, contestID, squareID uu
 
 	log.Info("square cleared successfully", "square_id", square.ID)
 	return clearedSquare, nil
+}
+
+func (s *contestService) ClearUserSquares(ctx context.Context, contestID uuid.UUID, user string) ([]model.Square, error) {
+	log := util.LoggerFromContext(ctx)
+
+	// get contest to check status
+	contest, err := s.repo.GetByID(ctx, contestID)
+	if err != nil {
+		log.Error("failed to get contest for clearing user squares", "contest_id", contestID, "error", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+
+		return nil, errs.ErrDatabaseUnavailable
+	}
+
+	// check if contest is in editable state
+	if contest.Status != model.ContestStatusActive {
+		log.Warn("cannot clear squares when contest is not active", "contest_id", contestID, "contest_status", contest.Status)
+		return nil, errs.ErrSquareNotEditable
+	}
+
+	clearedSquares, err := s.repo.ClearSquaresByOwner(ctx, contestID, user)
+	if err != nil {
+		log.Error("failed to clear user squares", "contest_id", contestID, "user", user, "error", err)
+		return nil, err
+	}
+
+	for i := range clearedSquares {
+		metrics.IncSquareCleared()
+
+		square := clearedSquares[i]
+		go func() {
+			if err := s.natsService.PublishSquareUpdate(contest.ID, user, &square); err != nil {
+				log.Error("failed to publish square clear", "contestId", square.ContestID, "squareId", square.ID, "error", err)
+			}
+		}()
+	}
+
+	log.Info("user squares cleared successfully", "contest_id", contestID, "user", user, "count", len(clearedSquares))
+	return clearedSquares, nil
 }

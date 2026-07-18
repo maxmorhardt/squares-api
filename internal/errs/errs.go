@@ -7,6 +7,7 @@ var (
 	ErrUnauthorizedContestEdit   = errors.New("only the contest owner can update this contest")
 	ErrUnauthorizedContestDelete = errors.New("only the contest owner can delete this contest")
 	ErrUnauthorizedSquareEdit    = errors.New("only the square owner can update this square")
+	ErrMissingInitials           = errors.New("set your default initials in your profile before claiming a square")
 )
 
 // validation errors for contest, team, and square attributes

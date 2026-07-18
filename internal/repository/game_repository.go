@@ -20,6 +20,9 @@ type GameRepository interface {
 	GetUpcoming(ctx context.Context) ([]model.Game, error)
 
 	UpsertScore(ctx context.Context, score *model.GameScore) (created bool, err error)
+
+	HasLiveGame(ctx context.Context) (bool, error)
+	NextKickoff(ctx context.Context) (time.Time, error)
 }
 
 type gameRepository struct {
@@ -82,6 +85,26 @@ func (r *gameRepository) GetUpcoming(ctx context.Context) ([]model.Game, error) 
 		Order("game_time ASC").
 		Find(&games).Error
 	return games, err
+}
+
+func (r *gameRepository) HasLiveGame(ctx context.Context) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Game{}).
+		Where("status = ?", model.GameStatusInProgress).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func (r *gameRepository) NextKickoff(ctx context.Context) (time.Time, error) {
+	var kickoff []time.Time
+	err := r.db.WithContext(ctx).Model(&model.Game{}).
+		Where("status = ? AND game_time > ?", model.GameStatusScheduled, time.Now()).
+		Order("game_time ASC").Limit(1).
+		Pluck("game_time", &kickoff).Error
+	if err != nil || len(kickoff) == 0 {
+		return time.Time{}, err
+	}
+	return kickoff[0], nil
 }
 
 func (r *gameRepository) UpsertScore(ctx context.Context, score *model.GameScore) (bool, error) {

@@ -11,7 +11,9 @@ import (
 )
 
 type UserRepository interface {
-	GetOrCreate(ctx context.Context, email, defaultDisplayName string) (*model.User, error)
+	GetOrCreate(ctx context.Context, email, defaultDisplayName, defaultInitials string) (*model.User, error)
+	GetByEmail(ctx context.Context, email string) (*model.User, error)
+	UpdateProfile(ctx context.Context, email, initials string) (*model.User, []model.Square, error)
 	GetStats(ctx context.Context, email string) (*model.UserStatsResponse, error)
 	GetActiveContests(ctx context.Context, email string) ([]model.UserActiveContest, error)
 	ScrubUserData(ctx context.Context, email string) error
@@ -27,7 +29,7 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 	}
 }
 
-func (r *userRepository) GetOrCreate(ctx context.Context, email, defaultDisplayName string) (*model.User, error) {
+func (r *userRepository) GetOrCreate(ctx context.Context, email, defaultDisplayName, defaultInitials string) (*model.User, error) {
 	user := &model.User{}
 	err := r.db.WithContext(ctx).Where("email = ?", email).First(user).Error
 	if err == nil {
@@ -48,7 +50,7 @@ func (r *userRepository) GetOrCreate(ctx context.Context, email, defaultDisplayN
 		return nil, err
 	}
 
-	newUser := &model.User{Email: email, DisplayName: defaultDisplayName}
+	newUser := &model.User{Email: email, DisplayName: defaultDisplayName, DefaultInitials: defaultInitials}
 	if firstActivity.Valid {
 		newUser.CreatedAt = firstActivity.Time
 	}
@@ -66,6 +68,55 @@ func (r *userRepository) GetOrCreate(ctx context.Context, email, defaultDisplayN
 	}
 
 	return user, nil
+}
+
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
+	user := &model.User{}
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(user).Error; err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (r *userRepository) UpdateProfile(ctx context.Context, email, initials string) (*model.User, []model.Square, error) {
+	user := &model.User{}
+	var squares []model.Square
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).
+			Where("email = ?", email).
+			Update("default_initials", initials).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("email = ?", email).First(user).Error; err != nil {
+			return err
+		}
+
+		// cascade the new initials to the user's squares in contests still in play
+		liveContests := tx.Model(&model.Contest{}).Select("id").
+			Where("status NOT IN ?", []model.ContestStatus{model.ContestStatusFinished, model.ContestStatusDeleted})
+
+		if err := tx.Model(&model.Square{}).
+			Where("owner = ? AND contest_id IN (?)", email, liveContests).
+			Update("value", initials).Error; err != nil {
+			return err
+		}
+
+		// re-select the affected squares so the caller can broadcast the change
+		if err := tx.Where("owner = ? AND contest_id IN (?)", email, liveContests).
+			Find(&squares).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return user, squares, nil
 }
 
 func (r *userRepository) GetStats(ctx context.Context, email string) (*model.UserStatsResponse, error) {

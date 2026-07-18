@@ -81,9 +81,68 @@ func (_c *UserRepository_GetActiveContests_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
-// GetOrCreate provides a mock function with given fields: ctx, email, defaultDisplayName
-func (_m *UserRepository) GetOrCreate(ctx context.Context, email string, defaultDisplayName string) (*model.User, error) {
-	ret := _m.Called(ctx, email, defaultDisplayName)
+// GetByEmail provides a mock function with given fields: ctx, email
+func (_m *UserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
+	ret := _m.Called(ctx, email)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByEmail")
+	}
+
+	var r0 *model.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.User, error)); ok {
+		return rf(ctx, email)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.User); ok {
+		r0 = rf(ctx, email)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.User)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, email)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UserRepository_GetByEmail_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByEmail'
+type UserRepository_GetByEmail_Call struct {
+	*mock.Call
+}
+
+// GetByEmail is a helper method to define mock.On call
+//   - ctx context.Context
+//   - email string
+func (_e *UserRepository_Expecter) GetByEmail(ctx interface{}, email interface{}) *UserRepository_GetByEmail_Call {
+	return &UserRepository_GetByEmail_Call{Call: _e.mock.On("GetByEmail", ctx, email)}
+}
+
+func (_c *UserRepository_GetByEmail_Call) Run(run func(ctx context.Context, email string)) *UserRepository_GetByEmail_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *UserRepository_GetByEmail_Call) Return(_a0 *model.User, _a1 error) *UserRepository_GetByEmail_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *UserRepository_GetByEmail_Call) RunAndReturn(run func(context.Context, string) (*model.User, error)) *UserRepository_GetByEmail_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetOrCreate provides a mock function with given fields: ctx, email, defaultDisplayName, defaultInitials
+func (_m *UserRepository) GetOrCreate(ctx context.Context, email string, defaultDisplayName string, defaultInitials string) (*model.User, error) {
+	ret := _m.Called(ctx, email, defaultDisplayName, defaultInitials)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOrCreate")
@@ -91,19 +150,19 @@ func (_m *UserRepository) GetOrCreate(ctx context.Context, email string, default
 
 	var r0 *model.User
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*model.User, error)); ok {
-		return rf(ctx, email, defaultDisplayName)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*model.User, error)); ok {
+		return rf(ctx, email, defaultDisplayName, defaultInitials)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *model.User); ok {
-		r0 = rf(ctx, email, defaultDisplayName)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *model.User); ok {
+		r0 = rf(ctx, email, defaultDisplayName, defaultInitials)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.User)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = rf(ctx, email, defaultDisplayName)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, email, defaultDisplayName, defaultInitials)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -120,13 +179,14 @@ type UserRepository_GetOrCreate_Call struct {
 //   - ctx context.Context
 //   - email string
 //   - defaultDisplayName string
-func (_e *UserRepository_Expecter) GetOrCreate(ctx interface{}, email interface{}, defaultDisplayName interface{}) *UserRepository_GetOrCreate_Call {
-	return &UserRepository_GetOrCreate_Call{Call: _e.mock.On("GetOrCreate", ctx, email, defaultDisplayName)}
+//   - defaultInitials string
+func (_e *UserRepository_Expecter) GetOrCreate(ctx interface{}, email interface{}, defaultDisplayName interface{}, defaultInitials interface{}) *UserRepository_GetOrCreate_Call {
+	return &UserRepository_GetOrCreate_Call{Call: _e.mock.On("GetOrCreate", ctx, email, defaultDisplayName, defaultInitials)}
 }
 
-func (_c *UserRepository_GetOrCreate_Call) Run(run func(ctx context.Context, email string, defaultDisplayName string)) *UserRepository_GetOrCreate_Call {
+func (_c *UserRepository_GetOrCreate_Call) Run(run func(ctx context.Context, email string, defaultDisplayName string, defaultInitials string)) *UserRepository_GetOrCreate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
 	})
 	return _c
 }
@@ -136,7 +196,7 @@ func (_c *UserRepository_GetOrCreate_Call) Return(_a0 *model.User, _a1 error) *U
 	return _c
 }
 
-func (_c *UserRepository_GetOrCreate_Call) RunAndReturn(run func(context.Context, string, string) (*model.User, error)) *UserRepository_GetOrCreate_Call {
+func (_c *UserRepository_GetOrCreate_Call) RunAndReturn(run func(context.Context, string, string, string) (*model.User, error)) *UserRepository_GetOrCreate_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -243,6 +303,75 @@ func (_c *UserRepository_ScrubUserData_Call) Return(_a0 error) *UserRepository_S
 }
 
 func (_c *UserRepository_ScrubUserData_Call) RunAndReturn(run func(context.Context, string) error) *UserRepository_ScrubUserData_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateProfile provides a mock function with given fields: ctx, email, initials
+func (_m *UserRepository) UpdateProfile(ctx context.Context, email string, initials string) (*model.User, []model.Square, error) {
+	ret := _m.Called(ctx, email, initials)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProfile")
+	}
+
+	var r0 *model.User
+	var r1 []model.Square
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*model.User, []model.Square, error)); ok {
+		return rf(ctx, email, initials)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *model.User); ok {
+		r0 = rf(ctx, email, initials)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.User)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) []model.Square); ok {
+		r1 = rf(ctx, email, initials)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]model.Square)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string, string) error); ok {
+		r2 = rf(ctx, email, initials)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// UserRepository_UpdateProfile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateProfile'
+type UserRepository_UpdateProfile_Call struct {
+	*mock.Call
+}
+
+// UpdateProfile is a helper method to define mock.On call
+//   - ctx context.Context
+//   - email string
+//   - initials string
+func (_e *UserRepository_Expecter) UpdateProfile(ctx interface{}, email interface{}, initials interface{}) *UserRepository_UpdateProfile_Call {
+	return &UserRepository_UpdateProfile_Call{Call: _e.mock.On("UpdateProfile", ctx, email, initials)}
+}
+
+func (_c *UserRepository_UpdateProfile_Call) Run(run func(ctx context.Context, email string, initials string)) *UserRepository_UpdateProfile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *UserRepository_UpdateProfile_Call) Return(_a0 *model.User, _a1 []model.Square, _a2 error) *UserRepository_UpdateProfile_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *UserRepository_UpdateProfile_Call) RunAndReturn(run func(context.Context, string, string) (*model.User, []model.Square, error)) *UserRepository_UpdateProfile_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -405,17 +405,14 @@ definitions:
         - viewer
         type: string
     type: object
-  model.UpdateSquareRequest:
+  model.UpdateUserProfileRequest:
     properties:
-      owner:
-        type: string
-      value:
+      defaultInitials:
         maxLength: 3
         minLength: 1
         type: string
     required:
-    - owner
-    - value
+    - defaultInitials
     type: object
   model.UserActiveContest:
     properties:
@@ -436,6 +433,9 @@ definitions:
     properties:
       createdAt:
         example: "2026-07-11T00:00:00Z"
+        type: string
+      defaultInitials:
+        example: MM
         type: string
       displayName:
         example: Max
@@ -638,6 +638,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
       security:
       - BearerAuth: []
       summary: Get all invites for a contest
@@ -712,6 +716,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
       security:
       - BearerAuth: []
       summary: Delete an invite link
@@ -783,6 +791,10 @@ paths:
           description: Forbidden
           schema:
             $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
         "500":
           description: Internal Server Error
           schema:
@@ -826,6 +838,10 @@ paths:
             $ref: '#/definitions/model.APIError'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/model.APIError'
         "500":
@@ -880,9 +896,8 @@ paths:
       - contests
   /contests/{id}/squares/{squareId}:
     patch:
-      consumes:
-      - application/json
-      description: Updates the value of a specific square in a contest
+      description: Claims a square for the authenticated user using their profile
+        default initials
       parameters:
       - description: Contest ID
         in: path
@@ -894,12 +909,6 @@ paths:
         name: squareId
         required: true
         type: string
-      - description: Square
-        in: body
-        name: square
-        required: true
-        schema:
-          $ref: '#/definitions/model.UpdateSquareRequest'
       produces:
       - application/json
       responses:
@@ -919,13 +928,17 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/model.APIError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/model.APIError'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
       security:
       - BearerAuth: []
-      summary: Update a single square in a contest
+      summary: Claim a single square in a contest
       tags:
       - contests
   /contests/{id}/squares/{squareId}/clear:
@@ -971,6 +984,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Clear square value and owner
+      tags:
+      - contests
+  /contests/{id}/squares/clear-mine:
+    post:
+      consumes:
+      - application/json
+      description: Clears the value and owner of every square owned by the authenticated
+        user. Only the caller's own squares are affected.
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Square'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Clear all of the caller's squares in a contest
       tags:
       - contests
   /contests/{id}/start:
@@ -1157,6 +1212,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
       summary: Preview an invite link
       tags:
       - invites
@@ -1186,6 +1245,10 @@ paths:
             $ref: '#/definitions/model.APIError'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/model.APIError'
       security:
@@ -1248,6 +1311,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get the current user's profile
+      tags:
+      - users
+    patch:
+      consumes:
+      - application/json
+      description: Updates the authenticated user's default initials and applies them
+        to their squares in active contests
+      parameters:
+      - description: Profile
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateUserProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.UserProfileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Update the current user's profile
       tags:
       - users
   /users/me/active-contests:

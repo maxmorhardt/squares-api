@@ -6,17 +6,20 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/maxmorhardt/squares-api/internal/mocks"
+	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-func mockRunner(t *testing.T) (*runner, sqlmock.Sqlmock) {
+func mockRunner(t *testing.T, espn *mocks.ESPNClient, gameSvc *mocks.GameService) (*runner, sqlmock.Sqlmock) {
 	t.Helper()
 
-	sqlDB, mock, err := sqlmock.New()
+	sqlDB, dbMock, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -24,49 +27,54 @@ func mockRunner(t *testing.T) (*runner, sqlmock.Sqlmock) {
 		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 
-	return &runner{db: gdb}, mock
+	r := &runner{
+		db:      gdb,
+		worker:  newScoresWorker(espn, gameSvc, time.Minute, time.Hour),
+		lockKey: 1,
+	}
+	return r, dbMock
 }
 
 func TestRunner_RunGuarded_LockAcquired(t *testing.T) {
-	r, mock := mockRunner(t)
-	mock.ExpectQuery(`pg_try_advisory_lock`).WillReturnRows(sqlmock.NewRows([]string{"locked"}).AddRow(true))
-	mock.ExpectExec(`pg_advisory_unlock`).WillReturnResult(sqlmock.NewResult(0, 1))
+	espn := mocks.NewESPNClient(t)
+	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).Return(nil, nil)
+	gameSvc := mocks.NewGameService(t)
+	gameSvc.EXPECT().Ingest(mock.Anything, mock.Anything).Return(0, nil)
 
-	called := false
-	r.runGuarded(context.Background(), "test", 1, func(context.Context) error {
-		called = true
-		return nil
-	})
+	r, dbMock := mockRunner(t, espn, gameSvc)
+	dbMock.ExpectQuery(`pg_try_advisory_lock`).WillReturnRows(sqlmock.NewRows([]string{"locked"}).AddRow(true))
+	dbMock.ExpectExec(`pg_advisory_unlock`).WillReturnResult(sqlmock.NewResult(0, 1))
 
-	assert.True(t, called)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	r.runGuarded(context.Background())
+
+	// holding the lock, the worker actually polls (asserted by the FetchScoreboard expectation)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
 }
 
 func TestRunner_RunGuarded_LockNotAcquired(t *testing.T) {
-	r, mock := mockRunner(t)
-	mock.ExpectQuery(`pg_try_advisory_lock`).WillReturnRows(sqlmock.NewRows([]string{"locked"}).AddRow(false))
+	// no FetchScoreboard expectation: another replica holds the lock, so the worker must not poll
+	espn := mocks.NewESPNClient(t)
+	r, dbMock := mockRunner(t, espn, mocks.NewGameService(t))
+	dbMock.ExpectQuery(`pg_try_advisory_lock`).WillReturnRows(sqlmock.NewRows([]string{"locked"}).AddRow(false))
 
-	called := false
-	r.runGuarded(context.Background(), "test", 1, func(context.Context) error {
-		called = true
-		return nil
-	})
+	r.runGuarded(context.Background())
 
-	// another replica holds the lock, so the job body must not run
-	assert.False(t, called)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	assert.NoError(t, dbMock.ExpectationsWereMet())
 }
 
 func TestRunner_Loop_StopsOnContextCancel(t *testing.T) {
-	r, _ := mockRunner(t)
+	gameSvc := mocks.NewGameService(t)
+	gameSvc.EXPECT().Activity(mock.Anything).Return(model.GameActivity{}, nil).Maybe()
+
+	r, _ := mockRunner(t, mocks.NewESPNClient(t), gameSvc)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	done := make(chan struct{})
 	go func() {
-		// cancelled context: the startup tick can't acquire a connection and the loop exits immediately
-		r.loop(ctx, "test", time.Hour, 1, func(context.Context) error { return nil })
+		// cancelled context: the startup run can't acquire a connection and the loop exits immediately
+		r.loop(ctx)
 		close(done)
 	}()
 

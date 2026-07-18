@@ -8,6 +8,8 @@ import (
 	model "github.com/maxmorhardt/squares-api/internal/model"
 	mock "github.com/stretchr/testify/mock"
 
+	time "time"
+
 	uuid "github.com/google/uuid"
 )
 
@@ -137,6 +139,118 @@ func (_c *GameRepository_GetUpcoming_Call) Return(_a0 []model.Game, _a1 error) *
 }
 
 func (_c *GameRepository_GetUpcoming_Call) RunAndReturn(run func(context.Context) ([]model.Game, error)) *GameRepository_GetUpcoming_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// HasLiveGame provides a mock function with given fields: ctx
+func (_m *GameRepository) HasLiveGame(ctx context.Context) (bool, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HasLiveGame")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (bool, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) bool); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GameRepository_HasLiveGame_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasLiveGame'
+type GameRepository_HasLiveGame_Call struct {
+	*mock.Call
+}
+
+// HasLiveGame is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *GameRepository_Expecter) HasLiveGame(ctx interface{}) *GameRepository_HasLiveGame_Call {
+	return &GameRepository_HasLiveGame_Call{Call: _e.mock.On("HasLiveGame", ctx)}
+}
+
+func (_c *GameRepository_HasLiveGame_Call) Run(run func(ctx context.Context)) *GameRepository_HasLiveGame_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *GameRepository_HasLiveGame_Call) Return(_a0 bool, _a1 error) *GameRepository_HasLiveGame_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GameRepository_HasLiveGame_Call) RunAndReturn(run func(context.Context) (bool, error)) *GameRepository_HasLiveGame_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NextKickoff provides a mock function with given fields: ctx
+func (_m *GameRepository) NextKickoff(ctx context.Context) (time.Time, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for NextKickoff")
+	}
+
+	var r0 time.Time
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (time.Time, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) time.Time); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(time.Time)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GameRepository_NextKickoff_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NextKickoff'
+type GameRepository_NextKickoff_Call struct {
+	*mock.Call
+}
+
+// NextKickoff is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *GameRepository_Expecter) NextKickoff(ctx interface{}) *GameRepository_NextKickoff_Call {
+	return &GameRepository_NextKickoff_Call{Call: _e.mock.On("NextKickoff", ctx)}
+}
+
+func (_c *GameRepository_NextKickoff_Call) Run(run func(ctx context.Context)) *GameRepository_NextKickoff_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *GameRepository_NextKickoff_Call) Return(_a0 time.Time, _a1 error) *GameRepository_NextKickoff_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GameRepository_NextKickoff_Call) RunAndReturn(run func(context.Context) (time.Time, error)) *GameRepository_NextKickoff_Call {
 	_c.Call.Return(run)
 	return _c
 }

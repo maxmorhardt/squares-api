@@ -18,26 +18,51 @@ import (
 func newUserService(t *testing.T) (service.UserService, *mocks.UserRepository) {
 	t.Helper()
 	repo := mocks.NewUserRepository(t)
-	return service.NewUserService(repo), repo
+	return service.NewUserService(repo, anyNats()), repo
 }
 
 func TestUserService_GetProfile_Success(t *testing.T) {
 	svc, repo := newUserService(t)
-	repo.EXPECT().GetOrCreate(mock.Anything, "a@b.com", "Max").
-		Return(&model.User{Email: "a@b.com", DisplayName: "Max"}, nil)
+	// initials are seeded from the display name on first visit
+	repo.EXPECT().GetOrCreate(mock.Anything, "a@b.com", "Max Morhardt", "MM").
+		Return(&model.User{Email: "a@b.com", DisplayName: "Max Morhardt", DefaultInitials: "MM"}, nil)
 
-	user, err := svc.GetProfile(context.Background(), "a@b.com", "Max")
+	user, err := svc.GetProfile(context.Background(), "a@b.com", "Max Morhardt")
 
 	require.NoError(t, err)
 	assert.Equal(t, "a@b.com", user.Email)
+	assert.Equal(t, "MM", user.DefaultInitials)
 }
 
 func TestUserService_GetProfile_Error(t *testing.T) {
 	svc, repo := newUserService(t)
-	repo.EXPECT().GetOrCreate(mock.Anything, "a@b.com", "Max").
+	repo.EXPECT().GetOrCreate(mock.Anything, "a@b.com", "Max", "M").
 		Return(nil, errors.New("db down"))
 
 	user, err := svc.GetProfile(context.Background(), "a@b.com", "Max")
+
+	require.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
+	assert.Nil(t, user)
+}
+
+func TestUserService_UpdateProfile_Success(t *testing.T) {
+	svc, repo := newUserService(t)
+	squares := []model.Square{{ID: uuid.New(), ContestID: uuid.New(), Owner: "a@b.com", Value: "MM"}}
+	repo.EXPECT().UpdateProfile(mock.Anything, "a@b.com", "MM").
+		Return(&model.User{Email: "a@b.com", DefaultInitials: "MM"}, squares, nil)
+
+	user, err := svc.UpdateProfile(context.Background(), "a@b.com", "MM")
+
+	require.NoError(t, err)
+	assert.Equal(t, "MM", user.DefaultInitials)
+}
+
+func TestUserService_UpdateProfile_Error(t *testing.T) {
+	svc, repo := newUserService(t)
+	repo.EXPECT().UpdateProfile(mock.Anything, "a@b.com", "MM").
+		Return(nil, nil, errors.New("db down"))
+
+	user, err := svc.UpdateProfile(context.Background(), "a@b.com", "MM")
 
 	require.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
 	assert.Nil(t, user)

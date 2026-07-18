@@ -93,6 +93,60 @@ func TestGameRepository_GetUpcoming_NoScheduledGames(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestGameRepository_HasLiveGame(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewGameRepository(gdb)
+
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "games"`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	live, err := repo.HasLiveGame(context.Background())
+	require.NoError(t, err)
+	assert.True(t, live)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGameRepository_HasLiveGame_None(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewGameRepository(gdb)
+
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "games"`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
+	live, err := repo.HasLiveGame(context.Background())
+	require.NoError(t, err)
+	assert.False(t, live)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGameRepository_NextKickoff(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewGameRepository(gdb)
+
+	want := time.Now().Add(3 * time.Hour)
+	mock.ExpectQuery(`SELECT "game_time" FROM "games"`).
+		WillReturnRows(sqlmock.NewRows([]string{"game_time"}).AddRow(want))
+
+	got, err := repo.NextKickoff(context.Background())
+	require.NoError(t, err)
+	assert.WithinDuration(t, want, got, time.Second)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGameRepository_NextKickoff_None(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewGameRepository(gdb)
+
+	// no upcoming scheduled game returns the zero time without error
+	mock.ExpectQuery(`SELECT "game_time" FROM "games"`).
+		WillReturnRows(sqlmock.NewRows([]string{"game_time"}))
+
+	got, err := repo.NextKickoff(context.Background())
+	require.NoError(t, err)
+	assert.True(t, got.IsZero())
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestGameRepository_UpsertScore_Created(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewGameRepository(gdb)

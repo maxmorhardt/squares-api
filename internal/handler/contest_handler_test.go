@@ -455,7 +455,7 @@ func recordQuarterErr(t *testing.T, svcErr error, wantCode int) {
 func TestUpdateSquare_Success(t *testing.T) {
 	contestID, squareID := uuid.New(), uuid.New()
 	svc := mocks.NewContestService(t)
-	svc.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	svc.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, "owner1").
 		Return(&model.Square{ID: squareID, ContestID: contestID, Value: "ABC", Owner: "owner1"}, nil)
 	h := NewContestHandler(svc)
 
@@ -463,7 +463,7 @@ func TestUpdateSquare_Success(t *testing.T) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
 
-	w := doRequest(r, jsonReq(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", contestID, squareID), model.UpdateSquareRequest{Value: "ABC", Owner: "owner1"}))
+	w := doRequest(r, jsonReq(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", contestID, squareID), nil))
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -474,7 +474,7 @@ func updateSquareBadID(t *testing.T, target string) {
 	r.Use(authenticatedMiddleware("owner1"))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
 
-	w := doRequest(r, jsonReq(http.MethodPatch, target, model.UpdateSquareRequest{Value: "ABC", Owner: "owner1"}))
+	w := doRequest(r, jsonReq(http.MethodPatch, target, nil))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
@@ -485,18 +485,6 @@ func TestUpdateSquare_InvalidSquareID(t *testing.T) {
 	updateSquareBadID(t, fmt.Sprintf("/contests/%s/squares/bad", uuid.New()))
 }
 
-func TestUpdateSquare_InvalidBody(t *testing.T) {
-	h := NewContestHandler(mocks.NewContestService(t))
-	r := gin.New()
-	r.Use(authenticatedMiddleware("owner1"))
-	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
-
-	req, _ := http.NewRequest(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", uuid.New(), uuid.New()), bytes.NewReader([]byte(`{bad`)))
-	req.Header.Set("Content-Type", "application/json")
-	w := doRequest(r, req)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
 func TestUpdateSquare_NotFound(t *testing.T) {
 	updateSquareErr(t, "owner1", gorm.ErrRecordNotFound, http.StatusNotFound)
 }
@@ -505,6 +493,9 @@ func TestUpdateSquare_SquareNotEditable(t *testing.T) {
 }
 func TestUpdateSquare_UnauthorizedSquareEdit(t *testing.T) {
 	updateSquareErr(t, "stranger", errs.ErrUnauthorizedSquareEdit, http.StatusForbidden)
+}
+func TestUpdateSquare_MissingInitials(t *testing.T) {
+	updateSquareErr(t, "owner1", errs.ErrMissingInitials, http.StatusConflict)
 }
 func TestUpdateSquare_ClaimsNotFound(t *testing.T) {
 	updateSquareErr(t, "owner1", errs.ErrClaimsNotFound, http.StatusUnauthorized)
@@ -519,14 +510,14 @@ func TestUpdateSquare_OtherError(t *testing.T) {
 func updateSquareErr(t *testing.T, user string, svcErr error, wantCode int) {
 	t.Helper()
 	svc := mocks.NewContestService(t)
-	svc.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, svcErr)
+	svc.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, svcErr)
 	h := NewContestHandler(svc)
 
 	r := gin.New()
 	r.Use(authenticatedMiddleware(user))
 	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
 
-	w := doRequest(r, jsonReq(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", uuid.New(), uuid.New()), model.UpdateSquareRequest{Value: "ABC", Owner: "owner1"}))
+	w := doRequest(r, jsonReq(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", uuid.New(), uuid.New()), nil))
 	assert.Equal(t, wantCode, w.Code)
 }
 
@@ -596,6 +587,68 @@ func clearSquareErr(t *testing.T, user string, svcErr error, wantCode int) {
 	r.POST("/contests/:id/squares/:squareId/clear", h.ClearSquare)
 
 	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/clear", uuid.New(), uuid.New()), http.NoBody)
+	w := doRequest(r, req)
+	assert.Equal(t, wantCode, w.Code)
+}
+
+// ====================
+// ClearMySquares
+// ====================
+
+func TestClearMySquares_Success(t *testing.T) {
+	contestID := uuid.New()
+	svc := mocks.NewContestService(t)
+	svc.EXPECT().ClearUserSquares(mock.Anything, mock.Anything, mock.Anything).
+		Return([]model.Square{{ID: uuid.New(), ContestID: contestID}}, nil)
+	h := NewContestHandler(svc)
+
+	r := gin.New()
+	r.Use(authenticatedMiddleware("owner1"))
+	r.POST("/contests/:id/squares/clear-mine", h.ClearMySquares)
+
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/clear-mine", contestID), http.NoBody)
+	w := doRequest(r, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp []model.Square
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Len(t, resp, 1)
+}
+
+func TestClearMySquares_InvalidContestID(t *testing.T) {
+	h := NewContestHandler(mocks.NewContestService(t))
+	r := gin.New()
+	r.Use(authenticatedMiddleware("owner1"))
+	r.POST("/contests/:id/squares/clear-mine", h.ClearMySquares)
+
+	req, _ := http.NewRequest(http.MethodPost, "/contests/bad/squares/clear-mine", http.NoBody)
+	w := doRequest(r, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestClearMySquares_NotFound(t *testing.T) {
+	clearMySquaresErr(t, gorm.ErrRecordNotFound, http.StatusNotFound)
+}
+func TestClearMySquares_SquareNotEditable(t *testing.T) {
+	clearMySquaresErr(t, errs.ErrSquareNotEditable, http.StatusForbidden)
+}
+func TestClearMySquares_DatabaseUnavailable(t *testing.T) {
+	clearMySquaresErr(t, errs.ErrDatabaseUnavailable, http.StatusInternalServerError)
+}
+func TestClearMySquares_OtherError(t *testing.T) {
+	clearMySquaresErr(t, errs.ErrInvalidSquareValue, http.StatusBadRequest)
+}
+
+func clearMySquaresErr(t *testing.T, svcErr error, wantCode int) {
+	t.Helper()
+	svc := mocks.NewContestService(t)
+	svc.EXPECT().ClearUserSquares(mock.Anything, mock.Anything, mock.Anything).Return(nil, svcErr)
+	h := NewContestHandler(svc)
+
+	r := gin.New()
+	r.Use(authenticatedMiddleware("owner1"))
+	r.POST("/contests/:id/squares/clear-mine", h.ClearMySquares)
+
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/clear-mine", uuid.New()), http.NoBody)
 	w := doRequest(r, req)
 	assert.Equal(t, wantCode, w.Code)
 }
