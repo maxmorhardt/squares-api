@@ -30,11 +30,22 @@ func TestGetContestsByOwnerPaginated(t *testing.T) {
 }
 
 func contestSvc(repo *mocks.ContestRepository, pRepo *mocks.ParticipantRepository, pSvc *mocks.ParticipantService) service.ContestService {
-	return service.NewContestService(repo, pRepo, &mocks.GameRepository{}, anyNats(), pSvc)
+	return service.NewContestService(repo, pRepo, &mocks.GameRepository{}, anyUser(), anyNats(), pSvc)
 }
 
 func contestSvcWithGame(repo *mocks.ContestRepository, pRepo *mocks.ParticipantRepository, gameRepo *mocks.GameRepository, pSvc *mocks.ParticipantService) service.ContestService {
-	return service.NewContestService(repo, pRepo, gameRepo, anyNats(), pSvc)
+	return service.NewContestService(repo, pRepo, gameRepo, anyUser(), anyNats(), pSvc)
+}
+
+// anyUser is a permissive user repo whose profile lookup yields non-empty default initials,
+// so square claims proceed unless a test overrides the behavior
+func anyUser() *mocks.UserRepository {
+	m := &mocks.UserRepository{}
+	m.On("GetOrCreate", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(&model.User{Email: "u", DefaultInitials: "AB"}, nil).Maybe()
+	m.On("GetByEmail", mock.Anything, mock.Anything).
+		Return(&model.User{Email: "u", DefaultInitials: "AB"}, nil).Maybe()
+	return m
 }
 
 func TestCreateContest_AlreadyExists(t *testing.T) {
@@ -320,7 +331,7 @@ func TestUpdateSquare_NotActive(t *testing.T) {
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusQ1}, nil)
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
-		UpdateSquare(context.Background(), uuid.New(), uuid.New(), &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
+		UpdateSquare(context.Background(), uuid.New(), uuid.New(), "u")
 	assert.ErrorIs(t, err, errs.ErrSquareNotEditable)
 }
 
@@ -331,7 +342,7 @@ func TestUpdateSquare_SquareNotFound(t *testing.T) {
 	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
-		UpdateSquare(context.Background(), uuid.New(), uuid.New(), &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
+		UpdateSquare(context.Background(), uuid.New(), uuid.New(), "u")
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
@@ -345,7 +356,7 @@ func TestUpdateSquare_NotParticipant(t *testing.T) {
 	pRepo.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, mock.Anything).Return(nil, gorm.ErrRecordNotFound)
 
 	_, err := contestSvc(repo, pRepo, pSvc).
-		UpdateSquare(context.Background(), uuid.New(), squareID, &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
+		UpdateSquare(context.Background(), uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrNotParticipant)
 }
 
@@ -360,7 +371,7 @@ func TestUpdateSquare_LimitReached(t *testing.T) {
 	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(2, nil)
 
 	_, err := contestSvc(repo, pRepo, pSvc).
-		UpdateSquare(context.Background(), uuid.New(), squareID, &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
+		UpdateSquare(context.Background(), uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrSquareLimitReached)
 }
 
@@ -375,7 +386,7 @@ func TestUpdateSquare_ClaimsNotFound(t *testing.T) {
 	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(0, nil)
 
 	_, err := contestSvc(repo, pRepo, pSvc).
-		UpdateSquare(context.Background(), uuid.New(), squareID, &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
+		UpdateSquare(context.Background(), uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrClaimsNotFound)
 }
 
@@ -393,10 +404,31 @@ func TestUpdateSquare_Success(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "Display Name"})
 	got, err := contestSvc(repo, pRepo, pSvc).
-		UpdateSquare(ctx, uuid.New(), squareID, &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
+		UpdateSquare(ctx, uuid.New(), squareID, "u")
 	require.NoError(t, err)
 	assert.Equal(t, "AB", got.Value)
 	assert.Equal(t, "Display Name", got.OwnerName)
+}
+
+func TestUpdateSquare_MissingInitials(t *testing.T) {
+	squareID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	pRepo := mocks.NewParticipantRepository(t)
+	pRepo.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, mock.Anything).Return(&model.ContestParticipant{MaxSquares: 5}, nil)
+	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(0, nil)
+
+	// user profile exists but has no default initials set
+	userRepo := &mocks.UserRepository{}
+	userRepo.On("GetOrCreate", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(&model.User{Email: "u", DefaultInitials: ""}, nil).Maybe()
+	svc := service.NewContestService(repo, pRepo, &mocks.GameRepository{}, userRepo, anyNats(), pSvc)
+
+	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "Display Name"})
+	_, err := svc.UpdateSquare(ctx, uuid.New(), squareID, "u")
+	assert.ErrorIs(t, err, errs.ErrMissingInitials)
 }
 
 func TestClearSquare_NotActive(t *testing.T) {
@@ -429,6 +461,47 @@ func TestClearSquare_Success(t *testing.T) {
 		ClearSquare(context.Background(), uuid.New(), squareID, "u")
 	require.NoError(t, err)
 	assert.Empty(t, got.Owner)
+}
+
+func TestClearUserSquares_NotActive(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusQ1}, nil)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		ClearUserSquares(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, errs.ErrSquareNotEditable)
+}
+
+func TestClearUserSquares_NotFound(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(nil, gorm.ErrRecordNotFound)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		ClearUserSquares(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+func TestClearUserSquares_RepoError(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	repo.EXPECT().ClearSquaresByOwner(mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("db"))
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		ClearUserSquares(context.Background(), uuid.New(), "u")
+	assert.Error(t, err)
+}
+
+func TestClearUserSquares_Success(t *testing.T) {
+	contestID := uuid.New()
+	cleared := []model.Square{{ID: uuid.New(), ContestID: contestID}, {ID: uuid.New(), ContestID: contestID}}
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{ID: contestID, Status: model.ContestStatusActive}, nil)
+	repo.EXPECT().ClearSquaresByOwner(mock.Anything, contestID, "u").Return(cleared, nil)
+
+	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		ClearUserSquares(context.Background(), contestID, "u")
+	require.NoError(t, err)
+	assert.Len(t, got, 2)
 }
 
 func TestCreateContest_RepoError(t *testing.T) {
@@ -541,7 +614,7 @@ func TestUpdateSquare_RepoError(t *testing.T) {
 	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(0, nil)
 
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "N"})
-	_, err := contestSvc(repo, pRepo, pSvc).UpdateSquare(ctx, uuid.New(), squareID, &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
+	_, err := contestSvc(repo, pRepo, pSvc).UpdateSquare(ctx, uuid.New(), squareID, "u")
 	assert.Error(t, err)
 }
 
@@ -558,7 +631,7 @@ func TestUpdateSquare_ReEditOwnSquare(t *testing.T) {
 	pRepo.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, mock.Anything).Return(&model.ContestParticipant{MaxSquares: 5}, nil)
 
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "N"})
-	got, err := contestSvc(repo, pRepo, pSvc).UpdateSquare(ctx, uuid.New(), squareID, &model.UpdateSquareRequest{Owner: "u", Value: "XY"}, "u")
+	got, err := contestSvc(repo, pRepo, pSvc).UpdateSquare(ctx, uuid.New(), squareID, "u")
 	require.NoError(t, err)
 	assert.Equal(t, "XY", got.Value)
 }
@@ -592,7 +665,7 @@ func TestUpdateSquare_OwnedByAnotherUser(t *testing.T) {
 	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
-		UpdateSquare(context.Background(), uuid.New(), squareID, &model.UpdateSquareRequest{Owner: "u", Value: "AB"}, "u")
+		UpdateSquare(context.Background(), uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrUnauthorizedSquareEdit)
 }
 

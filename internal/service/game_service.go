@@ -16,6 +16,8 @@ const systemUser = "system"
 type GameService interface {
 	GetUpcoming(ctx context.Context) ([]model.Game, error)
 	SyncGame(ctx context.Context, gameID uuid.UUID) error
+	Ingest(ctx context.Context, games []model.ESPNGame) (newScores int, err error)
+	Activity(ctx context.Context) (model.GameActivity, error)
 }
 
 type gameService struct {
@@ -46,6 +48,65 @@ func (s *gameService) GetUpcoming(ctx context.Context) ([]model.Game, error) {
 	}
 
 	return games, nil
+}
+
+func (s *gameService) Ingest(ctx context.Context, games []model.ESPNGame) (int, error) {
+	log := util.LoggerFromContext(ctx)
+
+	newScores := 0
+	for i := range games {
+		eg := &games[i]
+		game := util.ESPNGameToGame(eg)
+		// refresh the game row from the latest scoreboard snapshot
+		if err := s.gameRepo.Upsert(ctx, game); err != nil {
+			log.Error("failed to upsert game", "espn_id", eg.ESPNID, "error", err)
+			continue
+		}
+
+		// record each newly completed quarter's cumulative score
+		for _, q := range util.CompletedQuarters(eg) {
+			score := &model.GameScore{GameID: game.ID, Quarter: q.Quarter, HomeScore: q.Home, AwayScore: q.Away}
+			created, err := s.gameRepo.UpsertScore(ctx, score)
+			if err != nil {
+				log.Error("failed to upsert game score", "game_id", game.ID, "quarter", q.Quarter, "error", err)
+				continue
+			}
+			if created {
+				newScores++
+			}
+		}
+
+		// scheduled games have nothing to apply yet; only reconcile once play starts
+		if game.Status == model.GameStatusScheduled {
+			continue
+		}
+		// bring linked contests up to date with the latest scores
+		if err := s.SyncGame(ctx, game.ID); err != nil {
+			log.Error("failed to sync game", "game_id", game.ID, "error", err)
+		}
+	}
+
+	return newScores, nil
+}
+
+func (s *gameService) Activity(ctx context.Context) (model.GameActivity, error) {
+	log := util.LoggerFromContext(ctx)
+
+	// a live game means the worker should poll aggressively
+	live, err := s.gameRepo.HasLiveGame(ctx)
+	if err != nil {
+		log.Error("failed to check for live games", "error", err)
+		return model.GameActivity{}, errs.ErrDatabaseUnavailable
+	}
+
+	// otherwise the next kickoff tells the worker when to ramp back up
+	kickoff, err := s.gameRepo.NextKickoff(ctx)
+	if err != nil {
+		log.Error("failed to get next kickoff", "error", err)
+		return model.GameActivity{}, errs.ErrDatabaseUnavailable
+	}
+
+	return model.GameActivity{Live: live, NextKickoff: kickoff}, nil
 }
 
 func (s *gameService) SyncGame(ctx context.Context, gameID uuid.UUID) error {

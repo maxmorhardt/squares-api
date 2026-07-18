@@ -24,6 +24,7 @@ type ContestRepository interface {
 
 	UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
 	ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error)
+	ClearSquaresByOwner(ctx context.Context, contestID uuid.UUID, owner string) ([]model.Square, error)
 }
 
 type contestRepository struct {
@@ -223,4 +224,36 @@ func (r *contestRepository) ClearSquare(ctx context.Context, square *model.Squar
 	})
 
 	return clearedSquare, err
+}
+
+func (r *contestRepository) ClearSquaresByOwner(ctx context.Context, contestID uuid.UUID, owner string) ([]model.Square, error) {
+	var clearedSquares []model.Square
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// load the caller's squares so their cleared state can be broadcast
+		if err := tx.Where("contest_id = ? AND owner = ?", contestID, owner).Find(&clearedSquares).Error; err != nil {
+			return err
+		}
+
+		if len(clearedSquares) == 0 {
+			return nil
+		}
+
+		// clear value and owner for every square the caller owns in one update
+		if err := tx.Model(&model.Square{}).
+			Where("contest_id = ? AND owner = ?", contestID, owner).
+			Updates(map[string]any{"value": "", "owner": "", "owner_name": ""}).Error; err != nil {
+			return err
+		}
+
+		// reflect the cleared state on the returned copies for broadcasting
+		for i := range clearedSquares {
+			clearedSquares[i].Value = ""
+			clearedSquares[i].Owner = ""
+			clearedSquares[i].OwnerName = ""
+		}
+
+		return nil
+	})
+
+	return clearedSquares, err
 }

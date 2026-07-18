@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/maxmorhardt/squares-api/internal/model"
+	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
 const scoreboardPath = "/apis/site/v2/sports/football/nfl/scoreboard"
@@ -53,5 +54,5 @@ func (c *espnClient) FetchScoreboard(ctx context.Context, dates string) ([]model
 		return nil, fmt.Errorf("unexpected scoreboard response type")
 	}
 
-	return body.ToGames(), nil
+	return util.ScoreboardToGames(body), nil
 }

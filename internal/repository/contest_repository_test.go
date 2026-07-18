@@ -130,6 +130,46 @@ func TestContestRepository_ClearSquare(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestContestRepository_ClearSquaresByOwner(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	contestID := uuid.New()
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT \* FROM "squares"`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "contest_id", "owner", "value"}).
+			AddRow(uuid.New(), contestID, "o", "AB").
+			AddRow(uuid.New(), contestID, "o", "CD"))
+	mock.ExpectExec(`UPDATE "squares"`).WillReturnResult(sqlmock.NewResult(0, 2))
+	mock.ExpectCommit()
+
+	squares, err := repo.ClearSquaresByOwner(context.Background(), contestID, "o")
+
+	require.NoError(t, err)
+	assert.Len(t, squares, 2)
+	for _, sq := range squares {
+		assert.Empty(t, sq.Owner)
+		assert.Empty(t, sq.Value)
+	}
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContestRepository_ClearSquaresByOwner_None(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT \* FROM "squares"`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "contest_id", "owner", "value"}))
+	mock.ExpectCommit()
+
+	squares, err := repo.ClearSquaresByOwner(context.Background(), uuid.New(), "o")
+
+	require.NoError(t, err)
+	assert.Empty(t, squares)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestContestRepository_GetByID(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewContestRepository(gdb)

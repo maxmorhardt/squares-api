@@ -85,6 +85,66 @@ func (_c *ContestService_ClearSquare_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
+// ClearUserSquares provides a mock function with given fields: ctx, contestID, user
+func (_m *ContestService) ClearUserSquares(ctx context.Context, contestID uuid.UUID, user string) ([]model.Square, error) {
+	ret := _m.Called(ctx, contestID, user)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClearUserSquares")
+	}
+
+	var r0 []model.Square
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) ([]model.Square, error)); ok {
+		return rf(ctx, contestID, user)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) []model.Square); ok {
+		r0 = rf(ctx, contestID, user)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.Square)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string) error); ok {
+		r1 = rf(ctx, contestID, user)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ContestService_ClearUserSquares_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClearUserSquares'
+type ContestService_ClearUserSquares_Call struct {
+	*mock.Call
+}
+
+// ClearUserSquares is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contestID uuid.UUID
+//   - user string
+func (_e *ContestService_Expecter) ClearUserSquares(ctx interface{}, contestID interface{}, user interface{}) *ContestService_ClearUserSquares_Call {
+	return &ContestService_ClearUserSquares_Call{Call: _e.mock.On("ClearUserSquares", ctx, contestID, user)}
+}
+
+func (_c *ContestService_ClearUserSquares_Call) Run(run func(ctx context.Context, contestID uuid.UUID, user string)) *ContestService_ClearUserSquares_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *ContestService_ClearUserSquares_Call) Return(_a0 []model.Square, _a1 error) *ContestService_ClearUserSquares_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ContestService_ClearUserSquares_Call) RunAndReturn(run func(context.Context, uuid.UUID, string) ([]model.Square, error)) *ContestService_ClearUserSquares_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateContest provides a mock function with given fields: ctx, req, user
 func (_m *ContestService) CreateContest(ctx context.Context, req *model.CreateContestRequest, user string) (*model.Contest, error) {
 	ret := _m.Called(ctx, req, user)
@@ -445,9 +505,9 @@ func (_c *ContestService_UpdateContest_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
-// UpdateSquare provides a mock function with given fields: ctx, contestID, squareID, req, user
-func (_m *ContestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string) (*model.Square, error) {
-	ret := _m.Called(ctx, contestID, squareID, req, user)
+// UpdateSquare provides a mock function with given fields: ctx, contestID, squareID, user
+func (_m *ContestService) UpdateSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, user string) (*model.Square, error) {
+	ret := _m.Called(ctx, contestID, squareID, user)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateSquare")
@@ -455,19 +515,19 @@ func (_m *ContestService) UpdateSquare(ctx context.Context, contestID uuid.UUID,
 
 	var r0 *model.Square
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, *model.UpdateSquareRequest, string) (*model.Square, error)); ok {
-		return rf(ctx, contestID, squareID, req, user)
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, string) (*model.Square, error)); ok {
+		return rf(ctx, contestID, squareID, user)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, *model.UpdateSquareRequest, string) *model.Square); ok {
-		r0 = rf(ctx, contestID, squareID, req, user)
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, string) *model.Square); ok {
+		r0 = rf(ctx, contestID, squareID, user)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.Square)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID, *model.UpdateSquareRequest, string) error); ok {
-		r1 = rf(ctx, contestID, squareID, req, user)
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID, string) error); ok {
+		r1 = rf(ctx, contestID, squareID, user)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -484,15 +544,14 @@ type ContestService_UpdateSquare_Call struct {
 //   - ctx context.Context
 //   - contestID uuid.UUID
 //   - squareID uuid.UUID
-//   - req *model.UpdateSquareRequest
 //   - user string
-func (_e *ContestService_Expecter) UpdateSquare(ctx interface{}, contestID interface{}, squareID interface{}, req interface{}, user interface{}) *ContestService_UpdateSquare_Call {
-	return &ContestService_UpdateSquare_Call{Call: _e.mock.On("UpdateSquare", ctx, contestID, squareID, req, user)}
+func (_e *ContestService_Expecter) UpdateSquare(ctx interface{}, contestID interface{}, squareID interface{}, user interface{}) *ContestService_UpdateSquare_Call {
+	return &ContestService_UpdateSquare_Call{Call: _e.mock.On("UpdateSquare", ctx, contestID, squareID, user)}
 }
 
-func (_c *ContestService_UpdateSquare_Call) Run(run func(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, req *model.UpdateSquareRequest, user string)) *ContestService_UpdateSquare_Call {
+func (_c *ContestService_UpdateSquare_Call) Run(run func(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, user string)) *ContestService_UpdateSquare_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(uuid.UUID), args[3].(*model.UpdateSquareRequest), args[4].(string))
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(uuid.UUID), args[3].(string))
 	})
 	return _c
 }
@@ -502,7 +561,7 @@ func (_c *ContestService_UpdateSquare_Call) Return(_a0 *model.Square, _a1 error)
 	return _c
 }
 
-func (_c *ContestService_UpdateSquare_Call) RunAndReturn(run func(context.Context, uuid.UUID, uuid.UUID, *model.UpdateSquareRequest, string) (*model.Square, error)) *ContestService_UpdateSquare_Call {
+func (_c *ContestService_UpdateSquare_Call) RunAndReturn(run func(context.Context, uuid.UUID, uuid.UUID, string) (*model.Square, error)) *ContestService_UpdateSquare_Call {
 	_c.Call.Return(run)
 	return _c
 }

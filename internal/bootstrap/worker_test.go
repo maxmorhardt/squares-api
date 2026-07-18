@@ -35,10 +35,10 @@ func TestStartScoresWorker_Enabled(t *testing.T) {
 
 	deps := &Dependencies{Config: &model.AppConfig{}, DB: gdb}
 	deps.Config.Worker.Enabled = true
-	deps.Config.Worker.PollInterval = time.Hour
-	deps.Config.Worker.ScheduleInterval = time.Hour
+	deps.Config.Worker.ActiveInterval = time.Hour
+	deps.Config.Worker.IdleInterval = time.Hour
 
-	// a cancelled context makes the loops start and then exit before polling ESPN
+	// a cancelled context makes the loop start and then exit before polling ESPN
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 

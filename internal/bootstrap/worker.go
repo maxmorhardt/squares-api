@@ -22,11 +22,10 @@ func StartScoresWorker(ctx context.Context, deps *Dependencies) {
 	natsService := service.NewNatsService(deps.NATS)
 	gameService := service.NewGameService(gameRepo, contestRepo, natsService)
 
-	runner := worker.NewRunner(deps.DB, gameRepo, gameService, cfg)
+	runner := worker.NewRunner(deps.DB, gameService, cfg)
 
-	// seed a logger the runner picks up from context, rather than passing it down as a parameter
 	ctx = util.ContextWithLogger(ctx, slog.Default().With("component", "scores-worker"))
 	runner.Start(ctx)
 
-	slog.Info("scores worker started", "poll_interval", cfg.PollInterval, "schedule_interval", cfg.ScheduleInterval)
+	slog.Info("scores worker started", "active_interval", cfg.ActiveInterval, "idle_interval", cfg.IdleInterval)
 }

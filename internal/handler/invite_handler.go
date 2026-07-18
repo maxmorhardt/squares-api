@@ -91,6 +91,7 @@ func (h *inviteHandler) CreateInvite(c *gin.Context) {
 // @Success 200 {object} model.InvitePreviewResponse
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Router /invites/{token} [get]
 func (h *inviteHandler) GetInvitePreview(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
@@ -127,6 +128,7 @@ func (h *inviteHandler) GetInvitePreview(c *gin.Context) {
 // @Failure 400 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 409 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /invites/{token}/redeem [post]
 func (h *inviteHandler) RedeemInvite(c *gin.Context) {
@@ -170,6 +172,7 @@ func (h *inviteHandler) RedeemInvite(c *gin.Context) {
 // @Success 200 {array} model.ContestInvite
 // @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id}/invites [get]
 func (h *inviteHandler) GetInvites(c *gin.Context) {
@@ -208,6 +211,7 @@ func (h *inviteHandler) GetInvites(c *gin.Context) {
 // @Success 204
 // @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id}/invites/{inviteId} [delete]
 func (h *inviteHandler) DeleteInvite(c *gin.Context) {

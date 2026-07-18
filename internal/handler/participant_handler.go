@@ -106,6 +106,7 @@ func (h *participantHandler) GetMyContests(c *gin.Context) {
 // @Success 200 {object} model.ContestParticipant
 // @Failure 400 {object} model.APIError
 // @Failure 403 {object} model.APIError
+// @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id}/participants/{userId} [patch]
@@ -163,6 +164,7 @@ func (h *participantHandler) UpdateParticipant(c *gin.Context) {
 // @Success 204
 // @Failure 400 {object} model.APIError
 // @Failure 403 {object} model.APIError
+// @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id}/participants/{userId} [delete]

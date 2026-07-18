@@ -11,31 +11,57 @@ import (
 
 type UserService interface {
 	GetProfile(ctx context.Context, email, defaultDisplayName string) (*model.User, error)
+	UpdateProfile(ctx context.Context, email, initials string) (*model.User, error)
 	GetStats(ctx context.Context, email string) (*model.UserStatsResponse, error)
 	GetActiveContests(ctx context.Context, email string) ([]model.UserActiveContest, error)
 	DeleteAccount(ctx context.Context, email string) error
 }
 
 type userService struct {
-	repo repository.UserRepository
+	repo        repository.UserRepository
+	natsService NatsService
 }
 
-func NewUserService(repo repository.UserRepository) UserService {
+func NewUserService(repo repository.UserRepository, natsService NatsService) UserService {
 	return &userService{
-		repo: repo,
+		repo:        repo,
+		natsService: natsService,
 	}
 }
 
 func (s *userService) GetProfile(ctx context.Context, email, defaultDisplayName string) (*model.User, error) {
 	log := util.LoggerFromContext(ctx)
 
-	user, err := s.repo.GetOrCreate(ctx, email, defaultDisplayName)
+	user, err := s.repo.GetOrCreate(ctx, email, defaultDisplayName, util.InitialsFromName(defaultDisplayName))
 	if err != nil {
 		log.Error("failed to get or create user", "error", err)
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
 	log.Info("retrieved user profile")
+	return user, nil
+}
+
+func (s *userService) UpdateProfile(ctx context.Context, email, initials string) (*model.User, error) {
+	log := util.LoggerFromContext(ctx)
+
+	user, squares, err := s.repo.UpdateProfile(ctx, email, initials)
+	if err != nil {
+		log.Error("failed to update user profile", "error", err)
+		return nil, errs.ErrDatabaseUnavailable
+	}
+
+	// broadcast the new initials so live contest views update without a refresh
+	for i := range squares {
+		square := squares[i]
+		go func() {
+			if err := s.natsService.PublishSquareUpdate(square.ContestID, email, &square); err != nil {
+				log.Error("failed to publish square update after initials change", "contestId", square.ContestID, "squareId", square.ID, "error", err)
+			}
+		}()
+	}
+
+	log.Info("updated user profile", "cascaded_squares", len(squares))
 	return user, nil
 }
 

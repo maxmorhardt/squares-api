@@ -12,18 +12,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func userRows(email, displayName string) *sqlmock.Rows {
+func userRows() *sqlmock.Rows {
 	return sqlmock.NewRows([]string{"id", "email", "display_name", "created_at", "updated_at"}).
-		AddRow(uuid.New().String(), email, displayName, time.Now(), time.Now())
+		AddRow(uuid.New().String(), "a@b.com", "Max", time.Now(), time.Now())
 }
 
 func TestUserRepository_GetOrCreate_Existing(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewUserRepository(gdb)
 
-	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows("a@b.com", "Max"))
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows())
 
-	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
+	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max", "M")
 
 	require.NoError(t, err)
 	assert.Equal(t, "a@b.com", user.Email)
@@ -41,9 +41,9 @@ func TestUserRepository_GetOrCreate_CreatesWithFirstActivity(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "users"`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
-	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows("a@b.com", "Max"))
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows())
 
-	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
+	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max", "M")
 
 	require.NoError(t, err)
 	assert.Equal(t, "a@b.com", user.Email)
@@ -59,9 +59,9 @@ func TestUserRepository_GetOrCreate_CreatesWithoutActivity(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "users"`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
-	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows("a@b.com", "Max"))
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows())
 
-	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
+	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max", "M")
 
 	require.NoError(t, err)
 	assert.Equal(t, "Max", user.DisplayName)
@@ -78,7 +78,7 @@ func TestUserRepository_GetOrCreate_InsertError(t *testing.T) {
 	mock.ExpectExec(`INSERT INTO "users"`).WillReturnError(errors.New("insert failed"))
 	mock.ExpectRollback()
 
-	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
+	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max", "M")
 
 	require.Error(t, err)
 	assert.Nil(t, user)
@@ -91,10 +91,74 @@ func TestUserRepository_GetOrCreate_SelectError(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnError(errors.New("select failed"))
 
-	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max")
+	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max", "M")
 
 	require.Error(t, err)
 	assert.Nil(t, user)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_GetByEmail_Success(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows())
+
+	user, err := repo.GetByEmail(context.Background(), "a@b.com")
+
+	require.NoError(t, err)
+	assert.Equal(t, "a@b.com", user.Email)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_GetByEmail_NotFound(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnError(errors.New("record not found"))
+
+	user, err := repo.GetByEmail(context.Background(), "a@b.com")
+
+	require.Error(t, err)
+	assert.Nil(t, user)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_UpdateProfile_Success(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE "users" SET`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows())
+	mock.ExpectExec(`UPDATE "squares" SET`).WillReturnResult(sqlmock.NewResult(0, 2))
+	mock.ExpectQuery(`SELECT .* FROM "squares"`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "contest_id", "owner", "value"}).
+			AddRow(uuid.New(), uuid.New(), "a@b.com", "MM").
+			AddRow(uuid.New(), uuid.New(), "a@b.com", "MM"))
+	mock.ExpectCommit()
+
+	user, squares, err := repo.UpdateProfile(context.Background(), "a@b.com", "MM")
+
+	require.NoError(t, err)
+	assert.Equal(t, "a@b.com", user.Email)
+	require.Len(t, squares, 2)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_UpdateProfile_Error(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE "users" SET`).WillReturnError(errors.New("update failed"))
+	mock.ExpectRollback()
+
+	user, squares, err := repo.UpdateProfile(context.Background(), "a@b.com", "MM")
+
+	require.Error(t, err)
+	assert.Nil(t, user)
+	assert.Nil(t, squares)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

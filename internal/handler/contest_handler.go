@@ -26,6 +26,7 @@ type ContestHandler interface {
 
 	UpdateSquare(c *gin.Context)
 	ClearSquare(c *gin.Context)
+	ClearMySquares(c *gin.Context)
 }
 
 type contestHandler struct {
@@ -409,18 +410,17 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 // Square Actions
 // ====================
 
-// @Summary Update a single square in a contest
-// @Description Updates the value of a specific square in a contest
+// @Summary Claim a single square in a contest
+// @Description Claims a square for the authenticated user using their profile default initials
 // @Tags contests
-// @Accept json
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Param squareId path string true "Square ID"
-// @Param square body model.UpdateSquareRequest true "Square"
 // @Success 200 {object} model.Square
 // @Failure 400 {object} model.APIError
 // @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
+// @Failure 409 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
 // @Router /contests/{id}/squares/{squareId} [patch]
@@ -457,22 +457,11 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 		return
 	}
 
-	// parse request body
-	var req model.UpdateSquareRequest
-	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		log.Warn("failed to bind json", "error", bindErr)
-		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
-		return
-	}
-
-	// normalize value to uppercase
-	req.Value = strings.ToUpper(req.Value)
-
 	// get authenticated user
 	user := c.GetString(model.UserKey)
 
-	// update square via service
-	updatedSquare, err := h.contestService.UpdateSquare(c.Request.Context(), contestID, squareID, &req, user)
+	// claim square via service; the value comes from the user's profile initials
+	updatedSquare, err := h.contestService.UpdateSquare(c.Request.Context(), contestID, squareID, user)
 	if err != nil {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):
@@ -481,6 +470,8 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrUnauthorizedSquareEdit):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrMissingInitials):
+			c.JSON(http.StatusConflict, model.NewAPIError(http.StatusConflict, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrClaimsNotFound):
 			c.JSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrDatabaseUnavailable):
@@ -561,4 +552,55 @@ func (h *contestHandler) ClearSquare(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, clearedSquare)
+}
+
+// @Summary Clear all of the caller's squares in a contest
+// @Description Clears the value and owner of every square owned by the authenticated user. Only the caller's own squares are affected.
+// @Tags contests
+// @Accept json
+// @Produce json
+// @Param id path string true "Contest ID"
+// @Success 200 {array} model.Square
+// @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
+// @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
+// @Security BearerAuth
+// @Router /contests/{id}/squares/clear-mine [post]
+func (h *contestHandler) ClearMySquares(c *gin.Context) {
+	log := util.LoggerFromGinContext(c)
+
+	// parse contest id from path
+	contestIDParam := c.Param("id")
+	if contestIDParam == "" {
+		log.Warn("contest id not provided")
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Contest ID is required", c))
+		return
+	}
+
+	contestID, err := uuid.Parse(contestIDParam)
+	if err != nil {
+		log.Warn("invalid contest id", "param", contestIDParam, "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID format", c))
+		return
+	}
+
+	// get authenticated user and clear their squares
+	user := c.GetString(model.UserKey)
+	clearedSquares, err := h.contestService.ClearUserSquares(c.Request.Context(), contestID, user)
+	if err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
+		case errors.Is(err, errs.ErrSquareNotEditable):
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrDatabaseUnavailable):
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
+		default:
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, clearedSquares)
 }

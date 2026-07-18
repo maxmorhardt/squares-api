@@ -83,6 +83,66 @@ func (_c *ContestRepository_ClearSquare_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
+// ClearSquaresByOwner provides a mock function with given fields: ctx, contestID, owner
+func (_m *ContestRepository) ClearSquaresByOwner(ctx context.Context, contestID uuid.UUID, owner string) ([]model.Square, error) {
+	ret := _m.Called(ctx, contestID, owner)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClearSquaresByOwner")
+	}
+
+	var r0 []model.Square
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) ([]model.Square, error)); ok {
+		return rf(ctx, contestID, owner)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) []model.Square); ok {
+		r0 = rf(ctx, contestID, owner)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.Square)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string) error); ok {
+		r1 = rf(ctx, contestID, owner)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ContestRepository_ClearSquaresByOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClearSquaresByOwner'
+type ContestRepository_ClearSquaresByOwner_Call struct {
+	*mock.Call
+}
+
+// ClearSquaresByOwner is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contestID uuid.UUID
+//   - owner string
+func (_e *ContestRepository_Expecter) ClearSquaresByOwner(ctx interface{}, contestID interface{}, owner interface{}) *ContestRepository_ClearSquaresByOwner_Call {
+	return &ContestRepository_ClearSquaresByOwner_Call{Call: _e.mock.On("ClearSquaresByOwner", ctx, contestID, owner)}
+}
+
+func (_c *ContestRepository_ClearSquaresByOwner_Call) Run(run func(ctx context.Context, contestID uuid.UUID, owner string)) *ContestRepository_ClearSquaresByOwner_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *ContestRepository_ClearSquaresByOwner_Call) Return(_a0 []model.Square, _a1 error) *ContestRepository_ClearSquaresByOwner_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ContestRepository_ClearSquaresByOwner_Call) RunAndReturn(run func(context.Context, uuid.UUID, string) ([]model.Square, error)) *ContestRepository_ClearSquaresByOwner_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function with given fields: ctx, contest, owner
 func (_m *ContestRepository) Create(ctx context.Context, contest *model.Contest, owner *model.ContestParticipant) error {
 	ret := _m.Called(ctx, contest, owner)

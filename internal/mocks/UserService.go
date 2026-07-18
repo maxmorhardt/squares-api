@@ -247,6 +247,66 @@ func (_c *UserService_GetStats_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
+// UpdateProfile provides a mock function with given fields: ctx, email, initials
+func (_m *UserService) UpdateProfile(ctx context.Context, email string, initials string) (*model.User, error) {
+	ret := _m.Called(ctx, email, initials)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProfile")
+	}
+
+	var r0 *model.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*model.User, error)); ok {
+		return rf(ctx, email, initials)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *model.User); ok {
+		r0 = rf(ctx, email, initials)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.User)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, email, initials)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UserService_UpdateProfile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateProfile'
+type UserService_UpdateProfile_Call struct {
+	*mock.Call
+}
+
+// UpdateProfile is a helper method to define mock.On call
+//   - ctx context.Context
+//   - email string
+//   - initials string
+func (_e *UserService_Expecter) UpdateProfile(ctx interface{}, email interface{}, initials interface{}) *UserService_UpdateProfile_Call {
+	return &UserService_UpdateProfile_Call{Call: _e.mock.On("UpdateProfile", ctx, email, initials)}
+}
+
+func (_c *UserService_UpdateProfile_Call) Run(run func(ctx context.Context, email string, initials string)) *UserService_UpdateProfile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *UserService_UpdateProfile_Call) Return(_a0 *model.User, _a1 error) *UserService_UpdateProfile_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *UserService_UpdateProfile_Call) RunAndReturn(run func(context.Context, string, string) (*model.User, error)) *UserService_UpdateProfile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewUserService creates a new instance of UserService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewUserService(t interface {

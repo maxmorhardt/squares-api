@@ -7,6 +7,9 @@ issue-845-fix: true
 mockname: "{{.InterfaceName}}"
 filename: "{{.InterfaceName}}.go"
 packages:
+  github.com/maxmorhardt/squares-api/internal/clients:
+    interfaces:
+      ESPNClient:
   github.com/maxmorhardt/squares-api/internal/repository:
     interfaces:
       ContestRepository:

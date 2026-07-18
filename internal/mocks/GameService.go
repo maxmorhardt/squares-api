@@ -24,6 +24,62 @@ func (_m *GameService) EXPECT() *GameService_Expecter {
 	return &GameService_Expecter{mock: &_m.Mock}
 }
 
+// Activity provides a mock function with given fields: ctx
+func (_m *GameService) Activity(ctx context.Context) (model.GameActivity, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Activity")
+	}
+
+	var r0 model.GameActivity
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (model.GameActivity, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) model.GameActivity); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(model.GameActivity)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GameService_Activity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Activity'
+type GameService_Activity_Call struct {
+	*mock.Call
+}
+
+// Activity is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *GameService_Expecter) Activity(ctx interface{}) *GameService_Activity_Call {
+	return &GameService_Activity_Call{Call: _e.mock.On("Activity", ctx)}
+}
+
+func (_c *GameService_Activity_Call) Run(run func(ctx context.Context)) *GameService_Activity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *GameService_Activity_Call) Return(_a0 model.GameActivity, _a1 error) *GameService_Activity_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GameService_Activity_Call) RunAndReturn(run func(context.Context) (model.GameActivity, error)) *GameService_Activity_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetUpcoming provides a mock function with given fields: ctx
 func (_m *GameService) GetUpcoming(ctx context.Context) ([]model.Game, error) {
 	ret := _m.Called(ctx)
@@ -78,6 +134,63 @@ func (_c *GameService_GetUpcoming_Call) Return(_a0 []model.Game, _a1 error) *Gam
 }
 
 func (_c *GameService_GetUpcoming_Call) RunAndReturn(run func(context.Context) ([]model.Game, error)) *GameService_GetUpcoming_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Ingest provides a mock function with given fields: ctx, games
+func (_m *GameService) Ingest(ctx context.Context, games []model.ESPNGame) (int, error) {
+	ret := _m.Called(ctx, games)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Ingest")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []model.ESPNGame) (int, error)); ok {
+		return rf(ctx, games)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []model.ESPNGame) int); ok {
+		r0 = rf(ctx, games)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []model.ESPNGame) error); ok {
+		r1 = rf(ctx, games)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GameService_Ingest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ingest'
+type GameService_Ingest_Call struct {
+	*mock.Call
+}
+
+// Ingest is a helper method to define mock.On call
+//   - ctx context.Context
+//   - games []model.ESPNGame
+func (_e *GameService_Expecter) Ingest(ctx interface{}, games interface{}) *GameService_Ingest_Call {
+	return &GameService_Ingest_Call{Call: _e.mock.On("Ingest", ctx, games)}
+}
+
+func (_c *GameService_Ingest_Call) Run(run func(ctx context.Context, games []model.ESPNGame)) *GameService_Ingest_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]model.ESPNGame))
+	})
+	return _c
+}
+
+func (_c *GameService_Ingest_Call) Return(newScores int, err error) *GameService_Ingest_Call {
+	_c.Call.Return(newScores, err)
+	return _c
+}
+
+func (_c *GameService_Ingest_Call) RunAndReturn(run func(context.Context, []model.ESPNGame) (int, error)) *GameService_Ingest_Call {
 	_c.Call.Return(run)
 	return _c
 }

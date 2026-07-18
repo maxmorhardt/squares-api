@@ -400,6 +400,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
                     }
                 }
             },
@@ -515,6 +521,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
                     }
                 }
             }
@@ -624,6 +636,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -689,6 +707,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -766,14 +790,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/contests/{id}/squares/{squareId}": {
-            "patch": {
+        "/contests/{id}/squares/clear-mine": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the value of a specific square in a contest",
+                "description": "Clears the value and owner of every square owned by the authenticated user. Only the caller's own squares are affected.",
                 "consumes": [
                     "application/json"
                 ],
@@ -783,7 +807,68 @@ const docTemplate = `{
                 "tags": [
                     "contests"
                 ],
-                "summary": "Update a single square in a contest",
+                "summary": "Clear all of the caller's squares in a contest",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Contest ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Square"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/contests/{id}/squares/{squareId}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Claims a square for the authenticated user using their profile default initials",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contests"
+                ],
+                "summary": "Claim a single square in a contest",
                 "parameters": [
                     {
                         "type": "string",
@@ -798,15 +883,6 @@ const docTemplate = `{
                         "name": "squareId",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Square",
-                        "name": "square",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.UpdateSquareRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -830,6 +906,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -1083,6 +1165,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
                     }
                 }
             }
@@ -1132,6 +1220,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -1212,6 +1306,55 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the authenticated user's default initials and applies them to their squares in active contests",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Update the current user's profile",
+                "parameters": [
+                    {
+                        "description": "Profile",
+                        "name": "profile",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateUserProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.UserProfileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/model.APIError"
                         }
@@ -1934,17 +2077,13 @@ const docTemplate = `{
                 }
             }
         },
-        "model.UpdateSquareRequest": {
+        "model.UpdateUserProfileRequest": {
             "type": "object",
             "required": [
-                "owner",
-                "value"
+                "defaultInitials"
             ],
             "properties": {
-                "owner": {
-                    "type": "string"
-                },
-                "value": {
+                "defaultInitials": {
                     "type": "string",
                     "maxLength": 3,
                     "minLength": 1
@@ -1978,6 +2117,10 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string",
                     "example": "2026-07-11T00:00:00Z"
+                },
+                "defaultInitials": {
+                    "type": "string",
+                    "example": "MM"
                 },
                 "displayName": {
                     "type": "string",

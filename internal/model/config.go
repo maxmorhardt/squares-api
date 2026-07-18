@@ -57,9 +57,9 @@ type NATSConfig struct {
 }
 
 type WorkerConfig struct {
-	Enabled          bool          `env:"SCORES_ENABLED" envDefault:"true"`
-	ESPNBaseURL      string        `env:"ESPN_BASE_URL" envDefault:"https://site.api.espn.com"`
-	PollInterval     time.Duration `env:"SCORES_POLL_INTERVAL" envDefault:"60s"`
-	ScheduleInterval time.Duration `env:"SCORES_SCHEDULE_INTERVAL" envDefault:"6h"`
-	LockKey          int64         `env:"SCORES_LOCK_KEY" envDefault:"910011"`
+	Enabled        bool          `env:"SCORES_ENABLED" envDefault:"true"`
+	ESPNBaseURL    string        `env:"ESPN_BASE_URL" envDefault:"https://site.api.espn.com"`
+	ActiveInterval time.Duration `env:"SCORES_ACTIVE_INTERVAL" envDefault:"60s"`
+	IdleInterval   time.Duration `env:"SCORES_IDLE_INTERVAL" envDefault:"6h"`
+	LockKey        int64         `env:"SCORES_LOCK_KEY" envDefault:"910011"`
 }

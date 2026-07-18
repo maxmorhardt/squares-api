@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
@@ -34,6 +35,74 @@ func TestGameService_GetUpcoming_DBError(t *testing.T) {
 	g.EXPECT().GetUpcoming(mock.Anything).Return(nil, errors.New("boom"))
 
 	_, err := gameSvc(g, mocks.NewContestRepository(t)).GetUpcoming(context.Background())
+	assert.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
+}
+
+func TestGameService_Ingest_UpsertsAndSkipsScheduled(t *testing.T) {
+	g := mocks.NewGameRepository(t)
+	// scheduled game: row is refreshed but nothing is scored or reconciled
+	g.EXPECT().Upsert(mock.Anything, mock.Anything).Return(nil).Once()
+
+	games := []model.ESPNGame{{ESPNID: "1", State: "pre"}}
+	newScores, err := gameSvc(g, mocks.NewContestRepository(t)).Ingest(context.Background(), games)
+	require.NoError(t, err)
+	assert.Zero(t, newScores)
+}
+
+func TestGameService_Ingest_RecordsScoresAndSyncs(t *testing.T) {
+	g := mocks.NewGameRepository(t)
+	g.EXPECT().Upsert(mock.Anything, mock.Anything).Return(nil).Once()
+	// in Q2, so Q1 is complete and gets recorded
+	g.EXPECT().UpsertScore(mock.Anything, mock.Anything).Return(true, nil).Once()
+	// live game triggers a sync of linked contests
+	g.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Game{Status: model.GameStatusInProgress}, nil).Once()
+
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByGameID(mock.Anything, mock.Anything).Return([]model.Contest{}, nil).Once()
+
+	games := []model.ESPNGame{{ESPNID: "1", State: "in", Period: 2, HomeLine: []int{7}, AwayLine: []int{3}}}
+	newScores, err := gameSvc(g, c).Ingest(context.Background(), games)
+	require.NoError(t, err)
+	assert.Equal(t, 1, newScores)
+}
+
+func TestGameService_Ingest_UpsertErrorSkipsGame(t *testing.T) {
+	g := mocks.NewGameRepository(t)
+	g.EXPECT().Upsert(mock.Anything, mock.Anything).Return(errors.New("db")).Once()
+	// UpsertScore / SyncGame must not run when the game upsert fails
+
+	games := []model.ESPNGame{{ESPNID: "1", State: "in"}}
+	newScores, err := gameSvc(g, mocks.NewContestRepository(t)).Ingest(context.Background(), games)
+	require.NoError(t, err)
+	assert.Zero(t, newScores)
+}
+
+func TestGameService_Activity(t *testing.T) {
+	kickoff := time.Now().Add(2 * time.Hour)
+	g := mocks.NewGameRepository(t)
+	g.EXPECT().HasLiveGame(mock.Anything).Return(true, nil)
+	g.EXPECT().NextKickoff(mock.Anything).Return(kickoff, nil)
+
+	act, err := gameSvc(g, mocks.NewContestRepository(t)).Activity(context.Background())
+	require.NoError(t, err)
+	assert.True(t, act.Live)
+	assert.Equal(t, kickoff, act.NextKickoff)
+}
+
+func TestGameService_Activity_LiveError(t *testing.T) {
+	g := mocks.NewGameRepository(t)
+	g.EXPECT().HasLiveGame(mock.Anything).Return(false, errors.New("db"))
+
+	_, err := gameSvc(g, mocks.NewContestRepository(t)).Activity(context.Background())
+	assert.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
+}
+
+func TestGameService_Activity_KickoffError(t *testing.T) {
+	g := mocks.NewGameRepository(t)
+	g.EXPECT().HasLiveGame(mock.Anything).Return(false, nil)
+	g.EXPECT().NextKickoff(mock.Anything).Return(time.Time{}, errors.New("db"))
+
+	_, err := gameSvc(g, mocks.NewContestRepository(t)).Activity(context.Background())
 	assert.ErrorIs(t, err, errs.ErrDatabaseUnavailable)
 }
 

@@ -14,6 +14,7 @@ import (
 
 type UserHandler interface {
 	GetMe(c *gin.Context)
+	UpdateMe(c *gin.Context)
 	GetMyStats(c *gin.Context)
 	GetMyActiveContests(c *gin.Context)
 	DeleteMe(c *gin.Context)
@@ -26,14 +27,6 @@ type userHandler struct {
 func NewUserHandler(userService service.UserService) UserHandler {
 	return &userHandler{
 		userService: userService,
-	}
-}
-
-func toProfileResponse(user *model.User) model.UserProfileResponse {
-	return model.UserProfileResponse{
-		Email:       user.Email,
-		DisplayName: user.DisplayName,
-		CreatedAt:   user.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -56,6 +49,46 @@ func (h *userHandler) GetMe(c *gin.Context) {
 	}
 
 	profile, err := h.userService.GetProfile(c.Request.Context(), user, defaultDisplayName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
+		return
+	}
+
+	c.JSON(http.StatusOK, toProfileResponse(profile))
+}
+
+func toProfileResponse(user *model.User) model.UserProfileResponse {
+	return model.UserProfileResponse{
+		Email:           user.Email,
+		DisplayName:     user.DisplayName,
+		DefaultInitials: user.DefaultInitials,
+		CreatedAt:       user.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+// UpdateMe godoc
+// @Summary Update the current user's profile
+// @Description Updates the authenticated user's default initials and applies them to their squares in active contests
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param profile body model.UpdateUserProfileRequest true "Profile"
+// @Success 200 {object} model.UserProfileResponse
+// @Failure 400 {object} model.APIError
+// @Failure 500 {object} model.APIError
+// @Security BearerAuth
+// @Router /users/me [patch]
+func (h *userHandler) UpdateMe(c *gin.Context) {
+	user := c.GetString(model.UserKey)
+
+	var req model.UpdateUserProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		util.LoggerFromGinContext(c).Warn("failed to bind json", "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrInvalidRequestBody), c))
+		return
+	}
+
+	profile, err := h.userService.UpdateProfile(c.Request.Context(), user, req.DefaultInitials)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, util.CapitalizeFirstLetter(err), c))
 		return

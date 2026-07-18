@@ -22,6 +22,7 @@ func newUserRouter(t *testing.T) (*mocks.UserService, *gin.Engine) {
 	r := gin.New()
 	r.Use(authenticatedMiddleware("a@b.com"))
 	r.GET("/users/me", h.GetMe)
+	r.PATCH("/users/me", h.UpdateMe)
 	r.DELETE("/users/me", h.DeleteMe)
 	r.GET("/users/me/stats", h.GetMyStats)
 	r.GET("/users/me/active-contests", h.GetMyActiveContests)
@@ -55,6 +56,42 @@ func TestGetMe_ServiceError(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, "/users/me", http.NoBody)
 	w := doRequest(r, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// ====================
+// UpdateMe
+// ====================
+
+func TestUpdateMe_Success(t *testing.T) {
+	svc, r := newUserRouter(t)
+	svc.EXPECT().UpdateProfile(mock.Anything, "a@b.com", "MM").
+		Return(&model.User{Email: "a@b.com", DisplayName: "Max", DefaultInitials: "MM"}, nil)
+
+	w := doRequest(r, jsonReq(http.MethodPatch, "/users/me", model.UpdateUserProfileRequest{DefaultInitials: "MM"}))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp model.UserProfileResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "MM", resp.DefaultInitials)
+}
+
+func TestUpdateMe_InvalidBody(t *testing.T) {
+	_, r := newUserRouter(t)
+
+	// lowercase fails the uppercase/alphanum binding
+	w := doRequest(r, jsonReq(http.MethodPatch, "/users/me", model.UpdateUserProfileRequest{DefaultInitials: "mm"}))
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateMe_ServiceError(t *testing.T) {
+	svc, r := newUserRouter(t)
+	svc.EXPECT().UpdateProfile(mock.Anything, "a@b.com", "MM").
+		Return(nil, errs.ErrDatabaseUnavailable)
+
+	w := doRequest(r, jsonReq(http.MethodPatch, "/users/me", model.UpdateUserProfileRequest{DefaultInitials: "MM"}))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
