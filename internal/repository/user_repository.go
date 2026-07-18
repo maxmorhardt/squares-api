@@ -94,8 +94,7 @@ func (r *userRepository) UpdateProfile(ctx context.Context, email, initials stri
 			return err
 		}
 
-		// cascade the new initials to the user's squares in contests still in play,
-		// leaving finished and deleted history with the initials it was won under
+		// cascade the new initials to the user's squares in contests still in play
 		liveContests := tx.Model(&model.Contest{}).Select("id").
 			Where("status NOT IN ?", []model.ContestStatus{model.ContestStatusFinished, model.ContestStatusDeleted})
 
