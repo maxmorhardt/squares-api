@@ -33,12 +33,7 @@ func contestSvc(repo *mocks.ContestRepository, pRepo *mocks.ParticipantRepositor
 	return service.NewContestService(repo, pRepo, &mocks.GameRepository{}, anyUser(), anyNats(), pSvc)
 }
 
-func contestSvcWithGame(repo *mocks.ContestRepository, pRepo *mocks.ParticipantRepository, gameRepo *mocks.GameRepository, pSvc *mocks.ParticipantService) service.ContestService {
-	return service.NewContestService(repo, pRepo, gameRepo, anyUser(), anyNats(), pSvc)
-}
-
-// anyUser is a permissive user repo whose profile lookup yields non-empty default initials,
-// so square claims proceed unless a test overrides the behavior
+// yields non-empty default initials so square claims proceed
 func anyUser() *mocks.UserRepository {
 	m := &mocks.UserRepository{}
 	m.On("GetOrCreate", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -46,6 +41,10 @@ func anyUser() *mocks.UserRepository {
 	m.On("GetByEmail", mock.Anything, mock.Anything).
 		Return(&model.User{Email: "u", DefaultInitials: "AB"}, nil).Maybe()
 	return m
+}
+
+func contestSvcWithGame(repo *mocks.ContestRepository, pRepo *mocks.ParticipantRepository, gameRepo *mocks.GameRepository, pSvc *mocks.ParticipantService) service.ContestService {
+	return service.NewContestService(repo, pRepo, gameRepo, anyUser(), anyNats(), pSvc)
 }
 
 func TestCreateContest_AlreadyExists(t *testing.T) {
