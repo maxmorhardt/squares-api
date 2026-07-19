@@ -33,10 +33,10 @@ type UserService interface {
 }
 
 type userService struct {
-	repo         repository.UserRepository
-	natsService  NatsService
-	oidc         *oidc.IDTokenVerifier
-	revocation   *util.TTLCache[revocationKey, bool]
+	repo        repository.UserRepository
+	natsService NatsService
+	oidc        *oidc.IDTokenVerifier
+	revocation  *util.TTLCache[revocationKey, bool]
 }
 
 func NewUserService(repo repository.UserRepository, natsService NatsService, oidcVerifier *oidc.IDTokenVerifier) UserService {
