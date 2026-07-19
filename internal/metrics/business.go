@@ -32,6 +32,14 @@ var (
 		[]string{"quarter"},
 	)
 
+	quarterResultsRolledBackTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "quarter_results_rolled_back_total",
+			Help: "Total number of quarter results rolled back by quarter",
+		},
+		[]string{"quarter"},
+	)
+
 	chatMessagesTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "chat_messages_total",
@@ -89,6 +97,7 @@ func init() {
 		contestsDeletedTotal,
 		contestsStartedTotal,
 		quarterResultsRecordedTotal,
+		quarterResultsRolledBackTotal,
 		chatMessagesTotal,
 		invitesCreatedTotal,
 		invitesRedeemedTotal,
@@ -113,6 +122,10 @@ func IncContestStarted() {
 
 func IncQuarterResult(quarter int) {
 	quarterResultsRecordedTotal.WithLabelValues(quarterLabel(quarter)).Inc()
+}
+
+func IncQuarterResultRolledBack(quarter int) {
+	quarterResultsRolledBackTotal.WithLabelValues(quarterLabel(quarter)).Inc()
 }
 
 func IncChatMessage() {

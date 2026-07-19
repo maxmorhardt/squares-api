@@ -24,6 +24,68 @@ func (_m *ContestRepository) EXPECT() *ContestRepository_Expecter {
 	return &ContestRepository_Expecter{mock: &_m.Mock}
 }
 
+// ClaimSquare provides a mock function with given fields: ctx, square, value, owner, ownerName
+func (_m *ContestRepository) ClaimSquare(ctx context.Context, square *model.Square, value string, owner string, ownerName string) (*model.Square, error) {
+	ret := _m.Called(ctx, square, value, owner, ownerName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClaimSquare")
+	}
+
+	var r0 *model.Square
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Square, string, string, string) (*model.Square, error)); ok {
+		return rf(ctx, square, value, owner, ownerName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Square, string, string, string) *model.Square); ok {
+		r0 = rf(ctx, square, value, owner, ownerName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.Square)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *model.Square, string, string, string) error); ok {
+		r1 = rf(ctx, square, value, owner, ownerName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ContestRepository_ClaimSquare_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClaimSquare'
+type ContestRepository_ClaimSquare_Call struct {
+	*mock.Call
+}
+
+// ClaimSquare is a helper method to define mock.On call
+//   - ctx context.Context
+//   - square *model.Square
+//   - value string
+//   - owner string
+//   - ownerName string
+func (_e *ContestRepository_Expecter) ClaimSquare(ctx interface{}, square interface{}, value interface{}, owner interface{}, ownerName interface{}) *ContestRepository_ClaimSquare_Call {
+	return &ContestRepository_ClaimSquare_Call{Call: _e.mock.On("ClaimSquare", ctx, square, value, owner, ownerName)}
+}
+
+func (_c *ContestRepository_ClaimSquare_Call) Run(run func(ctx context.Context, square *model.Square, value string, owner string, ownerName string)) *ContestRepository_ClaimSquare_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.Square), args[2].(string), args[3].(string), args[4].(string))
+	})
+	return _c
+}
+
+func (_c *ContestRepository_ClaimSquare_Call) Return(_a0 *model.Square, _a1 error) *ContestRepository_ClaimSquare_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ContestRepository_ClaimSquare_Call) RunAndReturn(run func(context.Context, *model.Square, string, string, string) (*model.Square, error)) *ContestRepository_ClaimSquare_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ClearSquare provides a mock function with given fields: ctx, square
 func (_m *ContestRepository) ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error) {
 	ret := _m.Called(ctx, square)
@@ -281,6 +343,53 @@ func (_c *ContestRepository_Delete_Call) Return(_a0 error) *ContestRepository_De
 }
 
 func (_c *ContestRepository_Delete_Call) RunAndReturn(run func(context.Context, uuid.UUID) error) *ContestRepository_Delete_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteQuarterResult provides a mock function with given fields: ctx, id
+func (_m *ContestRepository) DeleteQuarterResult(ctx context.Context, id uuid.UUID) error {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteQuarterResult")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ContestRepository_DeleteQuarterResult_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteQuarterResult'
+type ContestRepository_DeleteQuarterResult_Call struct {
+	*mock.Call
+}
+
+// DeleteQuarterResult is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+func (_e *ContestRepository_Expecter) DeleteQuarterResult(ctx interface{}, id interface{}) *ContestRepository_DeleteQuarterResult_Call {
+	return &ContestRepository_DeleteQuarterResult_Call{Call: _e.mock.On("DeleteQuarterResult", ctx, id)}
+}
+
+func (_c *ContestRepository_DeleteQuarterResult_Call) Run(run func(ctx context.Context, id uuid.UUID)) *ContestRepository_DeleteQuarterResult_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *ContestRepository_DeleteQuarterResult_Call) Return(_a0 error) *ContestRepository_DeleteQuarterResult_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ContestRepository_DeleteQuarterResult_Call) RunAndReturn(run func(context.Context, uuid.UUID) error) *ContestRepository_DeleteQuarterResult_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -749,68 +858,6 @@ func (_c *ContestRepository_Update_Call) Return(_a0 error) *ContestRepository_Up
 }
 
 func (_c *ContestRepository_Update_Call) RunAndReturn(run func(context.Context, *model.Contest) error) *ContestRepository_Update_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// UpdateSquare provides a mock function with given fields: ctx, square, value, owner, ownerName
-func (_m *ContestRepository) UpdateSquare(ctx context.Context, square *model.Square, value string, owner string, ownerName string) (*model.Square, error) {
-	ret := _m.Called(ctx, square, value, owner, ownerName)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateSquare")
-	}
-
-	var r0 *model.Square
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Square, string, string, string) (*model.Square, error)); ok {
-		return rf(ctx, square, value, owner, ownerName)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Square, string, string, string) *model.Square); ok {
-		r0 = rf(ctx, square, value, owner, ownerName)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.Square)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *model.Square, string, string, string) error); ok {
-		r1 = rf(ctx, square, value, owner, ownerName)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ContestRepository_UpdateSquare_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateSquare'
-type ContestRepository_UpdateSquare_Call struct {
-	*mock.Call
-}
-
-// UpdateSquare is a helper method to define mock.On call
-//   - ctx context.Context
-//   - square *model.Square
-//   - value string
-//   - owner string
-//   - ownerName string
-func (_e *ContestRepository_Expecter) UpdateSquare(ctx interface{}, square interface{}, value interface{}, owner interface{}, ownerName interface{}) *ContestRepository_UpdateSquare_Call {
-	return &ContestRepository_UpdateSquare_Call{Call: _e.mock.On("UpdateSquare", ctx, square, value, owner, ownerName)}
-}
-
-func (_c *ContestRepository_UpdateSquare_Call) Run(run func(ctx context.Context, square *model.Square, value string, owner string, ownerName string)) *ContestRepository_UpdateSquare_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.Square), args[2].(string), args[3].(string), args[4].(string))
-	})
-	return _c
-}
-
-func (_c *ContestRepository_UpdateSquare_Call) Return(_a0 *model.Square, _a1 error) *ContestRepository_UpdateSquare_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *ContestRepository_UpdateSquare_Call) RunAndReturn(run func(context.Context, *model.Square, string, string, string) (*model.Square, error)) *ContestRepository_UpdateSquare_Call {
 	_c.Call.Return(run)
 	return _c
 }

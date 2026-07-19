@@ -7,16 +7,17 @@ import (
 )
 
 const (
-	SquareUpdateType        string = "square_update"
-	ContestUpdateType       string = "contest_update"
-	QuarterResultUpdateType string = "quarter_result_update"
-	ContestDeletedType      string = "contest_deleted"
-	ParticipantRemovedType  string = "participant_removed"
-	ParticipantAddedType    string = "participant_added"
-	ChatMessageType         string = "chat_message"
-	ConnectedType           string = "connected"
-	DisconnectType          string = "disconnected"
-	ContestChannelPrefix    string = "contest"
+	SquareUpdateType          string = "square_update"
+	ContestUpdateType         string = "contest_update"
+	QuarterResultUpdateType   string = "quarter_result_update"
+	QuarterResultRollbackType string = "quarter_result_rollback"
+	ContestDeletedType        string = "contest_deleted"
+	ParticipantRemovedType    string = "participant_removed"
+	ParticipantAddedType      string = "participant_added"
+	ChatMessageType           string = "chat_message"
+	ConnectedType             string = "connected"
+	DisconnectType            string = "disconnected"
+	ContestChannelPrefix      string = "contest"
 )
 
 type WSConnectionResult string
@@ -34,12 +35,13 @@ const (
 type WSDisconnectReason string
 
 const (
-	WSDisconnectClient        WSDisconnectReason = "client"
-	WSDisconnectPingFailed    WSDisconnectReason = "ping_failed"
-	WSDisconnectTokenExpired  WSDisconnectReason = "token_expired"
-	WSDisconnectNATSLost      WSDisconnectReason = "nats_lost"
-	WSDisconnectNATSChanClose WSDisconnectReason = "nats_chan_closed"
-	WSDisconnectServerError   WSDisconnectReason = "server_error"
+	WSDisconnectClient            WSDisconnectReason = "client"
+	WSDisconnectPingFailed        WSDisconnectReason = "ping_failed"
+	WSDisconnectTokenExpired      WSDisconnectReason = "token_expired"
+	WSDisconnectNATSLost          WSDisconnectReason = "nats_lost"
+	WSDisconnectNATSChanClose     WSDisconnectReason = "nats_chan_closed"
+	WSDisconnectServerError       WSDisconnectReason = "server_error"
+	WSDisconnectVisibilityRevoked WSDisconnectReason = "visibility_revoked"
 )
 
 type WSChatMessage struct {
@@ -99,6 +101,17 @@ func NewQuarterResultUpdateMessage(contestID uuid.UUID, updatedBy string, quarte
 		UpdatedBy:     updatedBy,
 		Timestamp:     time.Now(),
 		QuarterResult: quarterResult,
+	}
+}
+
+func NewQuarterResultRollbackMessage(contestID uuid.UUID, updatedBy string, quarterResult *QuarterResult, contest *Contest) *WSUpdate {
+	return &WSUpdate{
+		Type:          QuarterResultRollbackType,
+		ContestID:     contestID,
+		UpdatedBy:     updatedBy,
+		Timestamp:     time.Now(),
+		QuarterResult: quarterResult,
+		Contest:       contest,
 	}
 }
 

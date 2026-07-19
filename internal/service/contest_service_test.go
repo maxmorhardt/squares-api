@@ -47,6 +47,13 @@ func contestSvcWithGame(repo *mocks.ContestRepository, pRepo *mocks.ParticipantR
 	return service.NewContestService(repo, pRepo, gameRepo, anyUser(), anyNats(), pSvc)
 }
 
+// participant service that authorizes every action it's asked about
+func okAuth(t *testing.T) *mocks.ParticipantService {
+	m := mocks.NewParticipantService(t)
+	m.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	return m
+}
+
 func TestCreateContest_AlreadyExists(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().ExistsByOwnerAndName(mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
@@ -174,6 +181,35 @@ func TestUpdateContest_Success(t *testing.T) {
 	assert.Equal(t, "B", got.HomeTeam)
 }
 
+func TestUpdateContest_VisibilityChange(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Visibility: model.ContestVisibilityPublic}, nil)
+	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	private := "private"
+	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
+		UpdateContest(context.Background(), uuid.New(), &model.UpdateContestRequest{Visibility: &private}, "u")
+	require.NoError(t, err)
+	assert.Equal(t, model.ContestVisibilityPrivate, got.Visibility)
+}
+
+func TestUpdateContest_VisibilityEditableForGameLinked(t *testing.T) {
+	gameID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Visibility: model.ContestVisibilityPrivate, GameID: &gameID}, nil)
+	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	public := "public"
+	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
+		UpdateContest(context.Background(), uuid.New(), &model.UpdateContestRequest{Visibility: &public}, "u")
+	require.NoError(t, err)
+	assert.Equal(t, model.ContestVisibilityPublic, got.Visibility)
+}
+
 func TestUpdateContest_GameLinkedIgnoresTeamNames(t *testing.T) {
 	gameID := uuid.New()
 
@@ -242,7 +278,7 @@ func TestRecordQuarterResult_InvalidStatus(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 7, 3, "u")
 	assert.Error(t, err)
 }
@@ -254,7 +290,7 @@ func TestRecordQuarterResult_DuplicateQuarter(t *testing.T) {
 		QuarterResults: []model.QuarterResult{{Quarter: 1}},
 	}, nil)
 
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 7, 3, "u")
 	assert.ErrorIs(t, err, errs.ErrQuarterResultAlreadyExists)
 }
@@ -270,7 +306,7 @@ func TestRecordQuarterResult_Success(t *testing.T) {
 	repo.EXPECT().CreateQuarterResult(mock.Anything, mock.Anything).Return(nil)
 	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
 
-	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
 	require.NoError(t, err)
 	assert.Equal(t, 1, got.Quarter)
@@ -325,27 +361,27 @@ func TestDeleteContest_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUpdateSquare_NotActive(t *testing.T) {
+func TestClaimSquare_NotActive(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusQ1}, nil)
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
-		UpdateSquare(context.Background(), uuid.New(), uuid.New(), "u")
+		ClaimSquare(context.Background(), uuid.New(), uuid.New(), "u")
 	assert.ErrorIs(t, err, errs.ErrSquareNotEditable)
 }
 
-func TestUpdateSquare_SquareNotFound(t *testing.T) {
+func TestClaimSquare_SquareNotFound(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	pSvc := mocks.NewParticipantService(t)
 	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
-		UpdateSquare(context.Background(), uuid.New(), uuid.New(), "u")
+		ClaimSquare(context.Background(), uuid.New(), uuid.New(), "u")
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
-func TestUpdateSquare_NotParticipant(t *testing.T) {
+func TestClaimSquare_NotParticipant(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
@@ -355,11 +391,11 @@ func TestUpdateSquare_NotParticipant(t *testing.T) {
 	pRepo.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, mock.Anything).Return(nil, gorm.ErrRecordNotFound)
 
 	_, err := contestSvc(repo, pRepo, pSvc).
-		UpdateSquare(context.Background(), uuid.New(), squareID, "u")
+		ClaimSquare(context.Background(), uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrNotParticipant)
 }
 
-func TestUpdateSquare_LimitReached(t *testing.T) {
+func TestClaimSquare_LimitReached(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
@@ -370,11 +406,11 @@ func TestUpdateSquare_LimitReached(t *testing.T) {
 	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(2, nil)
 
 	_, err := contestSvc(repo, pRepo, pSvc).
-		UpdateSquare(context.Background(), uuid.New(), squareID, "u")
+		ClaimSquare(context.Background(), uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrSquareLimitReached)
 }
 
-func TestUpdateSquare_ClaimsNotFound(t *testing.T) {
+func TestClaimSquare_ClaimsNotFound(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
@@ -385,15 +421,15 @@ func TestUpdateSquare_ClaimsNotFound(t *testing.T) {
 	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(0, nil)
 
 	_, err := contestSvc(repo, pRepo, pSvc).
-		UpdateSquare(context.Background(), uuid.New(), squareID, "u")
+		ClaimSquare(context.Background(), uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrClaimsNotFound)
 }
 
-func TestUpdateSquare_Success(t *testing.T) {
+func TestClaimSquare_Success(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
-	repo.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	repo.EXPECT().ClaimSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(&model.Square{ID: squareID, Value: "AB", Owner: "u", OwnerName: "Display Name"}, nil)
 	pSvc := mocks.NewParticipantService(t)
 	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -403,13 +439,13 @@ func TestUpdateSquare_Success(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "Display Name"})
 	got, err := contestSvc(repo, pRepo, pSvc).
-		UpdateSquare(ctx, uuid.New(), squareID, "u")
+		ClaimSquare(ctx, uuid.New(), squareID, "u")
 	require.NoError(t, err)
 	assert.Equal(t, "AB", got.Value)
 	assert.Equal(t, "Display Name", got.OwnerName)
 }
 
-func TestUpdateSquare_MissingInitials(t *testing.T) {
+func TestClaimSquare_MissingInitials(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
@@ -426,7 +462,7 @@ func TestUpdateSquare_MissingInitials(t *testing.T) {
 	svc := service.NewContestService(repo, pRepo, &mocks.GameRepository{}, userRepo, anyNats(), pSvc)
 
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "Display Name"})
-	_, err := svc.UpdateSquare(ctx, uuid.New(), squareID, "u")
+	_, err := svc.ClaimSquare(ctx, uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrMissingInitials)
 }
 
@@ -547,7 +583,7 @@ func TestRecordQuarterResult_WinnerNotFound(t *testing.T) {
 	}, nil)
 
 	// away digit 3 not present in [0,1,2] -> calculateWinnerCoordinates errors
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
 	assert.Error(t, err)
 }
@@ -558,7 +594,7 @@ func TestRecordQuarterResult_BadYLabels(t *testing.T) {
 		Status: model.ContestStatusQ1, XLabels: orderedLabels(t), YLabels: []byte("not-json"),
 	}, nil)
 
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
 	assert.Error(t, err)
 }
@@ -572,7 +608,7 @@ func TestRecordQuarterResult_TransitionError(t *testing.T) {
 	repo.EXPECT().CreateQuarterResult(mock.Anything, mock.Anything).Return(nil)
 	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(errors.New("db"))
 
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
 	assert.Error(t, err)
 }
@@ -585,7 +621,7 @@ func TestRecordQuarterResult_CreateError(t *testing.T) {
 	}, nil)
 	repo.EXPECT().CreateQuarterResult(mock.Anything, mock.Anything).Return(errors.New("db"))
 
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
 	assert.Error(t, err)
 }
@@ -601,11 +637,11 @@ func TestDeleteContest_RepoError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestUpdateSquare_RepoError(t *testing.T) {
+func TestClaimSquare_RepoError(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
-	repo.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("db"))
+	repo.EXPECT().ClaimSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("db"))
 	pSvc := mocks.NewParticipantService(t)
 	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	pRepo := mocks.NewParticipantRepository(t)
@@ -613,15 +649,15 @@ func TestUpdateSquare_RepoError(t *testing.T) {
 	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(0, nil)
 
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "N"})
-	_, err := contestSvc(repo, pRepo, pSvc).UpdateSquare(ctx, uuid.New(), squareID, "u")
+	_, err := contestSvc(repo, pRepo, pSvc).ClaimSquare(ctx, uuid.New(), squareID, "u")
 	assert.Error(t, err)
 }
 
-func TestUpdateSquare_ReEditOwnSquare(t *testing.T) {
+func TestClaimSquare_ReEditOwnSquare(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID, Owner: "u"}}}, nil)
-	repo.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&model.Square{ID: squareID, Value: "XY", Owner: "u"}, nil)
+	repo.EXPECT().ClaimSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&model.Square{ID: squareID, Value: "XY", Owner: "u"}, nil)
 	pSvc := mocks.NewParticipantService(t)
 	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	pRepo := mocks.NewParticipantRepository(t)
@@ -630,7 +666,7 @@ func TestUpdateSquare_ReEditOwnSquare(t *testing.T) {
 	pRepo.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, mock.Anything).Return(&model.ContestParticipant{MaxSquares: 5}, nil)
 
 	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "N"})
-	got, err := contestSvc(repo, pRepo, pSvc).UpdateSquare(ctx, uuid.New(), squareID, "u")
+	got, err := contestSvc(repo, pRepo, pSvc).ClaimSquare(ctx, uuid.New(), squareID, "u")
 	require.NoError(t, err)
 	assert.Equal(t, "XY", got.Value)
 }
@@ -651,12 +687,12 @@ func TestRecordQuarterResult_BadLabels(t *testing.T) {
 		Status: model.ContestStatusQ1, XLabels: []byte("not-json"), YLabels: orderedLabels(t),
 	}, nil)
 
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
 	assert.Error(t, err)
 }
 
-func TestUpdateSquare_OwnedByAnotherUser(t *testing.T) {
+func TestClaimSquare_OwnedByAnotherUser(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID, Owner: "other"}}}, nil)
@@ -664,7 +700,7 @@ func TestUpdateSquare_OwnedByAnotherUser(t *testing.T) {
 	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
-		UpdateSquare(context.Background(), uuid.New(), squareID, "u")
+		ClaimSquare(context.Background(), uuid.New(), squareID, "u")
 	assert.ErrorIs(t, err, errs.ErrUnauthorizedSquareEdit)
 }
 
@@ -693,4 +729,141 @@ func TestClearSquare_Unauthorized(t *testing.T) {
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
 		ClearSquare(context.Background(), uuid.New(), squareID, "stranger")
 	assert.ErrorIs(t, err, errs.ErrUnauthorizedSquareEdit)
+}
+
+func TestRollbackLastQuarterResult_Success(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status:         model.ContestStatusQ2,
+		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 1, Winner: "winner"}},
+	}, nil)
+	repo.EXPECT().DeleteQuarterResult(mock.Anything, mock.Anything).Return(nil)
+	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+
+	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	require.NoError(t, err)
+	assert.Equal(t, 1, got.Quarter)
+}
+
+func TestRollbackLastQuarterResult_FromFinished(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status:         model.ContestStatusFinished,
+		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 4}},
+	}, nil)
+	repo.EXPECT().DeleteQuarterResult(mock.Anything, mock.Anything).Return(nil)
+	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+
+	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	require.NoError(t, err)
+	assert.Equal(t, 4, got.Quarter)
+}
+
+func TestRollbackLastQuarterResult_NothingToRollback(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusQ1}, nil)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, errs.ErrNoQuarterResultToRollback)
+}
+
+func TestRollbackLastQuarterResult_MissingResult(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	// status says Q1 was recorded but the result row is absent
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusQ2}, nil)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, errs.ErrNoQuarterResultToRollback)
+}
+
+func TestRollbackLastQuarterResult_GameLinked(t *testing.T) {
+	gameID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status: model.ContestStatusQ2,
+		GameID: &gameID,
+	}, nil)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, errs.ErrContestIsGameLinked)
+}
+
+func TestRollbackLastQuarterResult_GetError(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(nil, gorm.ErrRecordNotFound)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+func TestRollbackLastQuarterResult_DeleteError(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status:         model.ContestStatusQ2,
+		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 1}},
+	}, nil)
+	repo.EXPECT().DeleteQuarterResult(mock.Anything, mock.Anything).Return(errors.New("db"))
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	assert.Error(t, err)
+}
+
+func TestRollbackLastQuarterResult_UpdateError(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status:         model.ContestStatusQ2,
+		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 1}},
+	}, nil)
+	repo.EXPECT().DeleteQuarterResult(mock.Anything, mock.Anything).Return(nil)
+	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(errors.New("db"))
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	assert.Error(t, err)
+}
+
+func TestRecordQuarterResult_Unauthorized(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusQ1}, nil)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errs.ErrInsufficientRole)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
+		RecordQuarterResult(context.Background(), uuid.New(), 7, 3, "u")
+	assert.ErrorIs(t, err, errs.ErrUnauthorizedContestEdit)
+}
+
+func TestRecordQuarterResult_GameLinkedSkipsAuth(t *testing.T) {
+	gameID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status: model.ContestStatusQ1,
+		GameID: &gameID,
+	}, nil)
+
+	// a bare participant service asserts Authorize is never reached for game-linked contests
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		RecordQuarterResult(context.Background(), uuid.New(), 7, 3, "u")
+	assert.ErrorIs(t, err, errs.ErrContestIsGameLinked)
+}
+
+func TestRollbackLastQuarterResult_Unauthorized(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
+		Status:         model.ContestStatusQ2,
+		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 1}},
+	}, nil)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errs.ErrInsufficientRole)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), pSvc).
+		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
+	assert.ErrorIs(t, err, errs.ErrUnauthorizedContestEdit)
 }

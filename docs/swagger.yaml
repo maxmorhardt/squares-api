@@ -392,6 +392,11 @@ definitions:
       homeTeam:
         maxLength: 20
         type: string
+      visibility:
+        enum:
+        - private
+        - public
+        type: string
     type: object
   model.UpdateParticipantRequest:
     properties:
@@ -881,6 +886,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
         "404":
           description: Not Found
           schema:
@@ -894,8 +903,48 @@ paths:
       summary: Record quarter result
       tags:
       - contests
-  /contests/{id}/squares/{squareId}:
-    patch:
+  /contests/{id}/quarter-result/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Deletes the most recently recorded quarter result and reverts the
+        contest to the prior quarter. Only for manual (non game-linked) contests.
+      parameters:
+      - description: Contest ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.QuarterResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Roll back the last quarter result
+      tags:
+      - contests
+  /contests/{id}/squares/{squareId}/claim:
+    post:
       description: Claims a square for the authenticated user using their profile
         default initials
       parameters:

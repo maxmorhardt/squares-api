@@ -133,7 +133,7 @@ func TestContest_FullLifecycle(t *testing.T) {
 			if i%2 == 0 {
 				claimer = memberToken
 			}
-			_, sqStatus := updateSquare(t, contestID, sq.ID, claimer)
+			_, sqStatus := claimSquare(t, contestID, sq.ID, claimer)
 			require.Equal(t, http.StatusOK, sqStatus, "square %d claim should succeed", i)
 		}
 
@@ -307,10 +307,10 @@ func getParticipants(t *testing.T, contestID uuid.UUID, token string) (participa
 	return participants, code
 }
 
-func updateSquare(t *testing.T, contestID, squareID uuid.UUID, token string) (square model.Square, status int) {
+func claimSquare(t *testing.T, contestID, squareID uuid.UUID, token string) (square model.Square, status int) {
 	t.Helper()
 	// the claimed value comes from the caller's profile default initials, seeded from their name
-	code, resp := doRequest(t, http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", contestID, squareID), token, nil)
+	code, resp := doRequest(t, http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/claim", contestID, squareID), token, nil)
 	_ = json.Unmarshal(resp, &square)
 	return square, code
 }

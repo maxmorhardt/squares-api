@@ -424,6 +424,9 @@ func TestRecordQuarterResult_InvalidBody(t *testing.T) {
 func TestRecordQuarterResult_AlreadyExists(t *testing.T) {
 	recordQuarterErr(t, errs.ErrQuarterResultAlreadyExists, http.StatusBadRequest)
 }
+func TestRecordQuarterResult_Unauthorized(t *testing.T) {
+	recordQuarterErr(t, errs.ErrUnauthorizedContestEdit, http.StatusForbidden)
+}
 func TestRecordQuarterResult_NotFound(t *testing.T) {
 	recordQuarterErr(t, gorm.ErrRecordNotFound, http.StatusNotFound)
 }
@@ -449,75 +452,137 @@ func recordQuarterErr(t *testing.T, svcErr error, wantCode int) {
 }
 
 // ====================
-// UpdateSquare
+// RollbackLastQuarterResult
 // ====================
 
-func TestUpdateSquare_Success(t *testing.T) {
+func TestRollbackLastQuarterResult_Success(t *testing.T) {
+	contestID := uuid.New()
+	svc := mocks.NewContestService(t)
+	svc.EXPECT().RollbackLastQuarterResult(mock.Anything, mock.Anything, mock.Anything).
+		Return(&model.QuarterResult{ContestID: contestID, Quarter: 1}, nil)
+	h := NewContestHandler(svc)
+
+	r := gin.New()
+	r.Use(authenticatedMiddleware("owner1"))
+	r.POST("/contests/:id/quarter-result/rollback", h.RollbackLastQuarterResult)
+
+	w := doRequest(r, jsonReq(http.MethodPost, fmt.Sprintf("/contests/%s/quarter-result/rollback", contestID), nil))
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRollbackLastQuarterResult_InvalidID(t *testing.T) {
+	h := NewContestHandler(mocks.NewContestService(t))
+	r := gin.New()
+	r.Use(authenticatedMiddleware("owner1"))
+	r.POST("/contests/:id/quarter-result/rollback", h.RollbackLastQuarterResult)
+
+	w := doRequest(r, jsonReq(http.MethodPost, "/contests/bad/quarter-result/rollback", nil))
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestRollbackLastQuarterResult_NotFound(t *testing.T) {
+	rollbackQuarterErr(t, gorm.ErrRecordNotFound, http.StatusNotFound)
+}
+func TestRollbackLastQuarterResult_GameLinked(t *testing.T) {
+	rollbackQuarterErr(t, errs.ErrContestIsGameLinked, http.StatusBadRequest)
+}
+func TestRollbackLastQuarterResult_NothingToRollback(t *testing.T) {
+	rollbackQuarterErr(t, errs.ErrNoQuarterResultToRollback, http.StatusBadRequest)
+}
+func TestRollbackLastQuarterResult_Unauthorized(t *testing.T) {
+	rollbackQuarterErr(t, errs.ErrUnauthorizedContestEdit, http.StatusForbidden)
+}
+func TestRollbackLastQuarterResult_InternalError(t *testing.T) {
+	rollbackQuarterErr(t, assert.AnError, http.StatusInternalServerError)
+}
+
+func rollbackQuarterErr(t *testing.T, svcErr error, wantCode int) {
+	t.Helper()
+	svc := mocks.NewContestService(t)
+	svc.EXPECT().RollbackLastQuarterResult(mock.Anything, mock.Anything, mock.Anything).Return(nil, svcErr)
+	h := NewContestHandler(svc)
+
+	r := gin.New()
+	r.Use(authenticatedMiddleware("owner1"))
+	r.POST("/contests/:id/quarter-result/rollback", h.RollbackLastQuarterResult)
+
+	w := doRequest(r, jsonReq(http.MethodPost, fmt.Sprintf("/contests/%s/quarter-result/rollback", uuid.New()), nil))
+	assert.Equal(t, wantCode, w.Code)
+}
+
+// ====================
+// ClaimSquare
+// ====================
+
+func TestClaimSquare_Success(t *testing.T) {
 	contestID, squareID := uuid.New(), uuid.New()
 	svc := mocks.NewContestService(t)
-	svc.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, "owner1").
+	svc.EXPECT().ClaimSquare(mock.Anything, mock.Anything, mock.Anything, "owner1").
 		Return(&model.Square{ID: squareID, ContestID: contestID, Value: "ABC", Owner: "owner1"}, nil)
 	h := NewContestHandler(svc)
 
 	r := gin.New()
 	r.Use(authenticatedMiddleware("owner1"))
-	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
+	r.POST("/contests/:id/squares/:squareId/claim", h.ClaimSquare)
 
-	w := doRequest(r, jsonReq(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", contestID, squareID), nil))
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/claim", contestID, squareID), http.NoBody)
+	w := doRequest(r, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func updateSquareBadID(t *testing.T, target string) {
+func claimSquareBadID(t *testing.T, target string) {
 	t.Helper()
 	h := NewContestHandler(mocks.NewContestService(t))
 	r := gin.New()
 	r.Use(authenticatedMiddleware("owner1"))
-	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
+	r.POST("/contests/:id/squares/:squareId/claim", h.ClaimSquare)
 
-	w := doRequest(r, jsonReq(http.MethodPatch, target, nil))
+	req, _ := http.NewRequest(http.MethodPost, target, http.NoBody)
+	w := doRequest(r, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestUpdateSquare_InvalidContestID(t *testing.T) {
-	updateSquareBadID(t, fmt.Sprintf("/contests/bad/squares/%s", uuid.New()))
+func TestClaimSquare_InvalidContestID(t *testing.T) {
+	claimSquareBadID(t, fmt.Sprintf("/contests/bad/squares/%s/claim", uuid.New()))
 }
-func TestUpdateSquare_InvalidSquareID(t *testing.T) {
-	updateSquareBadID(t, fmt.Sprintf("/contests/%s/squares/bad", uuid.New()))
-}
-
-func TestUpdateSquare_NotFound(t *testing.T) {
-	updateSquareErr(t, "owner1", gorm.ErrRecordNotFound, http.StatusNotFound)
-}
-func TestUpdateSquare_SquareNotEditable(t *testing.T) {
-	updateSquareErr(t, "owner1", errs.ErrSquareNotEditable, http.StatusForbidden)
-}
-func TestUpdateSquare_UnauthorizedSquareEdit(t *testing.T) {
-	updateSquareErr(t, "stranger", errs.ErrUnauthorizedSquareEdit, http.StatusForbidden)
-}
-func TestUpdateSquare_MissingInitials(t *testing.T) {
-	updateSquareErr(t, "owner1", errs.ErrMissingInitials, http.StatusConflict)
-}
-func TestUpdateSquare_ClaimsNotFound(t *testing.T) {
-	updateSquareErr(t, "owner1", errs.ErrClaimsNotFound, http.StatusUnauthorized)
-}
-func TestUpdateSquare_DatabaseUnavailable(t *testing.T) {
-	updateSquareErr(t, "owner1", errs.ErrDatabaseUnavailable, http.StatusInternalServerError)
-}
-func TestUpdateSquare_OtherError(t *testing.T) {
-	updateSquareErr(t, "owner1", errs.ErrInvalidSquareValue, http.StatusBadRequest)
+func TestClaimSquare_InvalidSquareID(t *testing.T) {
+	claimSquareBadID(t, fmt.Sprintf("/contests/%s/squares/bad/claim", uuid.New()))
 }
 
-func updateSquareErr(t *testing.T, user string, svcErr error, wantCode int) {
+func TestClaimSquare_NotFound(t *testing.T) {
+	claimSquareErr(t, "owner1", gorm.ErrRecordNotFound, http.StatusNotFound)
+}
+func TestClaimSquare_SquareNotEditable(t *testing.T) {
+	claimSquareErr(t, "owner1", errs.ErrSquareNotEditable, http.StatusForbidden)
+}
+func TestClaimSquare_UnauthorizedSquareEdit(t *testing.T) {
+	claimSquareErr(t, "stranger", errs.ErrUnauthorizedSquareEdit, http.StatusForbidden)
+}
+func TestClaimSquare_MissingInitials(t *testing.T) {
+	claimSquareErr(t, "owner1", errs.ErrMissingInitials, http.StatusConflict)
+}
+func TestClaimSquare_ClaimsNotFound(t *testing.T) {
+	claimSquareErr(t, "owner1", errs.ErrClaimsNotFound, http.StatusUnauthorized)
+}
+func TestClaimSquare_DatabaseUnavailable(t *testing.T) {
+	claimSquareErr(t, "owner1", errs.ErrDatabaseUnavailable, http.StatusInternalServerError)
+}
+func TestClaimSquare_OtherError(t *testing.T) {
+	claimSquareErr(t, "owner1", errs.ErrInvalidSquareValue, http.StatusBadRequest)
+}
+
+func claimSquareErr(t *testing.T, user string, svcErr error, wantCode int) {
 	t.Helper()
 	svc := mocks.NewContestService(t)
-	svc.EXPECT().UpdateSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, svcErr)
+	svc.EXPECT().ClaimSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, svcErr)
 	h := NewContestHandler(svc)
 
 	r := gin.New()
 	r.Use(authenticatedMiddleware(user))
-	r.PATCH("/contests/:id/squares/:squareId", h.UpdateSquare)
+	r.POST("/contests/:id/squares/:squareId/claim", h.ClaimSquare)
 
-	w := doRequest(r, jsonReq(http.MethodPatch, fmt.Sprintf("/contests/%s/squares/%s", uuid.New(), uuid.New()), nil))
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/contests/%s/squares/%s/claim", uuid.New(), uuid.New()), http.NoBody)
+	w := doRequest(r, req)
 	assert.Equal(t, wantCode, w.Code)
 }
 

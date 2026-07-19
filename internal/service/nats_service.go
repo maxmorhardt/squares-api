@@ -14,6 +14,7 @@ type NatsService interface {
 	PublishSquareUpdate(contestID uuid.UUID, updatedBy string, square *model.Square) error
 	PublishContestUpdate(contestID uuid.UUID, updatedBy string, contest *model.Contest) error
 	PublishQuarterResult(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult) error
+	PublishQuarterResultRollback(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult, contest *model.Contest) error
 	PublishContestDeleted(contestID uuid.UUID, updatedBy string) error
 	PublishParticipantRemoved(contestID uuid.UUID, updatedBy string, participant *model.ContestParticipant) error
 	PublishParticipantAdded(contestID uuid.UUID, participant *model.ContestParticipant) error
@@ -39,6 +40,11 @@ func (s *natsService) PublishContestUpdate(contestID uuid.UUID, updatedBy string
 
 func (s *natsService) PublishQuarterResult(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult) error {
 	updateMessage := model.NewQuarterResultUpdateMessage(contestID, updatedBy, quarterResult)
+	return s.publishToContestSubject(contestID, updateMessage)
+}
+
+func (s *natsService) PublishQuarterResultRollback(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult, contest *model.Contest) error {
+	updateMessage := model.NewQuarterResultRollbackMessage(contestID, updatedBy, quarterResult, contest)
 	return s.publishToContestSubject(contestID, updateMessage)
 }
 

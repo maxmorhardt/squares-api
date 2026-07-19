@@ -44,6 +44,7 @@ func anyNats() *mocks.NatsService {
 	m.On("PublishSquareUpdate", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	m.On("PublishContestUpdate", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	m.On("PublishQuarterResult", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	m.On("PublishQuarterResultRollback", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	m.On("PublishContestDeleted", mock.Anything, mock.Anything).Return(nil).Maybe()
 	m.On("PublishParticipantRemoved", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	m.On("PublishParticipantAdded", mock.Anything, mock.Anything).Return(nil).Maybe()

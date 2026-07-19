@@ -26,6 +26,7 @@ var (
 	ErrSquareNotEditable          = errors.New("squares can only be edited when contest is active")
 	ErrContestAlreadyExists       = errors.New("contest already exists with this name")
 	ErrQuarterResultAlreadyExists = errors.New("result of this quarter has already been recorded")
+	ErrNoQuarterResultToRollback  = errors.New("there is no recorded quarter result to roll back")
 )
 
 // database errors for service availability

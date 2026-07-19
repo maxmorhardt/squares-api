@@ -27,8 +27,52 @@ func (f fakeUserService) IsTokenValid(context.Context, *model.Claims) (bool, err
 	return f.valid, f.err
 }
 
+type fakeParticipantService struct {
+	ParticipantService
+	authErr error
+}
+
+func (f fakeParticipantService) Authorize(context.Context, uuid.UUID, string, Action) error {
+	return f.authErr
+}
+
 func TestNewWebSocketService(t *testing.T) {
-	require.NotNil(t, NewWebSocketService(nil, &fakeUserService{}))
+	require.NotNil(t, NewWebSocketService(nil, &fakeUserService{}, &fakeParticipantService{}))
+}
+
+func TestShouldCloseOnVisibility(t *testing.T) {
+	log := slog.Default()
+	contestID := uuid.New()
+	claimsCtx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Email: "u"})
+
+	privateUpdate := &model.WSUpdate{
+		Type:      model.ContestUpdateType,
+		ContestID: contestID,
+		Contest:   &model.Contest{ID: contestID, Visibility: model.ContestVisibilityPrivate},
+	}
+	publicUpdate := &model.WSUpdate{
+		Type:      model.ContestUpdateType,
+		ContestID: contestID,
+		Contest:   &model.Contest{ID: contestID, Visibility: model.ContestVisibilityPublic},
+	}
+
+	// not a contest update -> never kicks
+	square := &websocketService{participantService: &fakeParticipantService{authErr: errors.New("nope")}}
+	assert.False(t, square.shouldCloseOnVisibility(claimsCtx, &model.WSUpdate{Type: model.SquareUpdateType}, log))
+
+	// still public -> never kicks
+	assert.False(t, square.shouldCloseOnVisibility(claimsCtx, publicUpdate, log))
+
+	// private + authorized (participant/viewer) -> keep
+	authorized := &websocketService{participantService: &fakeParticipantService{}}
+	assert.False(t, authorized.shouldCloseOnVisibility(claimsCtx, privateUpdate, log))
+
+	// private + not authorized -> kick
+	unauthorized := &websocketService{participantService: &fakeParticipantService{authErr: errors.New("not a participant")}}
+	assert.True(t, unauthorized.shouldCloseOnVisibility(claimsCtx, privateUpdate, log))
+
+	// private + no claims -> kick
+	assert.True(t, authorized.shouldCloseOnVisibility(context.Background(), privateUpdate, log))
 }
 
 func TestShouldCloseConnection(t *testing.T) {

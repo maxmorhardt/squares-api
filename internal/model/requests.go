@@ -17,8 +17,9 @@ type UpdateUserProfileRequest struct {
 type ClearSquareRequest struct{}
 
 type UpdateContestRequest struct {
-	HomeTeam *string `json:"homeTeam,omitempty" binding:"omitempty,max=20,safestring"`
-	AwayTeam *string `json:"awayTeam,omitempty" binding:"omitempty,max=20,safestring"`
+	HomeTeam   *string `json:"homeTeam,omitempty" binding:"omitempty,max=20,safestring"`
+	AwayTeam   *string `json:"awayTeam,omitempty" binding:"omitempty,max=20,safestring"`
+	Visibility *string `json:"visibility,omitempty" binding:"omitempty,oneof=private public"`
 }
 
 type QuarterResultRequest struct {

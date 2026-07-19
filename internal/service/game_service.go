@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
@@ -12,6 +13,10 @@ import (
 )
 
 const systemUser = "system"
+
+// the upcoming schedule is the same for every user and only changes when the
+// worker ingests, so a short in-memory window absorbs repeated reads
+const upcomingCacheTTL = 60 * time.Second
 
 type GameService interface {
 	GetUpcoming(ctx context.Context) ([]model.Game, error)
@@ -24,6 +29,7 @@ type gameService struct {
 	gameRepo    repository.GameRepository
 	contestRepo repository.ContestRepository
 	natsService NatsService
+	upcoming    *util.TTLCache[struct{}, []model.Game]
 }
 
 func NewGameService(
@@ -35,13 +41,14 @@ func NewGameService(
 		gameRepo:    gameRepo,
 		contestRepo: contestRepo,
 		natsService: natsService,
+		upcoming:    util.NewTTLCache[struct{}, []model.Game](1, upcomingCacheTTL),
 	}
 }
 
 func (s *gameService) GetUpcoming(ctx context.Context) ([]model.Game, error) {
 	log := util.LoggerFromContext(ctx)
 
-	games, err := s.gameRepo.GetUpcoming(ctx)
+	games, err := s.upcoming.GetOrLoad(ctx, struct{}{}, s.gameRepo.GetUpcoming)
 	if err != nil {
 		log.Error("failed to get upcoming games", "error", err)
 		return nil, errs.ErrDatabaseUnavailable

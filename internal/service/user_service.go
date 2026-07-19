@@ -12,6 +12,19 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
+// a token's revocation state is checked on every authenticated request; a short
+// window collapses that per-request DB lookup while bounding how long a
+// just-deleted account's token keeps working to the TTL
+const (
+	revocationCacheTTL  = 15 * time.Second
+	revocationCacheSize = 10000
+)
+
+type revocationKey struct {
+	email    string
+	issuedAt int64
+}
+
 type UserService interface {
 	GetProfile(ctx context.Context, email, defaultDisplayName string) (*model.User, error)
 	UpdateProfile(ctx context.Context, email, initials string) (*model.User, error)
@@ -26,6 +39,7 @@ type userService struct {
 	repo        repository.UserRepository
 	natsService NatsService
 	oidc        *oidc.IDTokenVerifier
+	revocation  *util.TTLCache[revocationKey, bool]
 }
 
 func NewUserService(repo repository.UserRepository, natsService NatsService, oidcVerifier *oidc.IDTokenVerifier) UserService {
@@ -33,6 +47,7 @@ func NewUserService(repo repository.UserRepository, natsService NatsService, oid
 		repo:        repo,
 		natsService: natsService,
 		oidc:        oidcVerifier,
+		revocation:  util.NewTTLCache[revocationKey, bool](revocationCacheSize, revocationCacheTTL),
 	}
 }
 
@@ -155,7 +170,10 @@ func (s *userService) IsTokenValid(ctx context.Context, claims *model.Claims) (b
 		return false, nil
 	}
 
-	revoked, err := s.repo.IsTokenRevoked(ctx, claims.Email, claims.IssuedAt)
+	key := revocationKey{email: claims.Email, issuedAt: claims.IssuedAt}
+	revoked, err := s.revocation.GetOrLoad(ctx, key, func(ctx context.Context) (bool, error) {
+		return s.repo.IsTokenRevoked(ctx, claims.Email, claims.IssuedAt)
+	})
 	if err != nil {
 		return false, err
 	}
