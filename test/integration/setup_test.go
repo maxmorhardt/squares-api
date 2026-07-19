@@ -2,15 +2,17 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/maxmorhardt/squares-api/internal/bootstrap"
 	"github.com/maxmorhardt/squares-api/internal/config"
-	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -24,22 +26,63 @@ const (
 	natsTag          = "nats:2.10-alpine"
 
 	// fixed identities used across all integration tests
-	ownerUser   = "owner"
-	memberUser  = "member"
-	ownerToken  = ownerUser
-	memberToken = memberUser
+	ownerUser  = "owner"
+	memberUser = "member"
+
+	testIssuer = "https://squares.test/issuer"
 )
 
 var (
 	router            *gin.Engine
 	postgresContainer *postgres.PostgresContainer
 	natsContainer     testcontainers.Container
+
+	ownerToken  = mintToken(ownerUser)
+	memberToken = mintToken(memberUser)
 )
 
-type fakeTokenVerifier struct{}
+func testVerifier() *oidc.IDTokenVerifier {
+	return oidc.NewVerifier(testIssuer, nil, &oidc.Config{
+		SkipClientIDCheck:          true,
+		InsecureSkipSignatureCheck: true,
+		SupportedSigningAlgs:       []string{"HS256"},
+	})
+}
 
-func (fakeTokenVerifier) Verify(_ context.Context, token string) (*model.Claims, error) {
-	return &model.Claims{Email: token, EmailVerified: true, Name: token}, nil
+func mintToken(email string) string {
+	signer, err := jose.NewSigner(
+		jose.SigningKey{Algorithm: jose.HS256, Key: []byte("integration-test-signing-key")},
+		(&jose.SignerOptions{}).WithType("JWT"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"iss":            testIssuer,
+		"aud":            "squares-test",
+		"sub":            email,
+		"email":          email,
+		"email_verified": true,
+		"name":           email,
+		"iat":            time.Now().Unix(),
+		"exp":            time.Now().Add(time.Hour).Unix(),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	obj, err := signer.Sign(payload)
+	if err != nil {
+		panic(err)
+	}
+
+	token, err := obj.CompactSerialize()
+	if err != nil {
+		panic(err)
+	}
+
+	return token
 }
 
 func TestMain(m *testing.M) {
@@ -58,7 +101,7 @@ func TestMain(m *testing.M) {
 	_ = os.Setenv("TURNSTILE_SECRET_KEY", "test-key")
 
 	deps := buildDeps()
-	router = bootstrap.NewServer(deps, fakeTokenVerifier{})
+	router = bootstrap.NewServer(deps)
 
 	code := m.Run()
 
@@ -172,8 +215,9 @@ func buildDeps() *bootstrap.Dependencies {
 	}
 
 	return &bootstrap.Dependencies{
-		Config: cfg,
-		DB:     db,
-		NATS:   nc,
+		Config:       cfg,
+		DB:           db,
+		NATS:         nc,
+		OIDCVerifier: testVerifier(),
 	}
 }

@@ -296,7 +296,7 @@ func (s *websocketService) shouldCloseConnection(ctx context.Context, log *slog.
 	valid, err := s.userService.IsTokenValid(ctx, claims)
 	if err != nil {
 		log.Error("failed to validate token for websocket", "error", err)
-		return true
+		return false
 	}
 	if !valid {
 		log.Info("closing websocket connection, token no longer valid")
