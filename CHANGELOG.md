@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/maxmorhardt/squares-api/compare/1.1.1...1.2.0) (2026-07-19)
+
+
+### Features
+
+* add token revocation and ghost square handling ([#35](https://github.com/maxmorhardt/squares-api/issues/35)) ([9b69e61](https://github.com/maxmorhardt/squares-api/commit/9b69e61f9e036ec9a4ce20dca583f7dc9aff2eb6))
+* refactor scoring + new features ([#31](https://github.com/maxmorhardt/squares-api/issues/31)) ([3480531](https://github.com/maxmorhardt/squares-api/commit/3480531f844242a5f064992fc234d15463392ec0))
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#33](https://github.com/maxmorhardt/squares-api/issues/33)) ([e304b6d](https://github.com/maxmorhardt/squares-api/commit/e304b6d407f267ddad506a4d8956491b3e92057d))
+
 ## [1.1.1](https://github.com/maxmorhardt/squares-api/compare/1.1.0...1.1.1) (2026-07-15)
 
 
