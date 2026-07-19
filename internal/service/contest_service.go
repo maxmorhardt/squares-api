@@ -590,7 +590,7 @@ func (s *contestService) ClaimSquare(ctx context.Context, contestID, squareID uu
 
 	go func() {
 		if err := s.natsService.PublishSquareUpdate(contest.ID, user, claimedSquare); err != nil {
-			log.Error("failed to publish square update", "contestId", claimedSquare.ContestID, "squareId", claimedSquare.ID, "error", err)
+			log.Error("failed to publish square update", "contest_id", claimedSquare.ContestID, "square_id", claimedSquare.ID, "error", err)
 		}
 	}()
 
@@ -650,7 +650,7 @@ func (s *contestService) ClearSquare(ctx context.Context, contestID, squareID uu
 
 	go func() {
 		if err := s.natsService.PublishSquareUpdate(contest.ID, user, clearedSquare); err != nil {
-			log.Error("failed to publish square clear", "contestId", clearedSquare.ContestID, "squareId", clearedSquare.ID, "error", err)
+			log.Error("failed to publish square clear", "contest_id", clearedSquare.ContestID, "square_id", clearedSquare.ID, "error", err)
 		}
 	}()
 
@@ -690,7 +690,7 @@ func (s *contestService) ClearUserSquares(ctx context.Context, contestID uuid.UU
 		square := clearedSquares[i]
 		go func() {
 			if err := s.natsService.PublishSquareUpdate(contest.ID, user, &square); err != nil {
-				log.Error("failed to publish square clear", "contestId", square.ContestID, "squareId", square.ID, "error", err)
+				log.Error("failed to publish square clear", "contest_id", square.ContestID, "square_id", square.ID, "error", err)
 			}
 		}()
 	}

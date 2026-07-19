@@ -237,9 +237,6 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes a contest by id. Only the contest owner can delete",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -804,9 +801,6 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes the most recently recorded quarter result and reverts the contest to the prior quarter. Only for manual (non game-linked) contests.",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1068,9 +1062,6 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Starts the contest, transitioning from ACTIVE to Q1 and randomizing labels",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],

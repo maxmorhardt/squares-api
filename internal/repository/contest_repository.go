@@ -190,7 +190,7 @@ func (r *contestRepository) RollbackQuarterResult(ctx context.Context, resultID 
 			return err
 		}
 
-		// only persist the contest row itself dont write preloaded associations
+		// only persist the contest row itself; don't write preloaded associations
 		return tx.Omit(clause.Associations).Save(contest).Error
 	})
 }

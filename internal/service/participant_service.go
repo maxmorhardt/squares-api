@@ -351,7 +351,7 @@ func (s *participantService) releaseParticipantSquares(ctx context.Context, cont
 
 		go func(square *model.Square) {
 			if err := s.natsService.PublishSquareUpdate(contest.ID, userID, square); err != nil {
-				log.Error("failed to publish square update for removed participant", "contestId", contest.ID, "squareId", square.ID, "error", err)
+				log.Error("failed to publish square update for removed participant", "contest_id", contest.ID, "square_id", square.ID, "error", err)
 			}
 		}(updatedSquare)
 	}

@@ -249,7 +249,6 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 // @Summary Delete contest
 // @Description Deletes a contest by id. Only the contest owner can delete
 // @Tags contests
-// @Accept json
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Success 204 "Contest deleted successfully"
@@ -299,7 +298,6 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 // @Summary Start contest
 // @Description Starts the contest, transitioning from ACTIVE to Q1 and randomizing labels
 // @Tags contests
-// @Accept json
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Success 200 {object} model.ContestSwagger
@@ -414,7 +412,6 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 // @Summary Roll back the last quarter result
 // @Description Deletes the most recently recorded quarter result and reverts the contest to the prior quarter. Only for manual (non game-linked) contests.
 // @Tags contests
-// @Accept json
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Success 200 {object} model.QuarterResult

@@ -75,7 +75,7 @@ func (s *userService) UpdateProfile(ctx context.Context, email, initials string)
 		square := squares[i]
 		go func() {
 			if err := s.natsService.PublishSquareUpdate(square.ContestID, email, &square); err != nil {
-				log.Error("failed to publish square update after initials change", "contestId", square.ContestID, "squareId", square.ID, "error", err)
+				log.Error("failed to publish square update after initials change", "contest_id", square.ContestID, "square_id", square.ID, "error", err)
 			}
 		}()
 	}
