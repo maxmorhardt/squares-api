@@ -5,8 +5,9 @@ import (
 	_ "github.com/maxmorhardt/squares-api/docs"
 	"github.com/maxmorhardt/squares-api/internal/handler"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
+	"github.com/maxmorhardt/squares-api/internal/service"
 )
 
-func RegisterWebSocketRoutes(rg *gin.RouterGroup, h handler.WebSocketHandler, verifier middleware.TokenVerifier) {
-	rg.GET("/contests/:id", middleware.AuthMiddlewareWS(verifier), h.ContestWSConnection)
+func RegisterWebSocketRoutes(rg *gin.RouterGroup, h handler.WebSocketHandler, userService service.UserService) {
+	rg.GET("/contests/:id", middleware.AuthMiddlewareWS(userService), h.ContestWSConnection)
 }

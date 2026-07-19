@@ -17,20 +17,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type fakeUserService struct {
+	UserService
+	valid bool
+	err   error
+}
+
+func (f fakeUserService) IsTokenValid(context.Context, *model.Claims) (bool, error) {
+	return f.valid, f.err
+}
+
 func TestNewWebSocketService(t *testing.T) {
-	require.NotNil(t, NewWebSocketService(nil))
+	require.NotNil(t, NewWebSocketService(nil, &fakeUserService{}))
 }
 
 func TestShouldCloseConnection(t *testing.T) {
 	log := slog.Default()
+	ctx := context.Background()
 
-	assert.True(t, shouldCloseConnection(context.Background(), log), "no claims -> close")
+	keep := &websocketService{userService: &fakeUserService{valid: true}}
+	assert.False(t, keep.shouldCloseConnection(ctx, log), "valid token -> keep open")
 
-	expired := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Expire: time.Now().Add(-time.Hour).Unix()})
-	assert.True(t, shouldCloseConnection(expired, log), "expired -> close")
+	invalid := &websocketService{userService: &fakeUserService{valid: false}}
+	assert.True(t, invalid.shouldCloseConnection(ctx, log), "invalid token -> close")
 
-	valid := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Expire: time.Now().Add(time.Hour).Unix()})
-	assert.False(t, shouldCloseConnection(valid, log), "valid -> keep open")
+	dbErr := &websocketService{userService: &fakeUserService{err: errors.New("db down")}}
+	assert.False(t, dbErr.shouldCloseConnection(ctx, log), "db error -> keep open, don't drop on transient failure")
 }
 
 func TestHandleChatMessage(t *testing.T) {

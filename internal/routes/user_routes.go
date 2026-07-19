@@ -4,10 +4,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/maxmorhardt/squares-api/internal/handler"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
+	"github.com/maxmorhardt/squares-api/internal/service"
 )
 
-func RegisterUserRoutes(rg *gin.RouterGroup, h handler.UserHandler, verifier middleware.TokenVerifier) {
-	auth := middleware.AuthMiddleware(verifier)
+func RegisterUserRoutes(rg *gin.RouterGroup, h handler.UserHandler, userService service.UserService) {
+	auth := middleware.AuthMiddleware(userService)
 
 	rg.GET("", auth, h.GetMe)
 	rg.PATCH("", auth, h.UpdateMe)

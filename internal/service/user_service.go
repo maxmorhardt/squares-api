@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/maxmorhardt/squares-api/internal/repository"
@@ -15,17 +18,21 @@ type UserService interface {
 	GetStats(ctx context.Context, email string) (*model.UserStatsResponse, error)
 	GetActiveContests(ctx context.Context, email string) ([]model.UserActiveContest, error)
 	DeleteAccount(ctx context.Context, email string) error
+	VerifyToken(ctx context.Context, token string) (*model.Claims, error)
+	IsTokenValid(ctx context.Context, claims *model.Claims) (bool, error)
 }
 
 type userService struct {
 	repo        repository.UserRepository
 	natsService NatsService
+	oidc        *oidc.IDTokenVerifier
 }
 
-func NewUserService(repo repository.UserRepository, natsService NatsService) UserService {
+func NewUserService(repo repository.UserRepository, natsService NatsService, oidcVerifier *oidc.IDTokenVerifier) UserService {
 	return &userService{
 		repo:        repo,
 		natsService: natsService,
+		oidc:        oidcVerifier,
 	}
 }
 
@@ -113,4 +120,45 @@ func (s *userService) DeleteAccount(ctx context.Context, email string) error {
 
 	log.Info("account deleted")
 	return nil
+}
+
+func (s *userService) VerifyToken(ctx context.Context, token string) (*model.Claims, error) {
+	if s.oidc == nil {
+		return nil, fmt.Errorf("oidc verifier not configured")
+	}
+
+	idToken, err := s.oidc.Verify(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	claims := &model.Claims{}
+	if parseErr := idToken.Claims(claims); parseErr != nil {
+		return nil, fmt.Errorf("%w: %w", errs.ErrClaimsParse, parseErr)
+	}
+
+	valid, err := s.IsTokenValid(ctx, claims)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, errs.ErrTokenInvalid
+	}
+
+	return claims, nil
+}
+
+func (s *userService) IsTokenValid(ctx context.Context, claims *model.Claims) (bool, error) {
+	// iat is required: revocation compares it against the deletion instant
+	if claims == nil || claims.Email == "" || !claims.EmailVerified ||
+		claims.IssuedAt <= 0 || claims.Expire <= time.Now().Unix() {
+		return false, nil
+	}
+
+	revoked, err := s.repo.IsTokenRevoked(ctx, claims.Email, claims.IssuedAt)
+	if err != nil {
+		return false, err
+	}
+
+	return !revoked, nil
 }

@@ -249,11 +249,53 @@ func TestUserRepository_ScrubUserData_Success(t *testing.T) {
 	mock.ExpectExec(`UPDATE "contest_invites"`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`DELETE FROM "contest_participants"`).WillReturnResult(sqlmock.NewResult(0, 3))
 	mock.ExpectExec(`DELETE FROM "users"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`INSERT INTO deleted_accounts`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
 	err := repo.ScrubUserData(context.Background(), "a@b.com")
 
 	require.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_IsTokenRevoked_True(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectQuery(`SELECT EXISTS`).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+	revoked, err := repo.IsTokenRevoked(context.Background(), "a@b.com", 100)
+
+	require.NoError(t, err)
+	assert.True(t, revoked)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_IsTokenRevoked_False(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectQuery(`SELECT EXISTS`).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
+	revoked, err := repo.IsTokenRevoked(context.Background(), "a@b.com", 100)
+
+	require.NoError(t, err)
+	assert.False(t, revoked)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_IsTokenRevoked_Error(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectQuery(`SELECT EXISTS`).WillReturnError(errors.New("query failed"))
+
+	revoked, err := repo.IsTokenRevoked(context.Background(), "a@b.com", 100)
+
+	require.Error(t, err)
+	assert.False(t, revoked)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

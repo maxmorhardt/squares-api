@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/gorm"
@@ -17,6 +18,7 @@ type UserRepository interface {
 	GetStats(ctx context.Context, email string) (*model.UserStatsResponse, error)
 	GetActiveContests(ctx context.Context, email string) ([]model.UserActiveContest, error)
 	ScrubUserData(ctx context.Context, email string) error
+	IsTokenRevoked(ctx context.Context, email string, issuedAtUnix int64) (bool, error)
 }
 
 type userRepository struct {
@@ -61,13 +63,24 @@ func (r *userRepository) GetOrCreate(ctx context.Context, email, defaultDisplayN
 		return nil, err
 	}
 
-	// select into a fresh struct so the created struct's id is not added to the where clause
 	user = &model.User{}
 	if err := r.db.WithContext(ctx).Where("email = ?", email).First(user).Error; err != nil {
 		return nil, err
 	}
 
 	return user, nil
+}
+
+func (r *userRepository) IsTokenRevoked(ctx context.Context, email string, issuedAtUnix int64) (bool, error) {
+	// a tombstone revokes every token issued at or before the deletion instant
+	var revoked bool
+	if err := r.db.WithContext(ctx).Raw(
+		`SELECT EXISTS(SELECT 1 FROM deleted_accounts WHERE email = ? AND deleted_at >= to_timestamp(?))`,
+		email, issuedAtUnix).Scan(&revoked).Error; err != nil {
+		return false, err
+	}
+
+	return revoked, nil
 }
 
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
@@ -211,6 +224,14 @@ func (r *userRepository) ScrubUserData(ctx context.Context, email string) error 
 		}
 
 		if err := tx.Where("email = ?", email).Delete(&model.User{}).Error; err != nil {
+			return err
+		}
+
+		// tombstone the account so pre-deletion tokens are rejected everywhere
+		if err := tx.Exec(
+			`INSERT INTO deleted_accounts (email, deleted_at) VALUES (?, ?)
+			ON CONFLICT (email) DO UPDATE SET deleted_at = EXCLUDED.deleted_at`,
+			email, time.Now()).Error; err != nil {
 			return err
 		}
 

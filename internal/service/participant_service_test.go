@@ -366,12 +366,29 @@ func TestUpdateParticipant_MaxSquaresSuccess(t *testing.T) {
 	assert.Equal(t, 8, got.MaxSquares)
 }
 
-func TestRemoveParticipant_NotActive(t *testing.T) {
+func TestRemoveParticipant_Terminal(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusFinished}, nil)
 
 	svc := service.NewParticipantService(mocks.NewParticipantRepository(t), c, anyNats())
-	assert.ErrorIs(t, svc.RemoveParticipant(context.Background(), uuid.New(), "target", "owner"), errs.ErrContestNotEditable)
+	assert.ErrorIs(t, svc.RemoveParticipant(context.Background(), uuid.New(), "target", "owner"), errs.ErrContestFinalized)
+}
+
+func TestRemoveParticipant_InProgressGhostsSquares(t *testing.T) {
+	contestWithSquare := &model.Contest{
+		Status:  model.ContestStatusQ2,
+		Squares: []model.Square{{Owner: "target"}},
+	}
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(contestWithSquare, nil)
+	// an in-progress leave preserves the square by reassigning it to the ghost user
+	c.EXPECT().GhostSquare(mock.Anything, mock.Anything).Return(&model.Square{}, nil)
+	p := mocks.NewParticipantRepository(t)
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, "target").Return(&model.ContestParticipant{Role: model.ParticipantRoleParticipant}, nil)
+	p.EXPECT().Delete(mock.Anything, mock.Anything, "target").Return(nil)
+
+	svc := service.NewParticipantService(p, c, anyNats())
+	require.NoError(t, svc.RemoveParticipant(context.Background(), uuid.New(), "target", "target"))
 }
 
 func TestRemoveParticipant_CannotRemoveOwner(t *testing.T) {

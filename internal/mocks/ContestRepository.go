@@ -647,6 +647,65 @@ func (_c *ContestRepository_GetVisibilityByID_Call) RunAndReturn(run func(contex
 	return _c
 }
 
+// GhostSquare provides a mock function with given fields: ctx, square
+func (_m *ContestRepository) GhostSquare(ctx context.Context, square *model.Square) (*model.Square, error) {
+	ret := _m.Called(ctx, square)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GhostSquare")
+	}
+
+	var r0 *model.Square
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Square) (*model.Square, error)); ok {
+		return rf(ctx, square)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Square) *model.Square); ok {
+		r0 = rf(ctx, square)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.Square)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *model.Square) error); ok {
+		r1 = rf(ctx, square)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ContestRepository_GhostSquare_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GhostSquare'
+type ContestRepository_GhostSquare_Call struct {
+	*mock.Call
+}
+
+// GhostSquare is a helper method to define mock.On call
+//   - ctx context.Context
+//   - square *model.Square
+func (_e *ContestRepository_Expecter) GhostSquare(ctx interface{}, square interface{}) *ContestRepository_GhostSquare_Call {
+	return &ContestRepository_GhostSquare_Call{Call: _e.mock.On("GhostSquare", ctx, square)}
+}
+
+func (_c *ContestRepository_GhostSquare_Call) Run(run func(ctx context.Context, square *model.Square)) *ContestRepository_GhostSquare_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.Square))
+	})
+	return _c
+}
+
+func (_c *ContestRepository_GhostSquare_Call) Return(_a0 *model.Square, _a1 error) *ContestRepository_GhostSquare_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ContestRepository_GhostSquare_Call) RunAndReturn(run func(context.Context, *model.Square) (*model.Square, error)) *ContestRepository_GhostSquare_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function with given fields: ctx, contest
 func (_m *ContestRepository) Update(ctx context.Context, contest *model.Contest) error {
 	ret := _m.Called(ctx, contest)

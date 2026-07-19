@@ -4,15 +4,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/maxmorhardt/squares-api/internal/handler"
 	"github.com/maxmorhardt/squares-api/internal/middleware"
+	"github.com/maxmorhardt/squares-api/internal/service"
 )
 
-func RegisterInviteRoutes(rg *gin.RouterGroup, h handler.InviteHandler, verifier middleware.TokenVerifier) {
+func RegisterInviteRoutes(rg *gin.RouterGroup, h handler.InviteHandler, userService service.UserService) {
 	rg.GET("/:token", h.GetInvitePreview)
-	rg.POST("/:token/redeem", middleware.AuthMiddleware(verifier), h.RedeemInvite)
+	rg.POST("/:token/redeem", middleware.AuthMiddleware(userService), h.RedeemInvite)
 }
 
-func RegisterContestInviteRoutes(rg *gin.RouterGroup, h handler.InviteHandler, verifier middleware.TokenVerifier) {
-	rg.POST("", middleware.AuthMiddleware(verifier), h.CreateInvite)
-	rg.GET("", middleware.AuthMiddleware(verifier), h.GetInvites)
-	rg.DELETE("/:inviteId", middleware.AuthMiddleware(verifier), h.DeleteInvite)
+func RegisterContestInviteRoutes(rg *gin.RouterGroup, h handler.InviteHandler, userService service.UserService) {
+	rg.POST("", middleware.AuthMiddleware(userService), h.CreateInvite)
+	rg.GET("", middleware.AuthMiddleware(userService), h.GetInvites)
+	rg.DELETE("/:inviteId", middleware.AuthMiddleware(userService), h.DeleteInvite)
 }

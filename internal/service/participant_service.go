@@ -267,9 +267,10 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 		return errs.ErrDatabaseUnavailable
 	}
 
-	if contest.Status != model.ContestStatusActive {
-		log.Warn("cannot remove participant after contest has started", "contest_id", contestID, "status", contest.Status)
-		return errs.ErrContestNotEditable
+	// participants can leave until the contest is finalized
+	if contest.Status.IsTerminal() {
+		log.Warn("cannot remove participant from a finalized contest", "contest_id", contestID, "status", contest.Status)
+		return errs.ErrContestFinalized
 	}
 
 	// removing someone else requires owner permissions
@@ -294,10 +295,17 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 		return errs.ErrCannotRemoveOwner
 	}
 
-	// clear the participant's squares
-	if err := s.clearParticipantSquares(ctx, contestID, targetUserID); err != nil {
-		log.Error("failed to clear participant squares", "contest_id", contestID, "user_id", targetUserID, "error", err)
-		return err
+	// pre-kickoff squares are freed for others; in-progress squares are ghosted to keep scoring
+	if contest.Status == model.ContestStatusActive {
+		if err := s.releaseParticipantSquares(ctx, contestID, targetUserID, false); err != nil {
+			log.Error("failed to clear participant squares", "contest_id", contestID, "user_id", targetUserID, "error", err)
+			return err
+		}
+	} else {
+		if err := s.releaseParticipantSquares(ctx, contestID, targetUserID, true); err != nil {
+			log.Error("failed to ghost participant squares", "contest_id", contestID, "user_id", targetUserID, "error", err)
+			return err
+		}
 	}
 
 	// delete participant
@@ -318,7 +326,7 @@ func (s *participantService) RemoveParticipant(ctx context.Context, contestID uu
 	return nil
 }
 
-func (s *participantService) clearParticipantSquares(ctx context.Context, contestID uuid.UUID, userID string) error {
+func (s *participantService) releaseParticipantSquares(ctx context.Context, contestID uuid.UUID, userID string, ghost bool) error {
 	log := util.LoggerFromContext(ctx)
 
 	contest, err := s.contestRepo.GetByID(ctx, contestID)
@@ -327,17 +335,25 @@ func (s *participantService) clearParticipantSquares(ctx context.Context, contes
 	}
 
 	for i := range contest.Squares {
-		if contest.Squares[i].Owner == userID {
-			clearedSquare, err := s.contestRepo.ClearSquare(ctx, &contest.Squares[i])
-			if err != nil {
-				return err
-			}
-			go func() {
-				if err := s.natsService.PublishSquareUpdate(contest.ID, userID, clearedSquare); err != nil {
-					log.Error("failed to publish square clear for removed participant", "contestId", contest.ID, "squareId", clearedSquare.ID, "error", err)
-				}
-			}()
+		if contest.Squares[i].Owner != userID {
+			continue
 		}
+
+		var updatedSquare *model.Square
+		if ghost {
+			updatedSquare, err = s.contestRepo.GhostSquare(ctx, &contest.Squares[i])
+		} else {
+			updatedSquare, err = s.contestRepo.ClearSquare(ctx, &contest.Squares[i])
+		}
+		if err != nil {
+			return err
+		}
+
+		go func(square *model.Square) {
+			if err := s.natsService.PublishSquareUpdate(contest.ID, userID, square); err != nil {
+				log.Error("failed to publish square update for removed participant", "contestId", contest.ID, "squareId", square.ID, "error", err)
+			}
+		}(updatedSquare)
 	}
 
 	return nil

@@ -1,18 +1,18 @@
 package bootstrap
 
 import (
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/maxmorhardt/squares-api/internal/config"
-	"github.com/maxmorhardt/squares-api/internal/middleware"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/nats-io/nats.go"
 	"gorm.io/gorm"
 )
 
 type Dependencies struct {
-	Config   *model.AppConfig
-	DB       *gorm.DB
-	NATS     *nats.Conn
-	Verifier middleware.TokenVerifier
+	Config       *model.AppConfig
+	DB           *gorm.DB
+	NATS         *nats.Conn
+	OIDCVerifier *oidc.IDTokenVerifier
 }
 
 func BuildDependencies() (*Dependencies, error) {
@@ -44,9 +44,9 @@ func BuildDependencies() (*Dependencies, error) {
 	}
 
 	return &Dependencies{
-		Config:   cfg,
-		DB:       db,
-		NATS:     nc,
-		Verifier: middleware.NewOIDCTokenVerifier(oidcVerifier),
+		Config:       cfg,
+		DB:           db,
+		NATS:         nc,
+		OIDCVerifier: oidcVerifier,
 	}, nil
 }
