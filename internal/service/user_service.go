@@ -133,8 +133,8 @@ func (s *userService) VerifyToken(ctx context.Context, token string) (*model.Cla
 	}
 
 	claims := &model.Claims{}
-	if err := idToken.Claims(claims); err != nil {
-		return nil, fmt.Errorf("%w: %w", errs.ErrClaimsParse, err)
+	if parseErr := idToken.Claims(claims); parseErr != nil {
+		return nil, fmt.Errorf("%w: %w", errs.ErrClaimsParse, parseErr)
 	}
 
 	valid, err := s.IsTokenValid(ctx, claims)
