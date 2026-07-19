@@ -19,7 +19,7 @@ import (
 func newUserService(t *testing.T) (service.UserService, *mocks.UserRepository) {
 	t.Helper()
 	repo := mocks.NewUserRepository(t)
-	return service.NewUserService(repo, anyNats()), repo
+	return service.NewUserService(repo, anyNats(), nil), repo
 }
 
 func TestUserService_IsTokenValid(t *testing.T) {

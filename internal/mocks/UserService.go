@@ -364,6 +364,65 @@ func (_c *UserService_UpdateProfile_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// VerifyToken provides a mock function with given fields: ctx, token
+func (_m *UserService) VerifyToken(ctx context.Context, token string) (*model.Claims, error) {
+	ret := _m.Called(ctx, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VerifyToken")
+	}
+
+	var r0 *model.Claims
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.Claims, error)); ok {
+		return rf(ctx, token)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.Claims); ok {
+		r0 = rf(ctx, token)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.Claims)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, token)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UserService_VerifyToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VerifyToken'
+type UserService_VerifyToken_Call struct {
+	*mock.Call
+}
+
+// VerifyToken is a helper method to define mock.On call
+//   - ctx context.Context
+//   - token string
+func (_e *UserService_Expecter) VerifyToken(ctx interface{}, token interface{}) *UserService_VerifyToken_Call {
+	return &UserService_VerifyToken_Call{Call: _e.mock.On("VerifyToken", ctx, token)}
+}
+
+func (_c *UserService_VerifyToken_Call) Run(run func(ctx context.Context, token string)) *UserService_VerifyToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *UserService_VerifyToken_Call) Return(_a0 *model.Claims, _a1 error) *UserService_VerifyToken_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *UserService_VerifyToken_Call) RunAndReturn(run func(context.Context, string) (*model.Claims, error)) *UserService_VerifyToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewUserService creates a new instance of UserService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewUserService(t interface {

@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,21 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/maxmorhardt/squares-api/internal/errs"
+	"github.com/maxmorhardt/squares-api/internal/mocks"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-func TestAuthMiddleware_MissingHeader(t *testing.T) {
-	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{}))
-
-	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-	assert.False(t, *reached, "handler should not run without auth")
-}
 
 func buildRouter(mw gin.HandlerFunc) (router *gin.Engine, reached *bool) {
 	gin.SetMode(gin.TestMode)
@@ -37,17 +27,25 @@ func buildRouter(mw gin.HandlerFunc) (router *gin.Engine, reached *bool) {
 	return router, &didReach
 }
 
-type fakeVerifier struct {
-	claims *model.Claims
-	err    error
+func userServiceReturning(t *testing.T, claims *model.Claims, err error) *mocks.UserService {
+	m := mocks.NewUserService(t)
+	m.EXPECT().VerifyToken(mock.Anything, mock.Anything).Return(claims, err).Maybe()
+	return m
 }
 
-func (f *fakeVerifier) Verify(_ context.Context, _ string) (*model.Claims, error) {
-	return f.claims, f.err
+func TestAuthMiddleware_MissingHeader(t *testing.T) {
+	r, reached := buildRouter(AuthMiddleware(userServiceReturning(t, nil, nil)))
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.False(t, *reached, "handler should not run without auth")
 }
 
 func TestAuthMiddleware_EmptyToken(t *testing.T) {
-	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{claims: &model.Claims{Email: "alice@example.com", EmailVerified: true}}))
+	r, reached := buildRouter(AuthMiddleware(userServiceReturning(t, nil, nil)))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Authorization", "Bearer ")
@@ -59,7 +57,7 @@ func TestAuthMiddleware_EmptyToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_BadPrefix(t *testing.T) {
-	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{}))
+	r, reached := buildRouter(AuthMiddleware(userServiceReturning(t, nil, nil)))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Authorization", "Basic abc123")
@@ -71,7 +69,7 @@ func TestAuthMiddleware_BadPrefix(t *testing.T) {
 }
 
 func TestAuthMiddleware_VerifyError(t *testing.T) {
-	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{err: errors.New("invalid token")}))
+	r, reached := buildRouter(AuthMiddleware(userServiceReturning(t, nil, errors.New("invalid token"))))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Authorization", "Bearer badtoken")
@@ -84,7 +82,7 @@ func TestAuthMiddleware_VerifyError(t *testing.T) {
 
 func TestAuthMiddleware_ClaimsParseError(t *testing.T) {
 	claimsErr := fmt.Errorf("%w: %w", errs.ErrClaimsParse, errors.New("json: cannot unmarshal"))
-	r, reached := buildRouter(AuthMiddleware(&fakeVerifier{err: claimsErr}))
+	r, reached := buildRouter(AuthMiddleware(userServiceReturning(t, nil, claimsErr)))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Authorization", "Bearer validtoken")
@@ -96,8 +94,8 @@ func TestAuthMiddleware_ClaimsParseError(t *testing.T) {
 }
 
 func TestAuthMiddleware_Success(t *testing.T) {
-	verifier := &fakeVerifier{claims: &model.Claims{Email: "alice@example.com", EmailVerified: true}}
-	r, reached := buildRouter(AuthMiddleware(verifier))
+	us := userServiceReturning(t, &model.Claims{Email: "alice@example.com", EmailVerified: true}, nil)
+	r, reached := buildRouter(AuthMiddleware(us))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Authorization", "Bearer goodtoken")
@@ -110,7 +108,7 @@ func TestAuthMiddleware_Success(t *testing.T) {
 }
 
 func TestAuthMiddlewareWS_MissingProtocolHeader(t *testing.T) {
-	r, reached := buildRouter(AuthMiddlewareWS(&fakeVerifier{}))
+	r, reached := buildRouter(AuthMiddlewareWS(userServiceReturning(t, nil, nil)))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	w := httptest.NewRecorder()
@@ -121,7 +119,7 @@ func TestAuthMiddlewareWS_MissingProtocolHeader(t *testing.T) {
 }
 
 func TestAuthMiddlewareWS_VerifyError_Aborts(t *testing.T) {
-	r, reached := buildRouter(AuthMiddlewareWS(&fakeVerifier{err: errors.New("invalid token")}))
+	r, reached := buildRouter(AuthMiddlewareWS(userServiceReturning(t, nil, errors.New("invalid token"))))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Sec-WebSocket-Protocol", "badtoken")
@@ -135,8 +133,8 @@ func TestAuthMiddlewareWS_VerifyError_Aborts(t *testing.T) {
 }
 
 func TestAuthMiddlewareWS_Success(t *testing.T) {
-	verifier := &fakeVerifier{claims: &model.Claims{Email: "bob@example.com", EmailVerified: true}}
-	r, reached := buildRouter(AuthMiddlewareWS(verifier))
+	us := userServiceReturning(t, &model.Claims{Email: "bob@example.com", EmailVerified: true}, nil)
+	r, reached := buildRouter(AuthMiddlewareWS(us))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", http.NoBody)
 	req.Header.Set("Sec-WebSocket-Protocol", "goodtoken")
