@@ -44,6 +44,20 @@ func TestUserService_IsTokenValid(t *testing.T) {
 		assert.False(t, ok)
 	})
 
+	t.Run("revocation check is cached", func(t *testing.T) {
+		svc, repo := newUserService(t)
+		// mockery fails on cleanup if the revocation lookup runs more than once
+		repo.EXPECT().IsTokenRevoked(mock.Anything, "a@b.com", int64(100)).Return(false, nil).Once()
+
+		first, err := svc.IsTokenValid(context.Background(), valid)
+		require.NoError(t, err)
+		second, err := svc.IsTokenValid(context.Background(), valid)
+		require.NoError(t, err)
+
+		assert.True(t, first)
+		assert.True(t, second)
+	})
+
 	t.Run("expired short-circuits before db", func(t *testing.T) {
 		svc, _ := newUserService(t)
 		expired := &model.Claims{Email: "a@b.com", EmailVerified: true, Expire: time.Now().Add(-time.Hour).Unix()}
