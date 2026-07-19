@@ -347,53 +347,6 @@ func (_c *ContestRepository_Delete_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
-// DeleteQuarterResult provides a mock function with given fields: ctx, id
-func (_m *ContestRepository) DeleteQuarterResult(ctx context.Context, id uuid.UUID) error {
-	ret := _m.Called(ctx, id)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeleteQuarterResult")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
-		r0 = rf(ctx, id)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// ContestRepository_DeleteQuarterResult_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteQuarterResult'
-type ContestRepository_DeleteQuarterResult_Call struct {
-	*mock.Call
-}
-
-// DeleteQuarterResult is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id uuid.UUID
-func (_e *ContestRepository_Expecter) DeleteQuarterResult(ctx interface{}, id interface{}) *ContestRepository_DeleteQuarterResult_Call {
-	return &ContestRepository_DeleteQuarterResult_Call{Call: _e.mock.On("DeleteQuarterResult", ctx, id)}
-}
-
-func (_c *ContestRepository_DeleteQuarterResult_Call) Run(run func(ctx context.Context, id uuid.UUID)) *ContestRepository_DeleteQuarterResult_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(uuid.UUID))
-	})
-	return _c
-}
-
-func (_c *ContestRepository_DeleteQuarterResult_Call) Return(_a0 error) *ContestRepository_DeleteQuarterResult_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *ContestRepository_DeleteQuarterResult_Call) RunAndReturn(run func(context.Context, uuid.UUID) error) *ContestRepository_DeleteQuarterResult_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ExistsByOwnerAndName provides a mock function with given fields: ctx, owner, name
 func (_m *ContestRepository) ExistsByOwnerAndName(ctx context.Context, owner string, name string) (bool, error) {
 	ret := _m.Called(ctx, owner, name)
@@ -811,6 +764,54 @@ func (_c *ContestRepository_GhostSquare_Call) Return(_a0 *model.Square, _a1 erro
 }
 
 func (_c *ContestRepository_GhostSquare_Call) RunAndReturn(run func(context.Context, *model.Square) (*model.Square, error)) *ContestRepository_GhostSquare_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RollbackQuarterResult provides a mock function with given fields: ctx, resultID, contest
+func (_m *ContestRepository) RollbackQuarterResult(ctx context.Context, resultID uuid.UUID, contest *model.Contest) error {
+	ret := _m.Called(ctx, resultID, contest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RollbackQuarterResult")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *model.Contest) error); ok {
+		r0 = rf(ctx, resultID, contest)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ContestRepository_RollbackQuarterResult_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RollbackQuarterResult'
+type ContestRepository_RollbackQuarterResult_Call struct {
+	*mock.Call
+}
+
+// RollbackQuarterResult is a helper method to define mock.On call
+//   - ctx context.Context
+//   - resultID uuid.UUID
+//   - contest *model.Contest
+func (_e *ContestRepository_Expecter) RollbackQuarterResult(ctx interface{}, resultID interface{}, contest interface{}) *ContestRepository_RollbackQuarterResult_Call {
+	return &ContestRepository_RollbackQuarterResult_Call{Call: _e.mock.On("RollbackQuarterResult", ctx, resultID, contest)}
+}
+
+func (_c *ContestRepository_RollbackQuarterResult_Call) Run(run func(ctx context.Context, resultID uuid.UUID, contest *model.Contest)) *ContestRepository_RollbackQuarterResult_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(*model.Contest))
+	})
+	return _c
+}
+
+func (_c *ContestRepository_RollbackQuarterResult_Call) Return(_a0 error) *ContestRepository_RollbackQuarterResult_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ContestRepository_RollbackQuarterResult_Call) RunAndReturn(run func(context.Context, uuid.UUID, *model.Contest) error) *ContestRepository_RollbackQuarterResult_Call {
 	_c.Call.Return(run)
 	return _c
 }

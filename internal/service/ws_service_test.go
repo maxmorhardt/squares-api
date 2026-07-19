@@ -57,11 +57,11 @@ func TestShouldCloseOnVisibility(t *testing.T) {
 	}
 
 	// not a contest update -> never kicks
-	square := &websocketService{participantService: &fakeParticipantService{authErr: errors.New("nope")}}
-	assert.False(t, square.shouldCloseOnVisibility(claimsCtx, &model.WSUpdate{Type: model.SquareUpdateType}, log))
+	svc := &websocketService{participantService: &fakeParticipantService{authErr: errors.New("nope")}}
+	assert.False(t, svc.shouldCloseOnVisibility(claimsCtx, &model.WSUpdate{Type: model.SquareUpdateType}, log))
 
 	// still public -> never kicks
-	assert.False(t, square.shouldCloseOnVisibility(claimsCtx, publicUpdate, log))
+	assert.False(t, svc.shouldCloseOnVisibility(claimsCtx, publicUpdate, log))
 
 	// private + authorized (participant/viewer) -> keep
 	authorized := &websocketService{participantService: &fakeParticipantService{}}

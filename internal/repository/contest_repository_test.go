@@ -249,15 +249,29 @@ func TestContestRepository_CreateQuarterResult(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestContestRepository_DeleteQuarterResult(t *testing.T) {
+func TestContestRepository_RollbackQuarterResult(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewContestRepository(gdb)
 
 	mock.ExpectBegin()
 	mock.ExpectExec(`DELETE FROM "quarter_results"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE "contests"`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	err := repo.DeleteQuarterResult(context.Background(), uuid.New())
+	err := repo.RollbackQuarterResult(context.Background(), uuid.New(), &model.Contest{ID: uuid.New(), Name: "x"})
 	require.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContestRepository_RollbackQuarterResult_DeleteError(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`DELETE FROM "quarter_results"`).WillReturnError(errors.New("db"))
+	mock.ExpectRollback()
+
+	err := repo.RollbackQuarterResult(context.Background(), uuid.New(), &model.Contest{ID: uuid.New(), Name: "x"})
+	require.Error(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

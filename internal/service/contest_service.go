@@ -417,16 +417,12 @@ func (s *contestService) RollbackLastQuarterResult(ctx context.Context, contestI
 		return nil, errs.ErrNoQuarterResultToRollback
 	}
 
-	// delete the result and revert the contest status
-	if err := s.repo.DeleteQuarterResult(ctx, result.ID); err != nil {
-		log.Error("failed to delete quarter result", "contest_id", contestID, "quarter", quarter, "error", err)
-		return nil, err
-	}
-
+	// delete the result and revert the contest status atomically so the status can never imply a
+	// quarter result that no longer exists
 	contest.Status = revertStatus
 	contest.UpdatedBy = user
-	if err := s.repo.Update(ctx, contest); err != nil {
-		log.Error("failed to revert contest status after rollback", "contest_id", contestID, "quarter", quarter, "error", err)
+	if err := s.repo.RollbackQuarterResult(ctx, result.ID, contest); err != nil {
+		log.Error("failed to roll back quarter result", "contest_id", contestID, "quarter", quarter, "error", err)
 		return nil, err
 	}
 

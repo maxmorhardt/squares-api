@@ -524,7 +524,7 @@ func (h *contestHandler) ClaimSquare(c *gin.Context) {
 	user := c.GetString(model.UserKey)
 
 	// claim square via service; the value comes from the user's profile initials
-	updatedSquare, err := h.contestService.ClaimSquare(c.Request.Context(), contestID, squareID, user)
+	claimedSquare, err := h.contestService.ClaimSquare(c.Request.Context(), contestID, squareID, user)
 	if err != nil {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):
@@ -545,7 +545,7 @@ func (h *contestHandler) ClaimSquare(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, updatedSquare)
+	c.JSON(http.StatusOK, claimedSquare)
 }
 
 // @Summary Clear square value and owner

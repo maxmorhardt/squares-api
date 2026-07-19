@@ -737,8 +737,7 @@ func TestRollbackLastQuarterResult_Success(t *testing.T) {
 		Status:         model.ContestStatusQ2,
 		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 1, Winner: "winner"}},
 	}, nil)
-	repo.EXPECT().DeleteQuarterResult(mock.Anything, mock.Anything).Return(nil)
-	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+	repo.EXPECT().RollbackQuarterResult(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
@@ -752,8 +751,7 @@ func TestRollbackLastQuarterResult_FromFinished(t *testing.T) {
 		Status:         model.ContestStatusFinished,
 		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 4}},
 	}, nil)
-	repo.EXPECT().DeleteQuarterResult(mock.Anything, mock.Anything).Return(nil)
-	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+	repo.EXPECT().RollbackQuarterResult(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
@@ -802,27 +800,13 @@ func TestRollbackLastQuarterResult_GetError(t *testing.T) {
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
-func TestRollbackLastQuarterResult_DeleteError(t *testing.T) {
+func TestRollbackLastQuarterResult_RollbackError(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
 		Status:         model.ContestStatusQ2,
 		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 1}},
 	}, nil)
-	repo.EXPECT().DeleteQuarterResult(mock.Anything, mock.Anything).Return(errors.New("db"))
-
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
-		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")
-	assert.Error(t, err)
-}
-
-func TestRollbackLastQuarterResult_UpdateError(t *testing.T) {
-	repo := mocks.NewContestRepository(t)
-	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
-		Status:         model.ContestStatusQ2,
-		QuarterResults: []model.QuarterResult{{ID: uuid.New(), Quarter: 1}},
-	}, nil)
-	repo.EXPECT().DeleteQuarterResult(mock.Anything, mock.Anything).Return(nil)
-	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(errors.New("db"))
+	repo.EXPECT().RollbackQuarterResult(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("db"))
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RollbackLastQuarterResult(context.Background(), uuid.New(), "u")

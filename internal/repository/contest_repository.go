@@ -21,7 +21,7 @@ type ContestRepository interface {
 	Update(ctx context.Context, contest *model.Contest) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error
-	DeleteQuarterResult(ctx context.Context, id uuid.UUID) error
+	RollbackQuarterResult(ctx context.Context, resultID uuid.UUID, contest *model.Contest) error
 
 	ClaimSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
 	ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error)
@@ -184,8 +184,17 @@ func (r *contestRepository) CreateQuarterResult(ctx context.Context, result *mod
 	return r.db.WithContext(ctx).Create(result).Error
 }
 
-func (r *contestRepository) DeleteQuarterResult(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&model.QuarterResult{}, "id = ?", id).Error
+// RollbackQuarterResult deletes the recorded quarter result and reverts the contest status in a
+// single transaction, so the status can never imply a quarter result that no longer exists.
+func (r *contestRepository) RollbackQuarterResult(ctx context.Context, resultID uuid.UUID, contest *model.Contest) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&model.QuarterResult{}, "id = ?", resultID).Error; err != nil {
+			return err
+		}
+
+		// only persist the contest row itself; never write preloaded associations
+		return tx.Omit(clause.Associations).Save(contest).Error
+	})
 }
 
 // ====================
