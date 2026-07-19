@@ -123,6 +123,10 @@ func (s *userService) DeleteAccount(ctx context.Context, email string) error {
 }
 
 func (s *userService) VerifyToken(ctx context.Context, token string) (*model.Claims, error) {
+	if s.oidc == nil {
+		return nil, fmt.Errorf("oidc verifier not configured")
+	}
+
 	idToken, err := s.oidc.Verify(ctx, token)
 	if err != nil {
 		return nil, err
@@ -145,7 +149,7 @@ func (s *userService) VerifyToken(ctx context.Context, token string) (*model.Cla
 }
 
 func (s *userService) IsTokenValid(ctx context.Context, claims *model.Claims) (bool, error) {
-	if claims == nil || claims.Email == "" || !claims.EmailVerified || claims.Expire < time.Now().Unix() {
+	if claims == nil || claims.Email == "" || !claims.EmailVerified || claims.Expire <= time.Now().Unix() {
 		return false, nil
 	}
 
