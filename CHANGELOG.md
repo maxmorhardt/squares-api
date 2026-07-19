@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/maxmorhardt/squares-api/compare/1.2.0...1.3.0) (2026-07-19)
+
+
+### Features
+
+* cache + rollback manual qr + fixes ([#36](https://github.com/maxmorhardt/squares-api/issues/36)) ([8efd22d](https://github.com/maxmorhardt/squares-api/commit/8efd22d4afd18e6a3d05df40d1d93ca61bdf3b52))
+
 ## [1.2.0](https://github.com/maxmorhardt/squares-api/compare/1.1.1...1.2.0) (2026-07-19)
 
 
