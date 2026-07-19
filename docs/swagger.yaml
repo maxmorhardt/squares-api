@@ -262,6 +262,43 @@ definitions:
       role:
         type: string
     type: object
+  model.LeaderboardEntry:
+    properties:
+      displayName:
+        example: Max
+        type: string
+      quarterWins:
+        example: 12
+        type: integer
+      rank:
+        example: 1
+        type: integer
+      squaresClaimed:
+        example: 48
+        type: integer
+    type: object
+  model.LeaderboardRankResponse:
+    properties:
+      quarterWins:
+        example: 5
+        type: integer
+      rank:
+        example: 7
+        type: integer
+      ranked:
+        example: true
+        type: boolean
+      totalRanked:
+        example: 143
+        type: integer
+    type: object
+  model.LeaderboardResponse:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/model.LeaderboardEntry'
+        type: array
+    type: object
   model.LivenessResponse:
     properties:
       status:
@@ -1299,6 +1336,57 @@ paths:
       summary: Redeem an invite link
       tags:
       - invites
+  /leaderboard:
+    get:
+      description: Returns players ranked by quarter wins. Display names only, no
+        emails
+      parameters:
+      - description: Number of players to return (1-100, default 25)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.LeaderboardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      summary: Get the all-time leaderboard
+      tags:
+      - leaderboard
+  /leaderboard/me:
+    get:
+      description: Returns the authenticated user's rank, total ranked players, and
+        quarter wins
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.LeaderboardRankResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get the current user's leaderboard rank
+      tags:
+      - leaderboard
   /stats:
     get:
       description: Returns public stats including contests created today, squares

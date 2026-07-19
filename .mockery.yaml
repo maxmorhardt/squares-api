@@ -18,6 +18,7 @@ packages:
       InviteRepository:
       ContactRepository:
       StatsRepository:
+      LeaderboardRepository:
       UserRepository:
   github.com/maxmorhardt/squares-api/internal/service:
     interfaces:
@@ -28,5 +29,6 @@ packages:
       InviteService:
       ContactService:
       StatsService:
+      LeaderboardService:
       UserService:
       WebSocketService:
