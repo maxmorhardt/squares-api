@@ -51,7 +51,7 @@ func testVerifier() *oidc.IDTokenVerifier {
 
 func mintToken(email string) string {
 	signer, err := jose.NewSigner(
-		jose.SigningKey{Algorithm: jose.HS256, Key: []byte("integration-test-signing-key")},
+		jose.SigningKey{Algorithm: jose.HS256, Key: []byte("integration-test-signing-key-0123456789")},
 		(&jose.SignerOptions{}).WithType("JWT"),
 	)
 	if err != nil {
