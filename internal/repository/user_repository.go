@@ -63,12 +63,6 @@ func (r *userRepository) GetOrCreate(ctx context.Context, email, defaultDisplayN
 		return nil, err
 	}
 
-	// a fresh sign-in reclaims a previously deleted email by clearing its tombstone
-	if err := r.db.WithContext(ctx).Exec(`DELETE FROM deleted_accounts WHERE email = ?`, email).Error; err != nil {
-		return nil, err
-	}
-
-	// select into a fresh struct so the created struct's id is not added to the where clause
 	user = &model.User{}
 	if err := r.db.WithContext(ctx).Where("email = ?", email).First(user).Error; err != nil {
 		return nil, err

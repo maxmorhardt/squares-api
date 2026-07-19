@@ -41,8 +41,6 @@ func TestUserRepository_GetOrCreate_CreatesWithFirstActivity(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "users"`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
-	// a fresh sign-in clears any tombstone for the reused email
-	mock.ExpectExec(`DELETE FROM deleted_accounts`).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows())
 
 	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max", "M")
@@ -61,8 +59,6 @@ func TestUserRepository_GetOrCreate_CreatesWithoutActivity(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "users"`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
-	// a fresh sign-in clears any tombstone for the reused email
-	mock.ExpectExec(`DELETE FROM deleted_accounts`).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectQuery(`SELECT .* FROM "users"`).WillReturnRows(userRows())
 
 	user, err := repo.GetOrCreate(context.Background(), "a@b.com", "Max", "M")

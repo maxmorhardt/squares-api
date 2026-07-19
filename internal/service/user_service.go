@@ -149,7 +149,9 @@ func (s *userService) VerifyToken(ctx context.Context, token string) (*model.Cla
 }
 
 func (s *userService) IsTokenValid(ctx context.Context, claims *model.Claims) (bool, error) {
-	if claims == nil || claims.Email == "" || !claims.EmailVerified || claims.Expire <= time.Now().Unix() {
+	// iat is required: revocation compares it against the deletion instant
+	if claims == nil || claims.Email == "" || !claims.EmailVerified ||
+		claims.IssuedAt <= 0 || claims.Expire <= time.Now().Unix() {
 		return false, nil
 	}
 

@@ -59,6 +59,15 @@ func TestUserService_IsTokenValid(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, ok)
 	})
+
+	t.Run("missing iat rejected before db", func(t *testing.T) {
+		svc, _ := newUserService(t)
+		noIat := &model.Claims{Email: "a@b.com", EmailVerified: true, Expire: future}
+
+		ok, err := svc.IsTokenValid(context.Background(), noIat)
+		require.NoError(t, err)
+		assert.False(t, ok)
+	})
 }
 
 func TestUserService_GetProfile_Success(t *testing.T) {
