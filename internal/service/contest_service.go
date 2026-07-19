@@ -417,8 +417,7 @@ func (s *contestService) RollbackLastQuarterResult(ctx context.Context, contestI
 		return nil, errs.ErrNoQuarterResultToRollback
 	}
 
-	// delete the result and revert the contest status atomically so the status can never imply a
-	// quarter result that no longer exists
+	// delete the result and revert the contest status atomically
 	contest.Status = revertStatus
 	contest.UpdatedBy = user
 	if err := s.repo.RollbackQuarterResult(ctx, result.ID, contest); err != nil {

@@ -14,8 +14,6 @@ import (
 
 const systemUser = "system"
 
-// the upcoming schedule is the same for every user and only changes when the
-// worker ingests, so a short in-memory window absorbs repeated reads
 const upcomingCacheTTL = 60 * time.Second
 
 type GameService interface {

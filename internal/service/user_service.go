@@ -12,9 +12,6 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
-// a token's revocation state is checked on every authenticated request; a short
-// window collapses that per-request DB lookup while bounding how long a
-// just-deleted account's token keeps working to the TTL
 const (
 	revocationCacheTTL  = 15 * time.Second
 	revocationCacheSize = 10000
@@ -36,10 +33,10 @@ type UserService interface {
 }
 
 type userService struct {
-	repo        repository.UserRepository
-	natsService NatsService
-	oidc        *oidc.IDTokenVerifier
-	revocation  *util.TTLCache[revocationKey, bool]
+	repo         repository.UserRepository
+	natsService  NatsService
+	oidc         *oidc.IDTokenVerifier
+	revocation   *util.TTLCache[revocationKey, bool]
 }
 
 func NewUserService(repo repository.UserRepository, natsService NatsService, oidcVerifier *oidc.IDTokenVerifier) UserService {

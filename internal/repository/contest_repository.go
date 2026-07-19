@@ -184,15 +184,13 @@ func (r *contestRepository) CreateQuarterResult(ctx context.Context, result *mod
 	return r.db.WithContext(ctx).Create(result).Error
 }
 
-// RollbackQuarterResult deletes the recorded quarter result and reverts the contest status in a
-// single transaction, so the status can never imply a quarter result that no longer exists.
 func (r *contestRepository) RollbackQuarterResult(ctx context.Context, resultID uuid.UUID, contest *model.Contest) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Delete(&model.QuarterResult{}, "id = ?", resultID).Error; err != nil {
 			return err
 		}
 
-		// only persist the contest row itself; never write preloaded associations
+		// only persist the contest row itself dont write preloaded associations
 		return tx.Omit(clause.Associations).Save(contest).Error
 	})
 }

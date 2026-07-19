@@ -9,8 +9,6 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
-// stats are identical for every caller and only shift at date granularity, so a
-// short in-memory window spares the DB the repeated count queries under load
 const statsCacheTTL = 30 * time.Second
 
 type StatsService interface {

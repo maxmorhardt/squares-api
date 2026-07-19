@@ -7,10 +7,7 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 
-// TTLCache is a bounded, keyed, load-through in-memory cache with per-entry
-// expiry. Misses call the loader and cache a successful result; errors are
-// never cached. Backed by an expirable LRU, so entries fall out on expiry or
-// when the size cap is exceeded, keeping memory bounded.
+// in-memory cache with per-entry expiry
 type TTLCache[K comparable, V any] struct {
 	cache *expirable.LRU[K, V]
 }
