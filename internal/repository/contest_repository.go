@@ -21,8 +21,9 @@ type ContestRepository interface {
 	Update(ctx context.Context, contest *model.Contest) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error
+	RollbackQuarterResult(ctx context.Context, resultID uuid.UUID, contest *model.Contest) error
 
-	UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
+	ClaimSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
 	ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error)
 	GhostSquare(ctx context.Context, square *model.Square) (*model.Square, error)
 	ClearSquaresByOwner(ctx context.Context, contestID uuid.UUID, owner string) ([]model.Square, error)
@@ -183,12 +184,23 @@ func (r *contestRepository) CreateQuarterResult(ctx context.Context, result *mod
 	return r.db.WithContext(ctx).Create(result).Error
 }
 
+func (r *contestRepository) RollbackQuarterResult(ctx context.Context, resultID uuid.UUID, contest *model.Contest) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&model.QuarterResult{}, "id = ?", resultID).Error; err != nil {
+			return err
+		}
+
+		// only persist the contest row itself; don't write preloaded associations
+		return tx.Omit(clause.Associations).Save(contest).Error
+	})
+}
+
 // ====================
 // Square Actions
 // ====================
 
-func (r *contestRepository) UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error) {
-	var updatedSquare *model.Square
+func (r *contestRepository) ClaimSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error) {
+	var claimedSquare *model.Square
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// update square value and owner information
 		square.Value = value
@@ -200,11 +212,11 @@ func (r *contestRepository) UpdateSquare(ctx context.Context, square *model.Squa
 			return err
 		}
 
-		updatedSquare = square
+		claimedSquare = square
 		return nil
 	})
 
-	return updatedSquare, err
+	return claimedSquare, err
 }
 
 func (r *contestRepository) ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error) {

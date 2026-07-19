@@ -85,3 +85,18 @@ func (cs ContestStatus) CanTransitionTo(target ContestStatus) bool {
 
 	return slices.Contains(allowedTargets, target)
 }
+
+func PreviousQuarterStatus(cs ContestStatus) (status ContestStatus, quarter int, ok bool) {
+	switch cs {
+	case ContestStatusQ2:
+		return ContestStatusQ1, 1, true
+	case ContestStatusQ3:
+		return ContestStatusQ2, 2, true
+	case ContestStatusQ4:
+		return ContestStatusQ3, 3, true
+	case ContestStatusFinished:
+		return ContestStatusQ4, 4, true
+	default:
+		return "", 0, false
+	}
+}

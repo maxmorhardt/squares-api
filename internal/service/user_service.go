@@ -12,6 +12,16 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
+const (
+	revocationCacheTTL  = 15 * time.Second
+	revocationCacheSize = 10000
+)
+
+type revocationKey struct {
+	email    string
+	issuedAt int64
+}
+
 type UserService interface {
 	GetProfile(ctx context.Context, email, defaultDisplayName string) (*model.User, error)
 	UpdateProfile(ctx context.Context, email, initials string) (*model.User, error)
@@ -26,6 +36,7 @@ type userService struct {
 	repo        repository.UserRepository
 	natsService NatsService
 	oidc        *oidc.IDTokenVerifier
+	revocation  *util.TTLCache[revocationKey, bool]
 }
 
 func NewUserService(repo repository.UserRepository, natsService NatsService, oidcVerifier *oidc.IDTokenVerifier) UserService {
@@ -33,6 +44,7 @@ func NewUserService(repo repository.UserRepository, natsService NatsService, oid
 		repo:        repo,
 		natsService: natsService,
 		oidc:        oidcVerifier,
+		revocation:  util.NewTTLCache[revocationKey, bool](revocationCacheSize, revocationCacheTTL),
 	}
 }
 
@@ -63,7 +75,7 @@ func (s *userService) UpdateProfile(ctx context.Context, email, initials string)
 		square := squares[i]
 		go func() {
 			if err := s.natsService.PublishSquareUpdate(square.ContestID, email, &square); err != nil {
-				log.Error("failed to publish square update after initials change", "contestId", square.ContestID, "squareId", square.ID, "error", err)
+				log.Error("failed to publish square update after initials change", "contest_id", square.ContestID, "square_id", square.ID, "error", err)
 			}
 		}()
 	}
@@ -155,7 +167,10 @@ func (s *userService) IsTokenValid(ctx context.Context, claims *model.Claims) (b
 		return false, nil
 	}
 
-	revoked, err := s.repo.IsTokenRevoked(ctx, claims.Email, claims.IssuedAt)
+	key := revocationKey{email: claims.Email, issuedAt: claims.IssuedAt}
+	revoked, err := s.revocation.GetOrLoad(ctx, key, func(ctx context.Context) (bool, error) {
+		return s.repo.IsTokenRevoked(ctx, claims.Email, claims.IssuedAt)
+	})
 	if err != nil {
 		return false, err
 	}

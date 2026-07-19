@@ -20,9 +20,10 @@ type ContestService interface {
 	UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
 	StartContest(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error)
 	RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error)
+	RollbackLastQuarterResult(ctx context.Context, contestID uuid.UUID, user string) (*model.QuarterResult, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
 
-	UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error)
+	ClaimSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error)
 	ClearSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error)
 	ClearUserSquares(ctx context.Context, contestID uuid.UUID, user string) ([]model.Square, error)
 }
@@ -190,6 +191,12 @@ func (s *contestService) UpdateContest(ctx context.Context, contestID uuid.UUID,
 		needsUpdate = true
 	}
 
+	// visibility is editable regardless of game link, as long as the contest isn't terminal
+	if req.Visibility != nil && model.ContestVisibility(*req.Visibility) != contest.Visibility {
+		contest.Visibility = model.ContestVisibility(*req.Visibility)
+		needsUpdate = true
+	}
+
 	if !needsUpdate {
 		log.Info("no changes detected for contest update", "contest_id", contest.ID)
 		return contest, nil
@@ -297,10 +304,16 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 		return nil, err
 	}
 
-	// game-linked contests are scored automatically
+	// game-linked contests are scored automatically; they exit before the auth check so they're unaffected by it
 	if contest.GameID != nil {
 		log.Warn("cannot manually record quarter result for a game-linked contest", "contest_id", contestID)
 		return nil, errs.ErrContestIsGameLinked
+	}
+
+	// only the contest owner may record scores
+	if err = s.participantService.Authorize(ctx, contestID, user, ActionEditContest); err != nil {
+		log.Warn("user is not authorized to record quarter result", "contest_id", contestID, "user", user)
+		return nil, errs.ErrUnauthorizedContestEdit
 	}
 
 	// determine quarter and next status from current contest status
@@ -362,6 +375,73 @@ func (s *contestService) transitionContestAfterQuarter(ctx context.Context, cont
 	return nil
 }
 
+func (s *contestService) RollbackLastQuarterResult(ctx context.Context, contestID uuid.UUID, user string) (*model.QuarterResult, error) {
+	log := util.LoggerFromContext(ctx)
+
+	// get the contest to access status and recorded results
+	contest, err := s.repo.GetByID(ctx, contestID)
+	if err != nil {
+		log.Error("failed to get contest", "contest_id", contestID, "error", err)
+		return nil, err
+	}
+
+	// game-linked contests are scored automatically; they exit before the auth check so they're unaffected by it
+	if contest.GameID != nil {
+		log.Warn("cannot roll back quarter result for a game-linked contest", "contest_id", contestID)
+		return nil, errs.ErrContestIsGameLinked
+	}
+
+	// only the contest owner may roll back scores
+	if err = s.participantService.Authorize(ctx, contestID, user, ActionEditContest); err != nil {
+		log.Warn("user is not authorized to roll back quarter result", "contest_id", contestID, "user", user)
+		return nil, errs.ErrUnauthorizedContestEdit
+	}
+
+	// determine the most recently recorded quarter and the status to revert to
+	revertStatus, quarter, ok := model.PreviousQuarterStatus(contest.Status)
+	if !ok {
+		log.Warn("no quarter result to roll back for current status", "contest_id", contestID, "status", contest.Status)
+		return nil, errs.ErrNoQuarterResultToRollback
+	}
+
+	// find the recorded result for that quarter
+	var result *model.QuarterResult
+	for i := range contest.QuarterResults {
+		if contest.QuarterResults[i].Quarter == quarter {
+			result = &contest.QuarterResults[i]
+			break
+		}
+	}
+	if result == nil {
+		log.Warn("quarter result missing for rollback", "contest_id", contestID, "quarter", quarter)
+		return nil, errs.ErrNoQuarterResultToRollback
+	}
+
+	// delete the result and revert the contest status atomically
+	contest.Status = revertStatus
+	contest.UpdatedBy = user
+	if err := s.repo.RollbackQuarterResult(ctx, result.ID, contest); err != nil {
+		log.Error("failed to roll back quarter result", "contest_id", contestID, "quarter", quarter, "error", err)
+		return nil, err
+	}
+
+	// publish the rollback so connected clients drop the quarter and revert status
+	go func() {
+		// send a lightweight contest copy without large preloaded relations
+		wsContest := *contest
+		wsContest.Squares = nil
+		wsContest.QuarterResults = nil
+
+		if err := s.natsService.PublishQuarterResultRollback(contest.ID, user, result, &wsContest); err != nil {
+			log.Error("failed to publish quarter result rollback", "contest_id", contest.ID, "quarter", quarter, "error", err)
+		}
+	}()
+
+	metrics.IncQuarterResultRolledBack(quarter)
+	log.Info("quarter result rolled back and status reverted", "contest_id", contestID, "quarter", quarter, "new_status", revertStatus)
+	return result, nil
+}
+
 func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error {
 	log := util.LoggerFromContext(ctx)
 
@@ -406,13 +486,13 @@ func (s *contestService) DeleteContest(ctx context.Context, contestID uuid.UUID,
 // Square Actions
 // ====================
 
-func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error) {
+func (s *contestService) ClaimSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error) {
 	log := util.LoggerFromContext(ctx)
 
 	// get contest to check status and find square
 	contest, err := s.repo.GetByID(ctx, contestID)
 	if err != nil {
-		log.Error("failed to get contest for square update", "contest_id", contestID, "error", err)
+		log.Error("failed to get contest for square claim", "contest_id", contestID, "error", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
@@ -498,9 +578,9 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 		return nil, errs.ErrMissingInitials
 	}
 
-	updatedSquare, err := s.repo.UpdateSquare(ctx, square, profile.DefaultInitials, user, claims.Name)
+	claimedSquare, err := s.repo.ClaimSquare(ctx, square, profile.DefaultInitials, user, claims.Name)
 	if err != nil {
-		log.Error("failed to update square", "square_id", square.ID, "value", profile.DefaultInitials, "owner", user, "error", err)
+		log.Error("failed to claim square", "square_id", square.ID, "value", profile.DefaultInitials, "owner", user, "error", err)
 		return nil, err
 	}
 
@@ -509,13 +589,13 @@ func (s *contestService) UpdateSquare(ctx context.Context, contestID, squareID u
 	}
 
 	go func() {
-		if err := s.natsService.PublishSquareUpdate(contest.ID, user, updatedSquare); err != nil {
-			log.Error("failed to publish square update", "contestId", updatedSquare.ContestID, "squareId", updatedSquare.ID, "error", err)
+		if err := s.natsService.PublishSquareUpdate(contest.ID, user, claimedSquare); err != nil {
+			log.Error("failed to publish square update", "contest_id", claimedSquare.ContestID, "square_id", claimedSquare.ID, "error", err)
 		}
 	}()
 
-	log.Info("square updated successfully", "square_id", square.ID, "value", profile.DefaultInitials, "owner", user)
-	return updatedSquare, nil
+	log.Info("square claimed successfully", "square_id", square.ID, "value", profile.DefaultInitials, "owner", user)
+	return claimedSquare, nil
 }
 
 func (s *contestService) ClearSquare(ctx context.Context, contestID, squareID uuid.UUID, user string) (*model.Square, error) {
@@ -570,7 +650,7 @@ func (s *contestService) ClearSquare(ctx context.Context, contestID, squareID uu
 
 	go func() {
 		if err := s.natsService.PublishSquareUpdate(contest.ID, user, clearedSquare); err != nil {
-			log.Error("failed to publish square clear", "contestId", clearedSquare.ContestID, "squareId", clearedSquare.ID, "error", err)
+			log.Error("failed to publish square clear", "contest_id", clearedSquare.ContestID, "square_id", clearedSquare.ID, "error", err)
 		}
 	}()
 
@@ -610,7 +690,7 @@ func (s *contestService) ClearUserSquares(ctx context.Context, contestID uuid.UU
 		square := clearedSquares[i]
 		go func() {
 			if err := s.natsService.PublishSquareUpdate(contest.ID, user, &square); err != nil {
-				log.Error("failed to publish square clear", "contestId", square.ContestID, "squareId", square.ID, "error", err)
+				log.Error("failed to publish square clear", "contest_id", square.ContestID, "square_id", square.ID, "error", err)
 			}
 		}()
 	}

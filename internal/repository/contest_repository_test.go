@@ -98,7 +98,7 @@ func TestContestRepository_GetByGameID(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestContestRepository_UpdateSquare(t *testing.T) {
+func TestContestRepository_ClaimSquare(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewContestRepository(gdb)
 
@@ -106,7 +106,7 @@ func TestContestRepository_UpdateSquare(t *testing.T) {
 	mock.ExpectExec(`UPDATE "squares"`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	sq, err := repo.UpdateSquare(context.Background(), &model.Square{ID: uuid.New()}, "AB", "owner", "Owner Name")
+	sq, err := repo.ClaimSquare(context.Background(), &model.Square{ID: uuid.New()}, "AB", "owner", "Owner Name")
 
 	require.NoError(t, err)
 	assert.Equal(t, "AB", sq.Value)
@@ -246,5 +246,32 @@ func TestContestRepository_CreateQuarterResult(t *testing.T) {
 
 	err := repo.CreateQuarterResult(context.Background(), &model.QuarterResult{ContestID: uuid.New(), Quarter: 1})
 	require.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContestRepository_RollbackQuarterResult(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`DELETE FROM "quarter_results"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE "contests"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	err := repo.RollbackQuarterResult(context.Background(), uuid.New(), &model.Contest{ID: uuid.New(), Name: "x"})
+	require.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContestRepository_RollbackQuarterResult_DeleteError(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`DELETE FROM "quarter_results"`).WillReturnError(errors.New("db"))
+	mock.ExpectRollback()
+
+	err := repo.RollbackQuarterResult(context.Background(), uuid.New(), &model.Contest{ID: uuid.New(), Name: "x"})
+	require.Error(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

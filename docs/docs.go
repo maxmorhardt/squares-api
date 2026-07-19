@@ -237,9 +237,6 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes a contest by id. Only the contest owner can delete",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -775,6 +772,70 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.APIError"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/contests/{id}/quarter-result/rollback": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes the most recently recorded quarter result and reverts the contest to the prior quarter. Only for manual (non game-linked) contests.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "contests"
+                ],
+                "summary": "Roll back the last quarter result",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Contest ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.QuarterResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -854,8 +915,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/contests/{id}/squares/{squareId}": {
-            "patch": {
+        "/contests/{id}/squares/{squareId}/claim": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -1001,9 +1062,6 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Starts the contest, transitioning from ACTIVE to Q1 and randomizing labels",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -2057,6 +2115,13 @@ const docTemplate = `{
                 "homeTeam": {
                     "type": "string",
                     "maxLength": 20
+                },
+                "visibility": {
+                    "type": "string",
+                    "enum": [
+                        "private",
+                        "public"
+                    ]
                 }
             }
         },

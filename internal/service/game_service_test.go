@@ -26,6 +26,21 @@ func TestGameService_GetUpcoming(t *testing.T) {
 	assert.Len(t, got, 2)
 }
 
+func TestGameService_GetUpcoming_CachesResult(t *testing.T) {
+	g := mocks.NewGameRepository(t)
+	// mockery fails on cleanup if the repo is hit more than once
+	g.EXPECT().GetUpcoming(mock.Anything).Return([]model.Game{{ESPNID: "1"}}, nil).Once()
+
+	svc := gameSvc(g, mocks.NewContestRepository(t))
+	first, err := svc.GetUpcoming(context.Background())
+	require.NoError(t, err)
+	second, err := svc.GetUpcoming(context.Background())
+	require.NoError(t, err)
+
+	assert.Len(t, first, 1)
+	assert.Len(t, second, 1)
+}
+
 func gameSvc(gameRepo *mocks.GameRepository, contestRepo *mocks.ContestRepository) service.GameService {
 	return service.NewGameService(gameRepo, contestRepo, anyNats())
 }

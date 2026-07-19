@@ -23,8 +23,9 @@ type ContestHandler interface {
 	DeleteContest(c *gin.Context)
 	StartContest(c *gin.Context)
 	RecordQuarterResult(c *gin.Context)
+	RollbackLastQuarterResult(c *gin.Context)
 
-	UpdateSquare(c *gin.Context)
+	ClaimSquare(c *gin.Context)
 	ClearSquare(c *gin.Context)
 	ClearMySquares(c *gin.Context)
 }
@@ -248,7 +249,6 @@ func (h *contestHandler) UpdateContest(c *gin.Context) {
 // @Summary Delete contest
 // @Description Deletes a contest by id. Only the contest owner can delete
 // @Tags contests
-// @Accept json
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Success 204 "Contest deleted successfully"
@@ -298,7 +298,6 @@ func (h *contestHandler) DeleteContest(c *gin.Context) {
 // @Summary Start contest
 // @Description Starts the contest, transitioning from ACTIVE to Q1 and randomizing labels
 // @Tags contests
-// @Accept json
 // @Produce json
 // @Param id path string true "Contest ID"
 // @Success 200 {object} model.ContestSwagger
@@ -349,6 +348,7 @@ func (h *contestHandler) StartContest(c *gin.Context) {
 // @Param quarterResult body model.QuarterResultRequest true "Quarter result data"
 // @Success 200 {object} model.QuarterResult
 // @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
 // @Failure 404 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
@@ -393,12 +393,72 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 		case errors.Is(err, errs.ErrContestIsGameLinked):
 			log.Warn("manual scoring blocked for game-linked contest", "contest_id", contestID)
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrUnauthorizedContestEdit):
+			log.Warn("unauthorized quarter result record", "contest_id", contestID, "user", user)
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrQuarterResultAlreadyExists):
 			log.Warn("quarter results already exists for given quarter")
 			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(errs.ErrQuarterResultAlreadyExists), c))
 		default:
 			log.Error("failed to record quarter result", "error", err)
 			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to record quarter result", c))
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+// @Summary Roll back the last quarter result
+// @Description Deletes the most recently recorded quarter result and reverts the contest to the prior quarter. Only for manual (non game-linked) contests.
+// @Tags contests
+// @Produce json
+// @Param id path string true "Contest ID"
+// @Success 200 {object} model.QuarterResult
+// @Failure 400 {object} model.APIError
+// @Failure 403 {object} model.APIError
+// @Failure 404 {object} model.APIError
+// @Failure 500 {object} model.APIError
+// @Security BearerAuth
+// @Router /contests/{id}/quarter-result/rollback [post]
+func (h *contestHandler) RollbackLastQuarterResult(c *gin.Context) {
+	log := util.LoggerFromGinContext(c)
+
+	// parse contest id from path
+	contestID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		log.Warn("invalid contest id", "error", err)
+		c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, "Invalid contest ID", c))
+		return
+	}
+
+	// get authenticated user
+	user := c.GetString(model.UserKey)
+	if user == "" {
+		log.Error("user not found in context")
+		c.JSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, "Unauthorized", c))
+		return
+	}
+
+	// roll back the most recent quarter result
+	result, err := h.contestService.RollbackLastQuarterResult(c.Request.Context(), contestID, user)
+	if err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			log.Warn("contest not found", "contest_id", contestID)
+			c.JSON(http.StatusNotFound, model.NewAPIError(http.StatusNotFound, util.CapitalizeFirstLetter(errs.ErrContestNotFound), c))
+		case errors.Is(err, errs.ErrContestIsGameLinked):
+			log.Warn("rollback blocked for game-linked contest", "contest_id", contestID)
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrUnauthorizedContestEdit):
+			log.Warn("unauthorized quarter result rollback", "contest_id", contestID, "user", user)
+			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
+		case errors.Is(err, errs.ErrNoQuarterResultToRollback):
+			log.Warn("no quarter result to roll back", "contest_id", contestID)
+			c.JSON(http.StatusBadRequest, model.NewAPIError(http.StatusBadRequest, util.CapitalizeFirstLetter(err), c))
+		default:
+			log.Error("failed to roll back quarter result", "error", err)
+			c.JSON(http.StatusInternalServerError, model.NewAPIError(http.StatusInternalServerError, "Failed to roll back quarter result", c))
 		}
 		return
 	}
@@ -423,8 +483,8 @@ func (h *contestHandler) RecordQuarterResult(c *gin.Context) {
 // @Failure 409 {object} model.APIError
 // @Failure 500 {object} model.APIError
 // @Security BearerAuth
-// @Router /contests/{id}/squares/{squareId} [patch]
-func (h *contestHandler) UpdateSquare(c *gin.Context) {
+// @Router /contests/{id}/squares/{squareId}/claim [post]
+func (h *contestHandler) ClaimSquare(c *gin.Context) {
 	log := util.LoggerFromGinContext(c)
 
 	// parse contest id from path
@@ -461,7 +521,7 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 	user := c.GetString(model.UserKey)
 
 	// claim square via service; the value comes from the user's profile initials
-	updatedSquare, err := h.contestService.UpdateSquare(c.Request.Context(), contestID, squareID, user)
+	claimedSquare, err := h.contestService.ClaimSquare(c.Request.Context(), contestID, squareID, user)
 	if err != nil {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):
@@ -482,7 +542,7 @@ func (h *contestHandler) UpdateSquare(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, updatedSquare)
+	c.JSON(http.StatusOK, claimedSquare)
 }
 
 // @Summary Clear square value and owner

@@ -260,6 +260,55 @@ func (_c *NatsService_PublishQuarterResult_Call) RunAndReturn(run func(uuid.UUID
 	return _c
 }
 
+// PublishQuarterResultRollback provides a mock function with given fields: contestID, updatedBy, quarterResult, contest
+func (_m *NatsService) PublishQuarterResultRollback(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult, contest *model.Contest) error {
+	ret := _m.Called(contestID, updatedBy, quarterResult, contest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PublishQuarterResultRollback")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(uuid.UUID, string, *model.QuarterResult, *model.Contest) error); ok {
+		r0 = rf(contestID, updatedBy, quarterResult, contest)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// NatsService_PublishQuarterResultRollback_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PublishQuarterResultRollback'
+type NatsService_PublishQuarterResultRollback_Call struct {
+	*mock.Call
+}
+
+// PublishQuarterResultRollback is a helper method to define mock.On call
+//   - contestID uuid.UUID
+//   - updatedBy string
+//   - quarterResult *model.QuarterResult
+//   - contest *model.Contest
+func (_e *NatsService_Expecter) PublishQuarterResultRollback(contestID interface{}, updatedBy interface{}, quarterResult interface{}, contest interface{}) *NatsService_PublishQuarterResultRollback_Call {
+	return &NatsService_PublishQuarterResultRollback_Call{Call: _e.mock.On("PublishQuarterResultRollback", contestID, updatedBy, quarterResult, contest)}
+}
+
+func (_c *NatsService_PublishQuarterResultRollback_Call) Run(run func(contestID uuid.UUID, updatedBy string, quarterResult *model.QuarterResult, contest *model.Contest)) *NatsService_PublishQuarterResultRollback_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(uuid.UUID), args[1].(string), args[2].(*model.QuarterResult), args[3].(*model.Contest))
+	})
+	return _c
+}
+
+func (_c *NatsService_PublishQuarterResultRollback_Call) Return(_a0 error) *NatsService_PublishQuarterResultRollback_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *NatsService_PublishQuarterResultRollback_Call) RunAndReturn(run func(uuid.UUID, string, *model.QuarterResult, *model.Contest) error) *NatsService_PublishQuarterResultRollback_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PublishSquareUpdate provides a mock function with given fields: contestID, updatedBy, square
 func (_m *NatsService) PublishSquareUpdate(contestID uuid.UUID, updatedBy string, square *model.Square) error {
 	ret := _m.Called(contestID, updatedBy, square)

@@ -50,7 +50,7 @@ func setupRoutes(r *gin.Engine, deps *Dependencies) {
 	participantService := service.NewParticipantService(participantRepo, contestRepo, natsService)
 	contestService := service.NewContestService(contestRepo, participantRepo, gameRepo, userRepo, natsService, participantService)
 	gameService := service.NewGameService(gameRepo, contestRepo, natsService)
-	wsService := service.NewWebSocketService(deps.NATS, userService)
+	wsService := service.NewWebSocketService(deps.NATS, userService, participantService)
 	contactService := service.NewContactService(contactRepo, deps.Config)
 	inviteService := service.NewInviteService(inviteRepo, participantRepo, contestRepo, participantService, natsService)
 

@@ -30,12 +30,13 @@ type WebSocketService interface {
 }
 
 type websocketService struct {
-	nats        *nats.Conn
-	userService UserService
+	nats               *nats.Conn
+	userService        UserService
+	participantService ParticipantService
 }
 
-func NewWebSocketService(nc *nats.Conn, userService UserService) WebSocketService {
-	return &websocketService{nats: nc, userService: userService}
+func NewWebSocketService(nc *nats.Conn, userService UserService, participantService ParticipantService) WebSocketService {
+	return &websocketService{nats: nc, userService: userService, participantService: participantService}
 }
 
 func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contest *model.Contest, participants []model.ContestParticipant, conn *websocket.Conn) {
@@ -126,8 +127,6 @@ func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contes
 }
 
 func (s *websocketService) handleIncomingMessages(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, contestID uuid.UUID, log *slog.Logger) {
-	// signal the outgoing loop to stop when this reader exits so resources
-	// are released promptly instead of waiting on the next ping tick
 	defer cancel()
 
 	for {
@@ -224,6 +223,17 @@ func (s *websocketService) handleOutgoingMessages(
 				continue
 			}
 
+			// a contest going private kicks anyone who was only watching via public access
+			if s.shouldCloseOnVisibility(ctx, &updateData, log) {
+				log.Warn("contest went private, closing connection for non-participant")
+				metrics.RecordWSDisconnect(model.WSDisconnectVisibilityRevoked)
+				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
+					log.Info("failed to send disconnected message", "error", err)
+				}
+				_ = conn.Close()
+				return
+			}
+
 			if err := sendWebSocketMessage(conn, log, &updateData); err != nil {
 				log.Info("failed to send NATS message to websocket client", "error", err)
 			}
@@ -289,6 +299,30 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 	metrics.IncWSMessageSent(data.Type)
 	log.Info("sent websocket message", "ws_type", data.Type)
 	return nil
+}
+
+func (s *websocketService) shouldCloseOnVisibility(ctx context.Context, update *model.WSUpdate, log *slog.Logger) bool {
+	if update.Type != model.ContestUpdateType || update.Contest == nil {
+		return false
+	}
+
+	if update.Contest.Visibility != model.ContestVisibilityPrivate {
+		return false
+	}
+
+	claims := util.ClaimsFromContext(ctx)
+	if claims == nil {
+		log.Warn("no claims in context, closing connection for private contest")
+		return true
+	}
+
+	// authoritative check against the DB: viewers and participants stay, everyone else is kicked
+	if err := s.participantService.Authorize(ctx, update.ContestID, claims.Email, ActionView); err != nil {
+		log.Info("user not authorized to view now-private contest, closing connection", "user", claims.Email, "error", err)
+		return true
+	}
+
+	return false
 }
 
 func (s *websocketService) shouldCloseConnection(ctx context.Context, log *slog.Logger) bool {
