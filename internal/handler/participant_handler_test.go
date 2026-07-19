@@ -262,6 +262,9 @@ func TestRemoveParticipant_Forbidden(t *testing.T) {
 func TestRemoveParticipant_CannotRemoveOwner(t *testing.T) {
 	removeParticipantErr(t, "owner1", "owner1", errs.ErrCannotRemoveOwner, http.StatusForbidden)
 }
+func TestRemoveParticipant_Finalized(t *testing.T) {
+	removeParticipantErr(t, "user1", "user1", errs.ErrContestFinalized, http.StatusForbidden)
+}
 func TestRemoveParticipant_NotFound(t *testing.T) {
 	removeParticipantErr(t, "owner1", "nobody", errs.ErrNotParticipant, http.StatusNotFound)
 }

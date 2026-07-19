@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/maxmorhardt/squares-api/internal/errs"
@@ -19,6 +20,45 @@ func newUserService(t *testing.T) (service.UserService, *mocks.UserRepository) {
 	t.Helper()
 	repo := mocks.NewUserRepository(t)
 	return service.NewUserService(repo, anyNats()), repo
+}
+
+func TestUserService_IsTokenValid(t *testing.T) {
+	future := time.Now().Add(time.Hour).Unix()
+	valid := &model.Claims{Email: "a@b.com", EmailVerified: true, IssuedAt: 100, Expire: future}
+
+	t.Run("valid and not revoked", func(t *testing.T) {
+		svc, repo := newUserService(t)
+		repo.EXPECT().IsTokenRevoked(mock.Anything, "a@b.com", int64(100)).Return(false, nil)
+
+		ok, err := svc.IsTokenValid(context.Background(), valid)
+		require.NoError(t, err)
+		assert.True(t, ok)
+	})
+
+	t.Run("revoked by deletion", func(t *testing.T) {
+		svc, repo := newUserService(t)
+		repo.EXPECT().IsTokenRevoked(mock.Anything, "a@b.com", int64(100)).Return(true, nil)
+
+		ok, err := svc.IsTokenValid(context.Background(), valid)
+		require.NoError(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("expired short-circuits before db", func(t *testing.T) {
+		svc, _ := newUserService(t)
+		expired := &model.Claims{Email: "a@b.com", EmailVerified: true, Expire: time.Now().Add(-time.Hour).Unix()}
+
+		ok, err := svc.IsTokenValid(context.Background(), expired)
+		require.NoError(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("nil claims", func(t *testing.T) {
+		svc, _ := newUserService(t)
+		ok, err := svc.IsTokenValid(context.Background(), nil)
+		require.NoError(t, err)
+		assert.False(t, ok)
+	})
 }
 
 func TestUserService_GetProfile_Success(t *testing.T) {

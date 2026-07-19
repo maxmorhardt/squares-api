@@ -30,11 +30,12 @@ type WebSocketService interface {
 }
 
 type websocketService struct {
-	nats *nats.Conn
+	nats        *nats.Conn
+	userService UserService
 }
 
-func NewWebSocketService(nc *nats.Conn) WebSocketService {
-	return &websocketService{nats: nc}
+func NewWebSocketService(nc *nats.Conn, userService UserService) WebSocketService {
+	return &websocketService{nats: nc, userService: userService}
 }
 
 func (s *websocketService) HandleWebSocketConnection(ctx context.Context, contest *model.Contest, participants []model.ContestParticipant, conn *websocket.Conn) {
@@ -239,7 +240,7 @@ func (s *websocketService) handleOutgoingMessages(
 
 		// validate jwt token periodically
 		case <-jwtChecker.C:
-			if shouldCloseConnection(ctx, log) {
+			if s.shouldCloseConnection(ctx, log) {
 				log.Warn("closing connection due to token validation failure")
 				metrics.RecordWSDisconnect(model.WSDisconnectTokenExpired)
 				if err := sendWebSocketMessage(conn, log, model.NewDisconnectedMessage(contestID, connectionID)); err != nil {
@@ -290,18 +291,15 @@ func sendWebSocketMessage(conn *websocket.Conn, log *slog.Logger, data *model.WS
 	return nil
 }
 
-func shouldCloseConnection(ctx context.Context, log *slog.Logger) bool {
-	// get claims from context
-	claims, ok := ctx.Value(model.ClaimsKey).(*model.Claims)
-	if !ok || claims == nil {
-		log.Warn("claims not in ctx for websocket connection")
-		return true
+func (s *websocketService) shouldCloseConnection(ctx context.Context, log *slog.Logger) bool {
+	claims := util.ClaimsFromContext(ctx)
+	valid, err := s.userService.IsTokenValid(ctx, claims)
+	if err != nil {
+		log.Error("failed to validate token for websocket", "error", err)
+		return false
 	}
-
-	// check if token is expired
-	now := time.Now().Unix()
-	if claims.Expire < now {
-		log.Info("token expired for websocket connection", "expire", claims.Expire, "now", now)
+	if !valid {
+		log.Info("closing websocket connection, token no longer valid")
 		return true
 	}
 

@@ -247,6 +247,63 @@ func (_c *UserService_GetStats_Call) RunAndReturn(run func(context.Context, stri
 	return _c
 }
 
+// IsTokenValid provides a mock function with given fields: ctx, claims
+func (_m *UserService) IsTokenValid(ctx context.Context, claims *model.Claims) (bool, error) {
+	ret := _m.Called(ctx, claims)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsTokenValid")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Claims) (bool, error)); ok {
+		return rf(ctx, claims)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Claims) bool); ok {
+		r0 = rf(ctx, claims)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *model.Claims) error); ok {
+		r1 = rf(ctx, claims)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UserService_IsTokenValid_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsTokenValid'
+type UserService_IsTokenValid_Call struct {
+	*mock.Call
+}
+
+// IsTokenValid is a helper method to define mock.On call
+//   - ctx context.Context
+//   - claims *model.Claims
+func (_e *UserService_Expecter) IsTokenValid(ctx interface{}, claims interface{}) *UserService_IsTokenValid_Call {
+	return &UserService_IsTokenValid_Call{Call: _e.mock.On("IsTokenValid", ctx, claims)}
+}
+
+func (_c *UserService_IsTokenValid_Call) Run(run func(ctx context.Context, claims *model.Claims)) *UserService_IsTokenValid_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.Claims))
+	})
+	return _c
+}
+
+func (_c *UserService_IsTokenValid_Call) Return(_a0 bool, _a1 error) *UserService_IsTokenValid_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *UserService_IsTokenValid_Call) RunAndReturn(run func(context.Context, *model.Claims) (bool, error)) *UserService_IsTokenValid_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateProfile provides a mock function with given fields: ctx, email, initials
 func (_m *UserService) UpdateProfile(ctx context.Context, email string, initials string) (*model.User, error) {
 	ret := _m.Called(ctx, email, initials)

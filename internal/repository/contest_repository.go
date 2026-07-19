@@ -24,6 +24,7 @@ type ContestRepository interface {
 
 	UpdateSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
 	ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error)
+	GhostSquare(ctx context.Context, square *model.Square) (*model.Square, error)
 	ClearSquaresByOwner(ctx context.Context, contestID uuid.UUID, owner string) ([]model.Square, error)
 }
 
@@ -224,6 +225,24 @@ func (r *contestRepository) ClearSquare(ctx context.Context, square *model.Squar
 	})
 
 	return clearedSquare, err
+}
+
+func (r *contestRepository) GhostSquare(ctx context.Context, square *model.Square) (*model.Square, error) {
+	var ghostedSquare *model.Square
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// keep the value so the started grid stays filled and scoring is unaffected
+		square.Owner = model.GhostUser
+		square.OwnerName = ""
+
+		if err := tx.Save(square).Error; err != nil {
+			return err
+		}
+
+		ghostedSquare = square
+		return nil
+	})
+
+	return ghostedSquare, err
 }
 
 func (r *contestRepository) ClearSquaresByOwner(ctx context.Context, contestID uuid.UUID, owner string) ([]model.Square, error) {

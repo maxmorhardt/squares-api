@@ -17,16 +17,7 @@ on:
         default: ''
 
 jobs:
-  approve:
-    if: ${{ github.event_name == 'release' }}
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - run: echo "Deploy of ${{ github.event.release.tag_name }} approved"
-
   cd:
-    needs: approve
-    if: ${{ always() && (needs.approve.result == 'success' || needs.approve.result == 'skipped') }}
     uses: maxmorhardt/workflows/.github/workflows/cd-helm.yml@main
     with:
       repository: maxmorhardt/${{ github.event.repository.name }}

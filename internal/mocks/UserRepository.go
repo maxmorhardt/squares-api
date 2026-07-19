@@ -260,6 +260,64 @@ func (_c *UserRepository_GetStats_Call) RunAndReturn(run func(context.Context, s
 	return _c
 }
 
+// IsTokenRevoked provides a mock function with given fields: ctx, email, issuedAtUnix
+func (_m *UserRepository) IsTokenRevoked(ctx context.Context, email string, issuedAtUnix int64) (bool, error) {
+	ret := _m.Called(ctx, email, issuedAtUnix)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsTokenRevoked")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64) (bool, error)); ok {
+		return rf(ctx, email, issuedAtUnix)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64) bool); ok {
+		r0 = rf(ctx, email, issuedAtUnix)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int64) error); ok {
+		r1 = rf(ctx, email, issuedAtUnix)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UserRepository_IsTokenRevoked_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsTokenRevoked'
+type UserRepository_IsTokenRevoked_Call struct {
+	*mock.Call
+}
+
+// IsTokenRevoked is a helper method to define mock.On call
+//   - ctx context.Context
+//   - email string
+//   - issuedAtUnix int64
+func (_e *UserRepository_Expecter) IsTokenRevoked(ctx interface{}, email interface{}, issuedAtUnix interface{}) *UserRepository_IsTokenRevoked_Call {
+	return &UserRepository_IsTokenRevoked_Call{Call: _e.mock.On("IsTokenRevoked", ctx, email, issuedAtUnix)}
+}
+
+func (_c *UserRepository_IsTokenRevoked_Call) Run(run func(ctx context.Context, email string, issuedAtUnix int64)) *UserRepository_IsTokenRevoked_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int64))
+	})
+	return _c
+}
+
+func (_c *UserRepository_IsTokenRevoked_Call) Return(_a0 bool, _a1 error) *UserRepository_IsTokenRevoked_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *UserRepository_IsTokenRevoked_Call) RunAndReturn(run func(context.Context, string, int64) (bool, error)) *UserRepository_IsTokenRevoked_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ScrubUserData provides a mock function with given fields: ctx, email
 func (_m *UserRepository) ScrubUserData(ctx context.Context, email string) error {
 	ret := _m.Called(ctx, email)

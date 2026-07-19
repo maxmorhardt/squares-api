@@ -43,6 +43,7 @@ var (
 	ErrClaimsNotFound        = errors.New("authentication required")
 	ErrClaimsParse           = errors.New("claims parse failed")
 	ErrEmailUnverified       = errors.New("token has no verified email")
+	ErrTokenInvalid          = errors.New("token is no longer valid")
 )
 
 // pagination errors for list endpoints

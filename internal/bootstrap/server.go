@@ -15,7 +15,7 @@ func NewServer(deps *Dependencies) *gin.Engine {
 	r := gin.New()
 
 	setupMiddleware(r, deps.Config)
-	setupRoutes(r, deps, deps.Verifier)
+	setupRoutes(r, deps)
 	setupMetricsServer(deps.Config)
 	setupValidators()
 
@@ -33,7 +33,7 @@ func setupMiddleware(r *gin.Engine, cfg *model.AppConfig) {
 	}
 }
 
-func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVerifier) {
+func setupRoutes(r *gin.Engine, deps *Dependencies, verifierOverride ...middleware.TokenVerifier) {
 	db := deps.DB
 
 	contestRepo := repository.NewContestRepository(db)
@@ -45,17 +45,22 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 	userRepo := repository.NewUserRepository(db)
 
 	natsService := service.NewNatsService(deps.NATS)
+	userService := service.NewUserService(userRepo, natsService)
+
+	verifier := middleware.NewAuthVerifier(deps.OIDCVerifier, userService)
+	if len(verifierOverride) > 0 {
+		verifier = verifierOverride[0]
+	}
+
 	participantService := service.NewParticipantService(participantRepo, contestRepo, natsService)
 	contestService := service.NewContestService(contestRepo, participantRepo, gameRepo, userRepo, natsService, participantService)
 	gameService := service.NewGameService(gameRepo, contestRepo, natsService)
-	wsService := service.NewWebSocketService(deps.NATS)
+	wsService := service.NewWebSocketService(deps.NATS, userService)
 	contactService := service.NewContactService(contactRepo, deps.Config)
 	inviteService := service.NewInviteService(inviteRepo, participantRepo, contestRepo, participantService, natsService)
 
 	statsRepo := repository.NewStatsRepository(db)
 	statsService := service.NewStatsService(statsRepo)
-
-	userService := service.NewUserService(userRepo, natsService)
 
 	contestHandler := handler.NewContestHandler(contestService)
 	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo, participantService, deps.Config.Server.AllowedOrigins, deps.NATS)
@@ -65,7 +70,7 @@ func setupRoutes(r *gin.Engine, deps *Dependencies, verifier middleware.TokenVer
 	gameHandler := handler.NewGameHandler(gameService)
 	participantHandler := handler.NewParticipantHandler(participantService)
 	userHandler := handler.NewUserHandler(userService)
-	healthHandler := handler.NewHealthHandler(db, deps.NATS, deps.Verifier)
+	healthHandler := handler.NewHealthHandler(db, deps.NATS, verifier)
 
 	routes.RegisterRootRoutes(r.Group(""), healthHandler)
 	routes.RegisterStatsRoutes(r.Group("/stats"), statsHandler)

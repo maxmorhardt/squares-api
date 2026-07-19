@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 	_ = os.Setenv("TURNSTILE_SECRET_KEY", "test-key")
 
 	deps := buildDeps()
-	router = bootstrap.NewServer(deps)
+	router = bootstrap.NewServer(deps, fakeTokenVerifier{})
 
 	code := m.Run()
 
@@ -172,9 +172,8 @@ func buildDeps() *bootstrap.Dependencies {
 	}
 
 	return &bootstrap.Dependencies{
-		Config:   cfg,
-		DB:       db,
-		NATS:     nc,
-		Verifier: fakeTokenVerifier{},
+		Config: cfg,
+		DB:     db,
+		NATS:   nc,
 	}
 }
