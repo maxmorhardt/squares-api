@@ -56,6 +56,25 @@ func TestLeaderboard_MyRankRequiresAuth(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, code)
 }
 
+func TestLeaderboard_TotalRankedMatchesTheVisibleBoard(t *testing.T) {
+	// the board is well under the limit, so every ranked player must be on it. a winner counted
+	// in totalRanked but missing from the board is what produced a bogus "#2 of 2" for one entry
+	code, body := doRequest(t, http.MethodGet, "/leaderboard?limit=100", "", nil)
+	require.Equal(t, http.StatusOK, code)
+
+	var board model.LeaderboardResponse
+	require.NoError(t, json.Unmarshal(body, &board))
+
+	code, body = doRequest(t, http.MethodGet, "/leaderboard/me", ownerToken, nil)
+	require.Equal(t, http.StatusOK, code)
+
+	var rank model.LeaderboardRankResponse
+	require.NoError(t, json.Unmarshal(body, &rank))
+
+	assert.Equal(t, int64(len(board.Entries)), rank.TotalRanked)
+	assert.LessOrEqual(t, rank.Rank, len(board.Entries))
+}
+
 func TestLeaderboard_MyRankUnrankedUser(t *testing.T) {
 	// a fresh identity keeps this independent of wins other tests create
 	token := mintToken("no-wins@squares.test")

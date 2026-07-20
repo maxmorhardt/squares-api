@@ -7,11 +7,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// wins per user, excluding deleted contests and the ghost identity left behind by account deletion
+// wins per user, excluding deleted contests and the ghost identity left behind by account deletion.
+// joining users here keeps the ranked population identical to the one the board can display, so a
+// winner without a profile can never inflate totalRanked or push a real player down a place
 const winsCTE = `WITH wins AS (
 	SELECT q.winner AS email, COUNT(*) AS quarter_wins
 	FROM quarter_results q
 	JOIN contests c ON c.id = q.contest_id AND c.status <> ?
+	JOIN users u ON u.email = q.winner
 	WHERE q.winner <> '' AND q.winner <> ?
 	GROUP BY q.winner
 )`

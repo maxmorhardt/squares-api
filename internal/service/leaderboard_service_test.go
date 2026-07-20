@@ -49,21 +49,43 @@ func TestLeaderboardService_GetLeaderboard_TiedPlayersShareRank(t *testing.T) {
 	assert.Equal(t, 4, got.Entries[3].Rank)
 }
 
-func TestLeaderboardService_GetLeaderboard_MasksEmailDisplayNames(t *testing.T) {
+func TestLeaderboardService_GetLeaderboard_PublishesFirstNameLastInitial(t *testing.T) {
 	repo := mocks.NewLeaderboardRepository(t)
 	repo.EXPECT().GetTopWinners(mock.Anything, 25).Return([]model.LeaderboardEntry{
-		{DisplayName: "user@example.com", QuarterWins: 10},
-		{DisplayName: "Jordan", QuarterWins: 7},
-		{DisplayName: "@handle", QuarterWins: 5},
+		{DisplayName: "Max Morhardt", QuarterWins: 20},
+		{DisplayName: "Mary Jane Watson", QuarterWins: 18},
+		{DisplayName: "Jordan", QuarterWins: 16},
+		{DisplayName: "max.morhardt@example.com", QuarterWins: 14},
+		{DisplayName: "ada lovelace", QuarterWins: 12},
+		{DisplayName: "   ", QuarterWins: 10},
+		{DisplayName: "@handle", QuarterWins: 8},
 	}, nil)
 
 	got, err := service.NewLeaderboardService(repo).GetLeaderboard(context.Background(), 25)
 
 	require.NoError(t, err)
-	// the board is public, so an email-shaped display name must never be published whole
-	assert.Equal(t, "user", got.Entries[0].DisplayName)
-	assert.Equal(t, "Jordan", got.Entries[1].DisplayName)
-	assert.Equal(t, "player", got.Entries[2].DisplayName)
+	assert.Equal(t, "Max M.", got.Entries[0].DisplayName)
+	// only the final token is treated as the surname
+	assert.Equal(t, "Mary W.", got.Entries[1].DisplayName)
+	// a single name has no surname to abbreviate
+	assert.Equal(t, "Jordan", got.Entries[2].DisplayName)
+	// an email-shaped name is never published whole
+	assert.Equal(t, "max.morhardt", got.Entries[3].DisplayName)
+	assert.Equal(t, "ada L.", got.Entries[4].DisplayName)
+	assert.Equal(t, "Player", got.Entries[5].DisplayName)
+	assert.Equal(t, "Player", got.Entries[6].DisplayName)
+}
+
+func TestLeaderboardService_GetLeaderboard_NeverPublishesAFullSurname(t *testing.T) {
+	repo := mocks.NewLeaderboardRepository(t)
+	repo.EXPECT().GetTopWinners(mock.Anything, 25).Return([]model.LeaderboardEntry{
+		{DisplayName: "Max Morhardt", QuarterWins: 12},
+	}, nil)
+
+	got, err := service.NewLeaderboardService(repo).GetLeaderboard(context.Background(), 25)
+
+	require.NoError(t, err)
+	assert.NotContains(t, got.Entries[0].DisplayName, "Morhardt")
 }
 
 func TestLeaderboardService_GetLeaderboard_DefaultsLimit(t *testing.T) {

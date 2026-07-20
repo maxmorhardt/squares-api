@@ -15,8 +15,10 @@ const (
 	// distinct limits worth caching at once
 	leaderboardCacheSize = 8
 
-	DefaultLeaderboardLimit = 25
+	DefaultLeaderboardLimit = 10
 	MaxLeaderboardLimit     = 100
+
+	anonymousPlayer = "Player"
 )
 
 type LeaderboardService interface {
@@ -77,7 +79,7 @@ func (s *leaderboardService) GetUserRank(ctx context.Context, email string) (*mo
 // entries arrive ordered by wins desc, so tied players share the rank of the first of their group
 func assignRanks(entries []model.LeaderboardEntry) []model.LeaderboardEntry {
 	for i := range entries {
-		entries[i].DisplayName = maskEmail(entries[i].DisplayName)
+		entries[i].DisplayName = publicName(entries[i].DisplayName)
 
 		if i > 0 && entries[i].QuarterWins == entries[i-1].QuarterWins {
 			entries[i].Rank = entries[i-1].Rank
@@ -90,16 +92,24 @@ func assignRanks(entries []model.LeaderboardEntry) []model.LeaderboardEntry {
 	return entries
 }
 
-// a display name defaults to the email when the provider sends no name claim, and this
-// board is public, so never publish anything past the local part
-func maskEmail(displayName string) string {
-	at := strings.Index(displayName, "@")
-	if at < 0 {
-		return displayName
-	}
-	if at == 0 {
-		return "player"
+// the board is public, so a name is published as "First L." and never in full
+func publicName(displayName string) string {
+	// a display name defaults to the email when the provider sends no name claim
+	if at := strings.Index(displayName, "@"); at >= 0 {
+		displayName = displayName[:at]
 	}
 
-	return displayName[:at]
+	parts := strings.Fields(displayName)
+	if len(parts) == 0 {
+		return anonymousPlayer
+	}
+
+	first := parts[0]
+	if len(parts) == 1 {
+		return first
+	}
+
+	last := []rune(parts[len(parts)-1])
+
+	return first + " " + strings.ToUpper(string(last[0])) + "."
 }

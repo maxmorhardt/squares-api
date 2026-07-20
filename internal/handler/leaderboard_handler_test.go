@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/maxmorhardt/squares-api/internal/mocks"
 	"github.com/maxmorhardt/squares-api/internal/model"
+	"github.com/maxmorhardt/squares-api/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,7 @@ import (
 
 func TestGetLeaderboard_Success(t *testing.T) {
 	svc := mocks.NewLeaderboardService(t)
-	svc.EXPECT().GetLeaderboard(mock.Anything, 25).Return(&model.LeaderboardResponse{
+	svc.EXPECT().GetLeaderboard(mock.Anything, service.DefaultLeaderboardLimit).Return(&model.LeaderboardResponse{
 		Entries: []model.LeaderboardEntry{
 			{Rank: 1, DisplayName: "Max", QuarterWins: 12, SquaresClaimed: 48},
 		},
@@ -71,7 +72,7 @@ func TestGetLeaderboard_LimitTooLarge(t *testing.T)   { getLeaderboardBadRequest
 
 func TestGetLeaderboard_Error(t *testing.T) {
 	svc := mocks.NewLeaderboardService(t)
-	svc.EXPECT().GetLeaderboard(mock.Anything, 25).Return(nil, assert.AnError)
+	svc.EXPECT().GetLeaderboard(mock.Anything, service.DefaultLeaderboardLimit).Return(nil, assert.AnError)
 
 	r := gin.New()
 	r.GET("/leaderboard", NewLeaderboardHandler(svc).GetLeaderboard)
