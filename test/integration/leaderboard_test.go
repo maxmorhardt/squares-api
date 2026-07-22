@@ -26,6 +26,11 @@ func TestLeaderboard_PublicAccess(t *testing.T) {
 		assert.NotEmpty(t, entry.DisplayName)
 		assert.NotContains(t, entry.DisplayName, "@", "display name must not leak an email")
 
+		// you cannot win more quarters than you played, so the win rate can never exceed 100%.
+		// catches a denominator computed too narrowly; over-counting would only understate the rate
+		assert.LessOrEqual(t, entry.QuarterWins, entry.QuartersPlayed,
+			"%s won more quarters than they played", entry.DisplayName)
+
 		if i > 0 {
 			assert.LessOrEqual(t, entry.QuarterWins, resp.Entries[i-1].QuarterWins)
 			assert.GreaterOrEqual(t, entry.Rank, resp.Entries[i-1].Rank)

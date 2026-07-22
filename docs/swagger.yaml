@@ -270,6 +270,11 @@ definitions:
       quarterWins:
         example: 12
         type: integer
+      quartersPlayed:
+        description: quarters played in contests the user held a square in, the denominator
+          of the win rate
+        example: 40
+        type: integer
       rank:
         example: 1
         type: integer
@@ -496,6 +501,11 @@ definitions:
         type: integer
       quarterWins:
         example: 5
+        type: integer
+      quartersPlayed:
+        description: quarters played in contests the user held a square in, the denominator
+          of the win rate
+        example: 20
         type: integer
       squaresClaimed:
         example: 42

@@ -163,6 +163,18 @@ func (r *userRepository) GetStats(ctx context.Context, email string) (*model.Use
 		return nil, err
 	}
 
+	// every quarter the user had a stake in, so the win rate is wins per opportunity
+	if err := r.db.WithContext(ctx).Raw(
+		`SELECT COUNT(*)
+		FROM quarter_results q
+		JOIN contests c ON c.id = q.contest_id AND c.status <> ?
+		WHERE EXISTS (
+			SELECT 1 FROM squares s WHERE s.contest_id = q.contest_id AND s.owner = ?
+		)`, model.ContestStatusDeleted, email).
+		Scan(&stats.QuartersPlayed).Error; err != nil {
+		return nil, err
+	}
+
 	return &stats, nil
 }
 

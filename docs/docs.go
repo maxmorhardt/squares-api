@@ -2012,6 +2012,11 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 12
                 },
+                "quartersPlayed": {
+                    "description": "quarters played in contests the user held a square in, the denominator of the win rate",
+                    "type": "integer",
+                    "example": 40
+                },
                 "rank": {
                     "type": "integer",
                     "example": 1
@@ -2341,6 +2346,11 @@ const docTemplate = `{
                 "quarterWins": {
                     "type": "integer",
                     "example": 5
+                },
+                "quartersPlayed": {
+                    "description": "quarters played in contests the user held a square in, the denominator of the win rate",
+                    "type": "integer",
+                    "example": 20
                 },
                 "squaresClaimed": {
                     "type": "integer",

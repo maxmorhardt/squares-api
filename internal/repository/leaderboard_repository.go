@@ -41,7 +41,8 @@ func (r *leaderboardRepository) GetTopWinners(ctx context.Context, limit int) ([
 	if err := r.db.WithContext(ctx).Raw(winsCTE+`
 		SELECT u.display_name AS display_name,
 			w.quarter_wins AS quarter_wins,
-			COALESCE(sq.squares_claimed, 0) AS squares_claimed
+			COALESCE(sq.squares_claimed, 0) AS squares_claimed,
+			COALESCE(qp.quarters_played, 0) AS quarters_played
 		FROM wins w
 		JOIN users u ON u.email = w.email
 		LEFT JOIN (
@@ -50,9 +51,16 @@ func (r *leaderboardRepository) GetTopWinners(ctx context.Context, limit int) ([
 			WHERE owner <> ''
 			GROUP BY owner
 		) sq ON sq.owner = w.email
+		LEFT JOIN (
+			SELECT s.owner, COUNT(*) AS quarters_played
+			FROM (SELECT DISTINCT owner, contest_id FROM squares WHERE owner <> '') s
+			JOIN quarter_results q ON q.contest_id = s.contest_id
+			JOIN contests c ON c.id = s.contest_id AND c.status <> ?
+			GROUP BY s.owner
+		) qp ON qp.owner = w.email
 		ORDER BY w.quarter_wins DESC, squares_claimed ASC, u.display_name ASC
 		LIMIT ?`,
-		model.ContestStatusDeleted, model.GhostUser, limit).
+		model.ContestStatusDeleted, model.GhostUser, model.ContestStatusDeleted, limit).
 		Scan(&entries).Error; err != nil {
 		return nil, err
 	}

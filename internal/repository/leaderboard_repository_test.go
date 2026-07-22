@@ -15,9 +15,10 @@ func TestLeaderboardRepository_GetTopWinners_Success(t *testing.T) {
 	repo := NewLeaderboardRepository(gdb)
 
 	mock.ExpectQuery(`WITH wins AS`).
-		WillReturnRows(sqlmock.NewRows([]string{"display_name", "quarter_wins", "squares_claimed"}).
-			AddRow("Max", 12, 48).
-			AddRow("Jordan", 9, 40))
+		WillReturnRows(
+			sqlmock.NewRows([]string{"display_name", "quarter_wins", "squares_claimed", "quarters_played"}).
+				AddRow("Max", 12, 48, 40).
+				AddRow("Jordan", 9, 40, 36))
 
 	entries, err := repo.GetTopWinners(context.Background(), 25)
 
@@ -26,6 +27,7 @@ func TestLeaderboardRepository_GetTopWinners_Success(t *testing.T) {
 	assert.Equal(t, "Max", entries[0].DisplayName)
 	assert.Equal(t, int64(12), entries[0].QuarterWins)
 	assert.Equal(t, int64(48), entries[0].SquaresClaimed)
+	assert.Equal(t, int64(40), entries[0].QuartersPlayed)
 	assert.Equal(t, "Jordan", entries[1].DisplayName)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -35,7 +37,8 @@ func TestLeaderboardRepository_GetTopWinners_Empty(t *testing.T) {
 	repo := NewLeaderboardRepository(gdb)
 
 	mock.ExpectQuery(`WITH wins AS`).
-		WillReturnRows(sqlmock.NewRows([]string{"display_name", "quarter_wins", "squares_claimed"}))
+		WillReturnRows(
+			sqlmock.NewRows([]string{"display_name", "quarter_wins", "squares_claimed", "quarters_played"}))
 
 	entries, err := repo.GetTopWinners(context.Background(), 25)
 
