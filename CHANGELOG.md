@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/maxmorhardt/squares-api/compare/1.3.0...1.4.0) (2026-07-22)
+
+
+### Features
+
+* add public leaderboard ([#38](https://github.com/maxmorhardt/squares-api/issues/38)) ([a8799e2](https://github.com/maxmorhardt/squares-api/commit/a8799e21b4068c75da5fb3478bf35723b4add509))
+
 ## [1.3.0](https://github.com/maxmorhardt/squares-api/compare/1.2.0...1.3.0) (2026-07-19)
 
 
