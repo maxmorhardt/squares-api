@@ -33,6 +33,25 @@ type StatsResponse struct {
 	TotalActiveContests  int64 `json:"totalActiveContests" example:"12"`
 }
 
+type LeaderboardEntry struct {
+	Rank           int    `json:"rank" example:"1"`
+	DisplayName    string `json:"displayName" example:"Max"`
+	QuarterWins    int64  `json:"quarterWins" example:"12"`
+	SquaresClaimed int64  `json:"squaresClaimed" example:"48"`
+	QuartersPlayed int64  `json:"quartersPlayed" example:"40"`
+}
+
+type LeaderboardResponse struct {
+	Entries []LeaderboardEntry `json:"entries"`
+}
+
+type LeaderboardRankResponse struct {
+	Rank        int   `json:"rank" example:"7"`
+	TotalRanked int64 `json:"totalRanked" example:"143"`
+	QuarterWins int64 `json:"quarterWins" example:"5"`
+	Ranked      bool  `json:"ranked" example:"true"`
+}
+
 type UserProfileResponse struct {
 	Email           string `json:"email" example:"user@example.com"`
 	DisplayName     string `json:"displayName" example:"Max"`
@@ -52,6 +71,7 @@ type UserStatsResponse struct {
 	ContestsJoined  int64 `json:"contestsJoined" example:"7"`
 	SquaresClaimed  int64 `json:"squaresClaimed" example:"42"`
 	QuarterWins     int64 `json:"quarterWins" example:"5"`
+	QuartersPlayed  int64 `json:"quartersPlayed" example:"20"`
 }
 
 type InvitePreviewResponse struct {

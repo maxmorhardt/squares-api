@@ -49,10 +49,6 @@ test-integration: ## Run integration tests (requires Docker)
 test-all: ## Run all tests
 	go test $(RACE) ./...
 
-.PHONY: test-smoke
-test-smoke: ## Run smoke tests against a live deployment
-	go test -count=1 -v -run TestSmoke ./test/smoke/...
-
 .PHONY: cover
 cover: ## Run unit tests with coverage and enforce the threshold
 	go test $(RACE) -coverprofile=$(COVER_FILE) ./internal/... ./cmd/...

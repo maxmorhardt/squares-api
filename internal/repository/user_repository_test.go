@@ -174,6 +174,8 @@ func TestUserRepository_GetStats_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(42))
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "quarter_results"`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
+	mock.ExpectQuery(`FROM quarter_results q`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(20))
 
 	stats, err := repo.GetStats(context.Background(), "a@b.com")
 
@@ -182,6 +184,29 @@ func TestUserRepository_GetStats_Success(t *testing.T) {
 	assert.Equal(t, int64(7), stats.ContestsJoined)
 	assert.Equal(t, int64(42), stats.SquaresClaimed)
 	assert.Equal(t, int64(5), stats.QuarterWins)
+	assert.Equal(t, int64(20), stats.QuartersPlayed)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_GetStats_QuartersPlayedError(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewUserRepository(gdb)
+
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "contests"`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "contest_participants"`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(7))
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "squares"`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(42))
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "quarter_results"`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
+	mock.ExpectQuery(`FROM quarter_results q`).
+		WillReturnError(errors.New("quarters played query failed"))
+
+	stats, err := repo.GetStats(context.Background(), "a@b.com")
+
+	require.Error(t, err)
+	assert.Nil(t, stats)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

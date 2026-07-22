@@ -57,10 +57,14 @@ func setupRoutes(r *gin.Engine, deps *Dependencies) {
 	statsRepo := repository.NewStatsRepository(db)
 	statsService := service.NewStatsService(statsRepo)
 
+	leaderboardRepo := repository.NewLeaderboardRepository(db)
+	leaderboardService := service.NewLeaderboardService(leaderboardRepo)
+
 	contestHandler := handler.NewContestHandler(contestService)
 	wsHandler := handler.NewWebSocketHandler(wsService, contestRepo, participantService, deps.Config.Server.AllowedOrigins, deps.NATS)
 	contactHandler := handler.NewContactHandler(contactService)
 	statsHandler := handler.NewStatsHandler(statsService)
+	leaderboardHandler := handler.NewLeaderboardHandler(leaderboardService)
 	inviteHandler := handler.NewInviteHandler(inviteService)
 	gameHandler := handler.NewGameHandler(gameService)
 	participantHandler := handler.NewParticipantHandler(participantService)
@@ -69,6 +73,7 @@ func setupRoutes(r *gin.Engine, deps *Dependencies) {
 
 	routes.RegisterRootRoutes(r.Group(""), healthHandler)
 	routes.RegisterStatsRoutes(r.Group("/stats"), statsHandler)
+	routes.RegisterLeaderboardRoutes(r.Group("/leaderboard"), leaderboardHandler, userService)
 	routes.RegisterContactRoute(r.Group("/contact"), contactHandler, deps.Config.Server.ContactRateLimit)
 	routes.RegisterContestRoutes(r.Group("/contests"), contestHandler, userService)
 	routes.RegisterWebSocketRoutes(r.Group("/ws"), wsHandler, userService)
