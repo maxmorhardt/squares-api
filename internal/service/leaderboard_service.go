@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	leaderboardCacheTTL = 60 * time.Second
+	leaderboardCacheTTL  = 60 * time.Second
 	leaderboardCacheSize = 8
 
 	DefaultLeaderboardLimit = 10

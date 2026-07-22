@@ -38,7 +38,7 @@ type LeaderboardEntry struct {
 	DisplayName    string `json:"displayName" example:"Max"`
 	QuarterWins    int64  `json:"quarterWins" example:"12"`
 	SquaresClaimed int64  `json:"squaresClaimed" example:"48"`
-	QuartersPlayed int64 `json:"quartersPlayed" example:"40"`
+	QuartersPlayed int64  `json:"quartersPlayed" example:"40"`
 }
 
 type LeaderboardResponse struct {
@@ -71,7 +71,7 @@ type UserStatsResponse struct {
 	ContestsJoined  int64 `json:"contestsJoined" example:"7"`
 	SquaresClaimed  int64 `json:"squaresClaimed" example:"42"`
 	QuarterWins     int64 `json:"quarterWins" example:"5"`
-	QuartersPlayed int64 `json:"quartersPlayed" example:"20"`
+	QuartersPlayed  int64 `json:"quartersPlayed" example:"20"`
 }
 
 type InvitePreviewResponse struct {
