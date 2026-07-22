@@ -30,7 +30,7 @@ func NewLeaderboardHandler(leaderboardService service.LeaderboardService) Leader
 // @Description Returns players ranked by quarter wins. Display names only, no emails
 // @Tags leaderboard
 // @Produce json
-// @Param limit query int false "Number of players to return (1-100, default 25)"
+// @Param limit query int false "Number of players to return (1-100, default 10)"
 // @Success 200 {object} model.LeaderboardResponse
 // @Failure 400 {object} model.APIError
 // @Failure 500 {object} model.APIError

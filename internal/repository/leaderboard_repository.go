@@ -7,9 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// wins per user, excluding deleted contests and the ghost identity left behind by account deletion.
-// joining users here keeps the ranked population identical to the one the board can display, so a
-// winner without a profile can never inflate totalRanked or push a real player down a place
 const winsCTE = `WITH wins AS (
 	SELECT q.winner AS email, COUNT(*) AS quarter_wins
 	FROM quarter_results q
@@ -46,10 +43,11 @@ func (r *leaderboardRepository) GetTopWinners(ctx context.Context, limit int) ([
 		FROM wins w
 		JOIN users u ON u.email = w.email
 		LEFT JOIN (
-			SELECT owner, COUNT(*) AS squares_claimed
-			FROM squares
-			WHERE owner <> ''
-			GROUP BY owner
+			SELECT s.owner, COUNT(*) AS squares_claimed
+			FROM squares s
+			JOIN contests c ON c.id = s.contest_id AND c.status <> ?
+			WHERE s.owner <> ''
+			GROUP BY s.owner
 		) sq ON sq.owner = w.email
 		LEFT JOIN (
 			SELECT s.owner, COUNT(*) AS quarters_played
@@ -60,7 +58,7 @@ func (r *leaderboardRepository) GetTopWinners(ctx context.Context, limit int) ([
 		) qp ON qp.owner = w.email
 		ORDER BY w.quarter_wins DESC, squares_claimed ASC, u.display_name ASC
 		LIMIT ?`,
-		model.ContestStatusDeleted, model.GhostUser, model.ContestStatusDeleted, limit).
+		model.ContestStatusDeleted, model.GhostUser, model.ContestStatusDeleted, model.ContestStatusDeleted, limit).
 		Scan(&entries).Error; err != nil {
 		return nil, err
 	}

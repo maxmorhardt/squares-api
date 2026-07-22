@@ -38,7 +38,6 @@ type LeaderboardEntry struct {
 	DisplayName    string `json:"displayName" example:"Max"`
 	QuarterWins    int64  `json:"quarterWins" example:"12"`
 	SquaresClaimed int64  `json:"squaresClaimed" example:"48"`
-	// quarters played in contests the user held a square in, the denominator of the win rate
 	QuartersPlayed int64 `json:"quartersPlayed" example:"40"`
 }
 
@@ -72,7 +71,6 @@ type UserStatsResponse struct {
 	ContestsJoined  int64 `json:"contestsJoined" example:"7"`
 	SquaresClaimed  int64 `json:"squaresClaimed" example:"42"`
 	QuarterWins     int64 `json:"quarterWins" example:"5"`
-	// quarters played in contests the user held a square in, the denominator of the win rate
 	QuartersPlayed int64 `json:"quartersPlayed" example:"20"`
 }
 

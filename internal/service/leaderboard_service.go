@@ -12,7 +12,6 @@ import (
 
 const (
 	leaderboardCacheTTL = 60 * time.Second
-	// distinct limits worth caching at once
 	leaderboardCacheSize = 8
 
 	DefaultLeaderboardLimit = 10
@@ -64,19 +63,6 @@ func (s *leaderboardService) GetLeaderboard(ctx context.Context, limit int) (*mo
 	return leaderboard, nil
 }
 
-func (s *leaderboardService) GetUserRank(ctx context.Context, email string) (*model.LeaderboardRankResponse, error) {
-	log := util.LoggerFromContext(ctx)
-
-	rank, err := s.repo.GetUserRank(ctx, email)
-	if err != nil {
-		log.Error("failed to get user rank", "error", err)
-		return nil, err
-	}
-
-	return rank, nil
-}
-
-// entries arrive ordered by wins desc, so tied players share the rank of the first of their group
 func assignRanks(entries []model.LeaderboardEntry) []model.LeaderboardEntry {
 	for i := range entries {
 		entries[i].DisplayName = publicName(entries[i].DisplayName)
@@ -92,7 +78,6 @@ func assignRanks(entries []model.LeaderboardEntry) []model.LeaderboardEntry {
 	return entries
 }
 
-// the board is public, so a name is published as "First L." and never in full
 func publicName(displayName string) string {
 	// a display name defaults to the email when the provider sends no name claim
 	if at := strings.Index(displayName, "@"); at >= 0 {
@@ -112,4 +97,16 @@ func publicName(displayName string) string {
 	last := []rune(parts[len(parts)-1])
 
 	return first + " " + strings.ToUpper(string(last[0])) + "."
+}
+
+func (s *leaderboardService) GetUserRank(ctx context.Context, email string) (*model.LeaderboardRankResponse, error) {
+	log := util.LoggerFromContext(ctx)
+
+	rank, err := s.repo.GetUserRank(ctx, email)
+	if err != nil {
+		log.Error("failed to get user rank", "error", err)
+		return nil, err
+	}
+
+	return rank, nil
 }

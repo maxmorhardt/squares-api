@@ -1304,7 +1304,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Number of players to return (1-100, default 25)",
+                        "description": "Number of players to return (1-100, default 10)",
                         "name": "limit",
                         "in": "query"
                     }
