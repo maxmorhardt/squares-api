@@ -46,12 +46,12 @@ func (r *leaderboardRepository) GetTopWinners(ctx context.Context, limit int) ([
 			SELECT s.owner, COUNT(*) AS squares_claimed
 			FROM squares s
 			JOIN contests c ON c.id = s.contest_id AND c.status <> ?
-			WHERE s.owner <> ''
+			WHERE s.owner <> '' AND s.owner IN (SELECT email FROM wins)
 			GROUP BY s.owner
 		) sq ON sq.owner = w.email
 		LEFT JOIN (
 			SELECT s.owner, COUNT(*) AS quarters_played
-			FROM (SELECT DISTINCT owner, contest_id FROM squares WHERE owner <> '') s
+			FROM (SELECT DISTINCT owner, contest_id FROM squares WHERE owner <> '' AND owner IN (SELECT email FROM wins)) s
 			JOIN quarter_results q ON q.contest_id = s.contest_id
 			JOIN contests c ON c.id = s.contest_id AND c.status <> ?
 			GROUP BY s.owner

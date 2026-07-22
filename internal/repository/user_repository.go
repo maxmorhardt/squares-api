@@ -151,14 +151,16 @@ func (r *userRepository) GetStats(ctx context.Context, email string) (*model.Use
 
 	if err := r.db.WithContext(ctx).
 		Model(&model.Square{}).
-		Where("owner = ?", email).
+		Joins("JOIN contests c ON c.id = squares.contest_id AND c.status <> ?", model.ContestStatusDeleted).
+		Where("squares.owner = ?", email).
 		Count(&stats.SquaresClaimed).Error; err != nil {
 		return nil, err
 	}
 
 	if err := r.db.WithContext(ctx).
 		Model(&model.QuarterResult{}).
-		Where("winner = ?", email).
+		Joins("JOIN contests c ON c.id = quarter_results.contest_id AND c.status <> ?", model.ContestStatusDeleted).
+		Where("quarter_results.winner = ?", email).
 		Count(&stats.QuarterWins).Error; err != nil {
 		return nil, err
 	}
