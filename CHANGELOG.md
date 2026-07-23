@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/maxmorhardt/squares-api/compare/1.4.0...1.4.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* exclude deleted contests from stats queries ([#40](https://github.com/maxmorhardt/squares-api/issues/40)) ([a7dc89d](https://github.com/maxmorhardt/squares-api/commit/a7dc89d2b96f4105fb03b7e3f0aba5c20190ec0e))
+
 ## [1.4.0](https://github.com/maxmorhardt/squares-api/compare/1.3.0...1.4.0) (2026-07-22)
 
 
