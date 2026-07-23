@@ -1,0 +1,4 @@
+UPDATE contests SET status = 'ACTIVE' WHERE status IS NULL;
+
+ALTER TABLE contests ALTER COLUMN status SET DEFAULT 'ACTIVE';
+ALTER TABLE contests ALTER COLUMN status SET NOT NULL;
