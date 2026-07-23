@@ -16,7 +16,7 @@ func TestStatsRepository_GetStats_Success(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "contests"`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "squares"`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "squares" JOIN contests c ON c\.id = squares\.contest_id AND c\.status <> \$1`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(12))
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "contests"`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
