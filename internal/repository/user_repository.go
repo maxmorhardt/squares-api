@@ -144,7 +144,8 @@ func (r *userRepository) GetStats(ctx context.Context, email string) (*model.Use
 
 	if err := r.db.WithContext(ctx).
 		Model(&model.ContestParticipant{}).
-		Where("user_id = ?", email).
+		Joins("JOIN contests c ON c.id = contest_participants.contest_id AND c.status <> ?", model.ContestStatusDeleted).
+		Where("contest_participants.user_id = ?", email).
 		Count(&stats.ContestsJoined).Error; err != nil {
 		return nil, err
 	}

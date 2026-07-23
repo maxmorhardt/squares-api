@@ -33,7 +33,8 @@ func (r *statsRepository) GetStats(ctx context.Context) (*model.StatsResponse, e
 
 	if err := r.db.WithContext(ctx).
 		Model(&model.Square{}).
-		Where("owner != '' AND updated_at::date = CURRENT_DATE").
+		Joins("JOIN contests c ON c.id = squares.contest_id AND c.status <> ?", model.ContestStatusDeleted).
+		Where("squares.owner != '' AND squares.updated_at::date = CURRENT_DATE").
 		Count(&stats.SquaresClaimedToday).Error; err != nil {
 		return nil, err
 	}

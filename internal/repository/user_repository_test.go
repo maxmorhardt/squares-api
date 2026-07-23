@@ -168,7 +168,7 @@ func TestUserRepository_GetStats_Success(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "contests"`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "contest_participants"`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "contest_participants" JOIN contests c ON c\.id = contest_participants\.contest_id AND c\.status <> \$1`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(7))
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "squares"`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(42))
@@ -194,7 +194,7 @@ func TestUserRepository_GetStats_QuartersPlayedError(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "contests"`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
-	mock.ExpectQuery(`SELECT count\(\*\) FROM "contest_participants"`).
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "contest_participants" JOIN contests c ON c\.id = contest_participants\.contest_id AND c\.status <> \$1`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(7))
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "squares"`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(42))
