@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.2](https://github.com/maxmorhardt/squares-api/compare/1.4.1...1.4.2) (2026-07-27)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/prometheus/client_golang to v1.24.0 ([#42](https://github.com/maxmorhardt/squares-api/issues/42)) ([31027ac](https://github.com/maxmorhardt/squares-api/commit/31027acf05ef7f793453d8efd060e4c30fb7e0cc))
+* **deps:** update module github.com/prometheus/client_golang to v1.24.1 ([#44](https://github.com/maxmorhardt/squares-api/issues/44)) ([c85d479](https://github.com/maxmorhardt/squares-api/commit/c85d479c21a28abcd663451faa64e62db1c38aac))
+
 ## [1.4.1](https://github.com/maxmorhardt/squares-api/compare/1.4.0...1.4.1) (2026-07-23)
 
 
