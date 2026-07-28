@@ -16,16 +16,16 @@ A real-time football squares pool API built with Go and Gin. Supports contest li
 - **Square Claiming** - Users can claim squares during ACTIVE state only
 - **Automatic Label Randomization** - X/Y axis labels (0-9) are randomly shuffled when transitioning to Q1
 - **Quarter Results** - Record scores and automatically calculate winners based on last digit matching
-- **Winner Tracking** - Stores winner username, first name, and last name for each quarter
+- **Winner Tracking** - Stores the winner's email and display name for each quarter
 - **Real-time Updates** - WebSocket connections for live contest, square, and quarter result updates
-- **OIDC Authentication** - JWT token validation with username, first name, and last name claims
+- **OIDC Authentication** - JWT token validation on the `email` and `email_verified` claims; email is the user identity
 - **NATS Messaging** - Scales horizontally with cross-instance WebSocket broadcasting
 - **PostgreSQL** - Data persistence with GORM ORM; schema managed by versioned **golang-migrate** migrations applied at startup
 - **Swagger Documentation** - Auto-generated API documentation
 
 ## Dependencies
 This application requires the following services to be deployed:
-- **OIDC Provider** (e.g., Keycloak) for authentication
+- **OIDC Provider** (Dex, with Google and GitHub sign-in) for authentication
 - **PostgreSQL** database for data persistence
 - **NATS** for pub/sub messaging and real-time event broadcasting
 - **SMTP Server** for email notifications
