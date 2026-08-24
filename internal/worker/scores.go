@@ -10,8 +10,9 @@ import (
 	"github.com/maxmorhardt/squares-api/internal/util"
 )
 
-// how far ahead each fetch reaches
 const scheduleWindow = 10 * 24 * time.Hour
+const scheduleLookback = 24 * time.Hour
+const espnDateLayout = "20060102"
 
 type scoresWorker struct {
 	espn           clients.ESPNClient
@@ -31,10 +32,7 @@ func newScoresWorker(espn clients.ESPNClient, gameService service.GameService, a
 
 func (w *scoresWorker) run(ctx context.Context) error {
 	// one fetch over the schedule window covers upcoming fixtures and live scores together
-	now := time.Now()
-	dates := now.Format("20060102") + "-" + now.Add(scheduleWindow).Format("20060102")
-
-	games, err := w.espn.FetchScoreboard(ctx, dates)
+	games, err := w.espn.FetchScoreboard(ctx, scoreboardDates(time.Now()))
 	if err != nil {
 		return err
 	}
@@ -52,6 +50,11 @@ func (w *scoresWorker) run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// reach back a day so a game still in progress after midnight UTC stays in range
+func scoreboardDates(now time.Time) string {
+	return now.Add(-scheduleLookback).Format(espnDateLayout) + "-" + now.Add(scheduleWindow).Format(espnDateLayout)
 }
 
 func (w *scoresWorker) nextDelay(ctx context.Context) time.Duration {

@@ -45,6 +45,12 @@ func TestScoresWorker_Run_IngestError(t *testing.T) {
 	require.Error(t, newWorker(t, espn, gameSvc).run(context.Background()))
 }
 
+func TestScoresWorker_ScoreboardDates(t *testing.T) {
+	// 00:20 UTC on the 22nd is still the evening of the 21st in ET, mid-game
+	now := time.Date(2026, 8, 22, 0, 20, 0, 0, time.UTC)
+	assert.Equal(t, "20260821-20260901", scoreboardDates(now))
+}
+
 func TestScoresWorker_NextDelay_Live(t *testing.T) {
 	gameSvc := mocks.NewGameService(t)
 	gameSvc.EXPECT().Activity(mock.Anything).Return(model.GameActivity{Live: true}, nil)
