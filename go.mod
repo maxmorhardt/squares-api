@@ -15,7 +15,7 @@ require (
 	github.com/nats-io/nats.go v1.52.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/stretchr/testify v1.11.1
-	github.com/testcontainers/testcontainers-go v0.43.0
+	github.com/testcontainers/testcontainers-go v0.44.0
 )
 
 require (
@@ -32,8 +32,8 @@ require (
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/ebitengine/purego v0.10.0 // indirect
-	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/ebitengine/purego v0.10.1 // indirect
+	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -60,18 +60,18 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/shirou/gopsutil/v4 v4.26.5 // indirect
+	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
-	github.com/tklauser/go-sysconf v0.3.16 // indirect
-	github.com/tklauser/numcpus v0.11.0 // indirect
+	github.com/tklauser/go-sysconf v0.4.0 // indirect
+	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0 // indirect
-	go.opentelemetry.io/otel v1.43.0 // indirect
-	go.opentelemetry.io/otel/metric v1.43.0 // indirect
-	go.opentelemetry.io/otel/trace v1.43.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
+	go.opentelemetry.io/otel v1.44.0 // indirect
+	go.opentelemetry.io/otel/metric v1.44.0 // indirect
+	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.6.0 // indirect
@@ -123,7 +123,7 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/swaggo/swag v1.16.6
-	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
@@ -138,7 +138,7 @@ require (
 	golang.org/x/tools v0.49.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gorm.io/datatypes v1.2.7
-	gorm.io/driver/postgres v1.6.1
+	gorm.io/driver/postgres v1.6.2
 	gorm.io/gorm v1.31.2
 	gorm.io/plugin/dbresolver v1.6.2
 )
