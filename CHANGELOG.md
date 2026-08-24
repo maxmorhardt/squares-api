@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.4](https://github.com/maxmorhardt/squares-api/compare/1.4.3...1.4.4) (2026-08-24)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#49](https://github.com/maxmorhardt/squares-api/issues/49)) ([6f53577](https://github.com/maxmorhardt/squares-api/commit/6f5357782c756322dac8195f1b6324cd1f86fb6c))
+* **deps:** update all non-major dependencies ([#51](https://github.com/maxmorhardt/squares-api/issues/51)) ([54f5017](https://github.com/maxmorhardt/squares-api/commit/54f50174c75d3265409509e3b5bf9c9ccd8edefe))
+* **worker:** scoring stuck ([#52](https://github.com/maxmorhardt/squares-api/issues/52)) ([ac121c1](https://github.com/maxmorhardt/squares-api/commit/ac121c12312eab122eed985f2b3c1ac0fabd80a9))
+
 ## [1.4.3](https://github.com/maxmorhardt/squares-api/compare/1.4.2...1.4.3) (2026-08-02)
 
 
