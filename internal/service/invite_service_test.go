@@ -276,7 +276,7 @@ func TestRedeemInvite_RepoFails(t *testing.T) {
 	contestID := uuid.New()
 	inv := mocks.NewInviteRepository(t)
 	inv.EXPECT().GetByToken(mock.Anything, mock.Anything).Return(&model.ContestInvite{ContestID: contestID, MaxSquares: 10}, nil)
-	inv.EXPECT().RedeemInvite(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("tx failed"))
+	inv.EXPECT().RedeemInvite(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("tx failed"))
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	p := mocks.NewParticipantRepository(t)
@@ -288,11 +288,40 @@ func TestRedeemInvite_RepoFails(t *testing.T) {
 	require.Error(t, err)
 }
 
+func redeemConflict(t *testing.T, repoErr, want error) {
+	t.Helper()
+	contestID := uuid.New()
+	inv := mocks.NewInviteRepository(t)
+	inv.EXPECT().GetByToken(mock.Anything, mock.Anything).Return(&model.ContestInvite{ContestID: contestID, MaxSquares: 10}, nil)
+	inv.EXPECT().RedeemInvite(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(repoErr)
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
+	p := mocks.NewParticipantRepository(t)
+	// every precheck passes, so only the guarded transaction can reject the redemption
+	p.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, mock.Anything).Return(nil, gorm.ErrRecordNotFound)
+	p.EXPECT().GetTotalAllocatedSquares(mock.Anything, mock.Anything).Return(0, nil)
+
+	_, err := inviteSvc(inv, p, c, mocks.NewParticipantService(t)).RedeemInvite(context.Background(), "tok", "u")
+	assert.ErrorIs(t, err, want)
+}
+
+func TestRedeemInvite_PoolFilledConcurrently(t *testing.T) {
+	redeemConflict(t, errs.ErrNotEnoughSquares, errs.ErrNotEnoughSquares)
+}
+
+func TestRedeemInvite_UsesExhaustedConcurrently(t *testing.T) {
+	redeemConflict(t, errs.ErrInviteMaxUsesReached, errs.ErrInviteMaxUsesReached)
+}
+
+func TestRedeemInvite_JoinedConcurrently(t *testing.T) {
+	redeemConflict(t, gorm.ErrDuplicatedKey, errs.ErrAlreadyParticipant)
+}
+
 func TestRedeemInvite_Success(t *testing.T) {
 	contestID := uuid.New()
 	inv := mocks.NewInviteRepository(t)
 	inv.EXPECT().GetByToken(mock.Anything, mock.Anything).Return(&model.ContestInvite{ContestID: contestID, Role: model.ParticipantRoleParticipant, MaxSquares: 10}, nil)
-	inv.EXPECT().RedeemInvite(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inv.EXPECT().RedeemInvite(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive}, nil)
 	p := mocks.NewParticipantRepository(t)

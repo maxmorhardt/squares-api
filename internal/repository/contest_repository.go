@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -202,21 +203,54 @@ func (r *contestRepository) RollbackQuarterResult(ctx context.Context, resultID 
 func (r *contestRepository) ClaimSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error) {
 	var claimedSquare *model.Square
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// update square value and owner information
-		square.Value = value
-		square.Owner = owner
-		square.OwnerName = ownerName
-
-		// save updated square
-		if err := tx.Save(square).Error; err != nil {
+		// lock the participant row so this user's concurrent claims serialize and the limit below holds
+		var participant model.ContestParticipant
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("contest_id = ? AND user_id = ?", square.ContestID, owner).
+			First(&participant).Error; err != nil {
 			return err
 		}
 
+		// only an unclaimed square or one the caller already owns can be written, decided by the database
+		res := tx.Model(&model.Square{}).
+			Where("id = ? AND (owner = ? OR owner = ?)", square.ID, "", owner).
+			Updates(map[string]any{
+				"value":      value,
+				"owner":      owner,
+				"owner_name": ownerName,
+				"updated_by": owner,
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return errs.ErrSquareTaken
+		}
+
+		// count after the write so the new claim is included, then roll back if it broke the limit
+		var claimed int64
+		if err := tx.Model(&model.Square{}).
+			Where("contest_id = ? AND owner = ? AND value != ?", square.ContestID, owner, "").
+			Count(&claimed).Error; err != nil {
+			return err
+		}
+		if claimed > int64(participant.MaxSquares) {
+			return errs.ErrSquareLimitReached
+		}
+
+		square.Value = value
+		square.Owner = owner
+		square.OwnerName = ownerName
+		square.UpdatedBy = owner
 		claimedSquare = square
 		return nil
 	})
 
-	return claimedSquare, err
+	if err != nil {
+		return nil, err
+	}
+
+	return claimedSquare, nil
 }
 
 func (r *contestRepository) ClearSquare(ctx context.Context, square *model.Square) (*model.Square, error) {

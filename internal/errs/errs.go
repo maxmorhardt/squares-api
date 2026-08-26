@@ -24,6 +24,7 @@ var (
 	ErrContestFinalized           = errors.New("contest is finished or deleted and cannot be modified")
 	ErrContestNotReady            = errors.New("all squares must be claimed before the contest can be started")
 	ErrSquareNotEditable          = errors.New("squares can only be edited when contest is active")
+	ErrSquareTaken                = errors.New("that square was just claimed by someone else")
 	ErrContestAlreadyExists       = errors.New("contest already exists with this name")
 	ErrQuarterResultAlreadyExists = errors.New("result of this quarter has already been recorded")
 	ErrNoQuarterResultToRollback  = errors.New("there is no recorded quarter result to roll back")

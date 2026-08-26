@@ -7,6 +7,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -98,19 +99,71 @@ func TestContestRepository_GetByGameID(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func expectClaimParticipantLock(mock sqlmock.Sqlmock, contestID uuid.UUID, maxSquares int) {
+	mock.ExpectQuery(`SELECT \* FROM "contest_participants".*FOR UPDATE`).
+		WithArgs(contestID, "owner", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "contest_id", "user_id", "max_squares"}).
+			AddRow(uuid.New(), contestID, "owner", maxSquares))
+}
+
 func TestContestRepository_ClaimSquare(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewContestRepository(gdb)
 
+	contestID := uuid.New()
 	mock.ExpectBegin()
+	expectClaimParticipantLock(mock, contestID, 5)
 	mock.ExpectExec(`UPDATE "squares"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "squares"`).
+		WithArgs(contestID, "owner", "").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
 	mock.ExpectCommit()
 
-	sq, err := repo.ClaimSquare(context.Background(), &model.Square{ID: uuid.New()}, "AB", "owner", "Owner Name")
+	sq, err := repo.ClaimSquare(context.Background(), &model.Square{ID: uuid.New(), ContestID: contestID}, "AB", "owner", "Owner Name")
 
 	require.NoError(t, err)
 	assert.Equal(t, "AB", sq.Value)
 	assert.Equal(t, "owner", sq.Owner)
+	assert.Equal(t, "owner", sq.UpdatedBy)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContestRepository_ClaimSquare_LostRace(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	contestID := uuid.New()
+	mock.ExpectBegin()
+	expectClaimParticipantLock(mock, contestID, 5)
+	// another claim committed first, so the guarded update matches no rows
+	mock.ExpectExec(`UPDATE "squares"`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectRollback()
+
+	sq, err := repo.ClaimSquare(context.Background(), &model.Square{ID: uuid.New(), ContestID: contestID}, "AB", "owner", "Owner Name")
+
+	require.ErrorIs(t, err, errs.ErrSquareTaken)
+	assert.Nil(t, sq)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContestRepository_ClaimSquare_OverLimit(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	contestID := uuid.New()
+	mock.ExpectBegin()
+	expectClaimParticipantLock(mock, contestID, 3)
+	mock.ExpectExec(`UPDATE "squares"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	// the claim pushed the caller past their allotment, so the write is rolled back
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "squares"`).
+		WithArgs(contestID, "owner", "").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(4))
+	mock.ExpectRollback()
+
+	sq, err := repo.ClaimSquare(context.Background(), &model.Square{ID: uuid.New(), ContestID: contestID}, "AB", "owner", "Owner Name")
+
+	require.ErrorIs(t, err, errs.ErrSquareLimitReached)
+	assert.Nil(t, sq)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

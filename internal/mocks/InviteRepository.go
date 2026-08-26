@@ -236,17 +236,17 @@ func (_c *InviteRepository_GetByToken_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
-// RedeemInvite provides a mock function with given fields: ctx, inviteID, participant
-func (_m *InviteRepository) RedeemInvite(ctx context.Context, inviteID uuid.UUID, participant *model.ContestParticipant) error {
-	ret := _m.Called(ctx, inviteID, participant)
+// RedeemInvite provides a mock function with given fields: ctx, inviteID, participant, maxPoolSquares
+func (_m *InviteRepository) RedeemInvite(ctx context.Context, inviteID uuid.UUID, participant *model.ContestParticipant, maxPoolSquares int) error {
+	ret := _m.Called(ctx, inviteID, participant, maxPoolSquares)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RedeemInvite")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *model.ContestParticipant) error); ok {
-		r0 = rf(ctx, inviteID, participant)
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *model.ContestParticipant, int) error); ok {
+		r0 = rf(ctx, inviteID, participant, maxPoolSquares)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -263,13 +263,14 @@ type InviteRepository_RedeemInvite_Call struct {
 //   - ctx context.Context
 //   - inviteID uuid.UUID
 //   - participant *model.ContestParticipant
-func (_e *InviteRepository_Expecter) RedeemInvite(ctx interface{}, inviteID interface{}, participant interface{}) *InviteRepository_RedeemInvite_Call {
-	return &InviteRepository_RedeemInvite_Call{Call: _e.mock.On("RedeemInvite", ctx, inviteID, participant)}
+//   - maxPoolSquares int
+func (_e *InviteRepository_Expecter) RedeemInvite(ctx interface{}, inviteID interface{}, participant interface{}, maxPoolSquares interface{}) *InviteRepository_RedeemInvite_Call {
+	return &InviteRepository_RedeemInvite_Call{Call: _e.mock.On("RedeemInvite", ctx, inviteID, participant, maxPoolSquares)}
 }
 
-func (_c *InviteRepository_RedeemInvite_Call) Run(run func(ctx context.Context, inviteID uuid.UUID, participant *model.ContestParticipant)) *InviteRepository_RedeemInvite_Call {
+func (_c *InviteRepository_RedeemInvite_Call) Run(run func(ctx context.Context, inviteID uuid.UUID, participant *model.ContestParticipant, maxPoolSquares int)) *InviteRepository_RedeemInvite_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(*model.ContestParticipant))
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(*model.ContestParticipant), args[3].(int))
 	})
 	return _c
 }
@@ -279,7 +280,7 @@ func (_c *InviteRepository_RedeemInvite_Call) Return(_a0 error) *InviteRepositor
 	return _c
 }
 
-func (_c *InviteRepository_RedeemInvite_Call) RunAndReturn(run func(context.Context, uuid.UUID, *model.ContestParticipant) error) *InviteRepository_RedeemInvite_Call {
+func (_c *InviteRepository_RedeemInvite_Call) RunAndReturn(run func(context.Context, uuid.UUID, *model.ContestParticipant, int) error) *InviteRepository_RedeemInvite_Call {
 	_c.Call.Return(run)
 	return _c
 }

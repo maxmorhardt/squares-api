@@ -561,6 +561,9 @@ func TestClaimSquare_UnauthorizedSquareEdit(t *testing.T) {
 func TestClaimSquare_MissingInitials(t *testing.T) {
 	claimSquareErr(t, "owner1", errs.ErrMissingInitials, http.StatusConflict)
 }
+func TestClaimSquare_SquareTaken(t *testing.T) {
+	claimSquareErr(t, "owner1", errs.ErrSquareTaken, http.StatusConflict)
+}
 func TestClaimSquare_ClaimsNotFound(t *testing.T) {
 	claimSquareErr(t, "owner1", errs.ErrClaimsNotFound, http.StatusUnauthorized)
 }

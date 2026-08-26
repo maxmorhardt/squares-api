@@ -53,7 +53,7 @@ func setupPrimary(cfg *model.AppConfig) (*gorm.DB, error) {
 		cfg.DB.SSLMode,
 	)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to primary database: %w", err)
 	}

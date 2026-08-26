@@ -530,7 +530,7 @@ func (h *contestHandler) ClaimSquare(c *gin.Context) {
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrUnauthorizedSquareEdit):
 			c.JSON(http.StatusForbidden, model.NewAPIError(http.StatusForbidden, util.CapitalizeFirstLetter(err), c))
-		case errors.Is(err, errs.ErrMissingInitials):
+		case errors.Is(err, errs.ErrMissingInitials), errors.Is(err, errs.ErrSquareTaken):
 			c.JSON(http.StatusConflict, model.NewAPIError(http.StatusConflict, util.CapitalizeFirstLetter(err), c))
 		case errors.Is(err, errs.ErrClaimsNotFound):
 			c.JSON(http.StatusUnauthorized, model.NewAPIError(http.StatusUnauthorized, util.CapitalizeFirstLetter(err), c))

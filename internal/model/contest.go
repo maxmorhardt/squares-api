@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const MaxContestSquares = 100
+
 type ContestVisibility string
 
 const (
