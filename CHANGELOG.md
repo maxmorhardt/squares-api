@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.5](https://github.com/maxmorhardt/squares-api/compare/1.4.4...1.4.5) (2026-08-26)
+
+
+### Bug Fixes
+
+* harden square claim and invite races ([#53](https://github.com/maxmorhardt/squares-api/issues/53)) ([5b5397b](https://github.com/maxmorhardt/squares-api/commit/5b5397b8aa5a03021574c95eb688842c7269e3d7))
+
 ## [1.4.4](https://github.com/maxmorhardt/squares-api/compare/1.4.3...1.4.4) (2026-08-24)
 
 
