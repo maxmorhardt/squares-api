@@ -578,8 +578,18 @@ func (s *contestService) ClaimSquare(ctx context.Context, contestID, squareID uu
 		return nil, errs.ErrMissingInitials
 	}
 
+	// the repository re-checks ownership and the limit atomically, so it is the authority on both
 	claimedSquare, err := s.repo.ClaimSquare(ctx, square, profile.DefaultInitials, user, claims.Name)
 	if err != nil {
+		switch {
+		case errors.Is(err, errs.ErrSquareTaken):
+			log.Warn("square claimed by another user first", "square_id", square.ID, "user", user)
+			return nil, err
+		case errors.Is(err, errs.ErrSquareLimitReached):
+			log.Warn("concurrent claims exceeded square limit", "contest_id", contestID, "user", user)
+			return nil, err
+		}
+
 		log.Error("failed to claim square", "square_id", square.ID, "value", profile.DefaultInitials, "owner", user, "error", err)
 		return nil, err
 	}

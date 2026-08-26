@@ -653,6 +653,39 @@ func TestClaimSquare_RepoError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestClaimSquare_LostRaceToAnotherUser(t *testing.T) {
+	squareID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
+	repo.EXPECT().ClaimSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errs.ErrSquareTaken)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	pRepo := mocks.NewParticipantRepository(t)
+	pRepo.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, mock.Anything).Return(&model.ContestParticipant{MaxSquares: 5}, nil)
+	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(0, nil)
+
+	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "N"})
+	_, err := contestSvc(repo, pRepo, pSvc).ClaimSquare(ctx, uuid.New(), squareID, "u")
+	assert.ErrorIs(t, err, errs.ErrSquareTaken)
+}
+
+func TestClaimSquare_LimitReachedConcurrently(t *testing.T) {
+	squareID := uuid.New()
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{Status: model.ContestStatusActive, Squares: []model.Square{{ID: squareID}}}, nil)
+	repo.EXPECT().ClaimSquare(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errs.ErrSquareLimitReached)
+	pSvc := mocks.NewParticipantService(t)
+	pSvc.EXPECT().Authorize(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	pRepo := mocks.NewParticipantRepository(t)
+	// the unsynchronized precheck passes, so only the repository can catch the limit breach
+	pRepo.EXPECT().GetByContestAndUser(mock.Anything, mock.Anything, mock.Anything).Return(&model.ContestParticipant{MaxSquares: 5}, nil)
+	pRepo.EXPECT().CountSquaresByUser(mock.Anything, mock.Anything, mock.Anything).Return(4, nil)
+
+	ctx := context.WithValue(context.Background(), model.ClaimsKey, &model.Claims{Name: "N"})
+	_, err := contestSvc(repo, pRepo, pSvc).ClaimSquare(ctx, uuid.New(), squareID, "u")
+	assert.ErrorIs(t, err, errs.ErrSquareLimitReached)
+}
+
 func TestClaimSquare_ReEditOwnSquare(t *testing.T) {
 	squareID := uuid.New()
 	repo := mocks.NewContestRepository(t)

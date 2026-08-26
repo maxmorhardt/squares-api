@@ -6,6 +6,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	"github.com/maxmorhardt/squares-api/internal/errs"
 	"github.com/maxmorhardt/squares-api/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,13 +70,61 @@ func TestInviteRepository_RedeemInvite(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewInviteRepository(gdb)
 
+	contestID := uuid.New()
 	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT "id" FROM "contests".*FOR UPDATE`).
+		WithArgs(contestID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(contestID))
+	mock.ExpectQuery(`SELECT COALESCE\(SUM\(max_squares\), 0\) FROM "contest_participants"`).
+		WithArgs(contestID).
+		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow(10))
 	mock.ExpectExec(`INSERT INTO "contest_participants"`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`UPDATE "contest_invites"`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	err := repo.RedeemInvite(context.Background(), uuid.New(), &model.ContestParticipant{UserID: "u"})
+	err := repo.RedeemInvite(context.Background(), uuid.New(), &model.ContestParticipant{ContestID: contestID, UserID: "u", MaxSquares: 10}, 100)
 	require.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestInviteRepository_RedeemInvite_PoolExhausted(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewInviteRepository(gdb)
+
+	contestID := uuid.New()
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT "id" FROM "contests".*FOR UPDATE`).
+		WithArgs(contestID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(contestID))
+	mock.ExpectQuery(`SELECT COALESCE\(SUM\(max_squares\), 0\) FROM "contest_participants"`).
+		WithArgs(contestID).
+		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow(95))
+	mock.ExpectRollback()
+
+	err := repo.RedeemInvite(context.Background(), uuid.New(), &model.ContestParticipant{ContestID: contestID, UserID: "u", MaxSquares: 10}, 100)
+	require.ErrorIs(t, err, errs.ErrNotEnoughSquares)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestInviteRepository_RedeemInvite_UsesExhausted(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewInviteRepository(gdb)
+
+	contestID := uuid.New()
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT "id" FROM "contests".*FOR UPDATE`).
+		WithArgs(contestID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(contestID))
+	mock.ExpectQuery(`SELECT COALESCE\(SUM\(max_squares\), 0\) FROM "contest_participants"`).
+		WithArgs(contestID).
+		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow(0))
+	mock.ExpectExec(`INSERT INTO "contest_participants"`).WillReturnResult(sqlmock.NewResult(1, 1))
+	// the guarded update matches nothing once the last use is consumed
+	mock.ExpectExec(`UPDATE "contest_invites"`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectRollback()
+
+	err := repo.RedeemInvite(context.Background(), uuid.New(), &model.ContestParticipant{ContestID: contestID, UserID: "u", MaxSquares: 10}, 100)
+	require.ErrorIs(t, err, errs.ErrInviteMaxUsesReached)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

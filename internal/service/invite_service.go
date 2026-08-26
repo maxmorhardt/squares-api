@@ -183,14 +183,14 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token, user string) (*
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
-	// reject if granting this invite would exceed the 100-square pool
+	// reject if granting this invite would exceed the square pool
 	totalAllocated, err := s.participantRepo.GetTotalAllocatedSquares(ctx, invite.ContestID)
 	if err != nil {
 		log.Error("failed to get total allocated squares", "contest_id", invite.ContestID, "error", err)
 		return nil, errs.ErrDatabaseUnavailable
 	}
 
-	if totalAllocated+invite.MaxSquares > 100 {
+	if totalAllocated+invite.MaxSquares > model.MaxContestSquares {
 		log.Warn("not enough squares remaining", "contest_id", invite.ContestID, "allocated", totalAllocated, "requested", invite.MaxSquares)
 		return nil, errs.ErrNotEnoughSquares
 	}
@@ -204,7 +204,20 @@ func (s *inviteService) RedeemInvite(ctx context.Context, token, user string) (*
 		InviteID:   &invite.ID,
 	}
 
-	if err := s.inviteRepo.RedeemInvite(ctx, invite.ID, participant); err != nil {
+	// the repository re-checks the pool, uses, and duplicate joins atomically, so it is the authority
+	if err := s.inviteRepo.RedeemInvite(ctx, invite.ID, participant, model.MaxContestSquares); err != nil {
+		switch {
+		case errors.Is(err, errs.ErrNotEnoughSquares):
+			log.Warn("contest pool filled before redemption committed", "contest_id", invite.ContestID, "user", user)
+			return nil, err
+		case errors.Is(err, errs.ErrInviteMaxUsesReached):
+			log.Warn("invite uses exhausted before redemption committed", "invite_id", invite.ID, "user", user)
+			return nil, err
+		case errors.Is(err, gorm.ErrDuplicatedKey):
+			log.Warn("user joined contest concurrently", "contest_id", invite.ContestID, "user", user)
+			return nil, errs.ErrAlreadyParticipant
+		}
+
 		log.Error("failed to redeem invite", "invite_id", invite.ID, "contest_id", invite.ContestID, "user", user, "error", err)
 		return nil, err
 	}

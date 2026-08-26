@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_contest_participants_contest_user;
