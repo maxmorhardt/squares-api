@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.6](https://github.com/maxmorhardt/squares-api/compare/1.4.5...1.4.6) (2026-08-28)
+
+
+### Bug Fixes
+
+* **service:** persist quarter scoring atomically ([#55](https://github.com/maxmorhardt/squares-api/issues/55)) ([a39e262](https://github.com/maxmorhardt/squares-api/commit/a39e262918223b453b5d6da898c9b8e52baf1615))
+
 ## [1.4.5](https://github.com/maxmorhardt/squares-api/compare/1.4.4...1.4.5) (2026-08-26)
 
 
