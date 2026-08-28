@@ -42,7 +42,12 @@ func TestGameService_GetUpcoming_CachesResult(t *testing.T) {
 }
 
 func gameSvc(gameRepo *mocks.GameRepository, contestRepo *mocks.ContestRepository) service.GameService {
-	return service.NewGameService(gameRepo, contestRepo, anyNats())
+	return service.NewGameService(gameRepo, contestRepo, &mocks.ContestService{}, anyNats())
+}
+
+// for the scoring paths, which delegate every contest write to the contest service
+func gameSvcWithContest(gameRepo *mocks.GameRepository, contestRepo *mocks.ContestRepository, contestSvc *mocks.ContestService) service.GameService {
+	return service.NewGameService(gameRepo, contestRepo, contestSvc, anyNats())
 }
 
 func TestGameService_GetUpcoming_DBError(t *testing.T) {
@@ -129,11 +134,11 @@ func TestGameService_SyncGame_AdvancesStartedContest(t *testing.T) {
 	contest := startedContest(model.ContestStatusQ1, &model.Game{ID: gameID})
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByGameID(mock.Anything, gameID).Return([]model.Contest{contest}, nil)
-	c.EXPECT().Update(mock.Anything, mock.MatchedBy(func(ct *model.Contest) bool {
-		return ct.Status == model.ContestStatusQ2
-	})).Return(nil).Once()
+	cs := mocks.NewContestService(t)
+	cs.EXPECT().ApplyQuarterResult(mock.Anything, mock.Anything, 1, 7, 3).
+		Return(&model.QuarterResult{Quarter: 1, Winner: "u"}, nil).Once()
 
-	require.NoError(t, gameSvc(g, c).SyncGame(context.Background(), gameID))
+	require.NoError(t, gameSvcWithContest(g, c, cs).SyncGame(context.Background(), gameID))
 }
 
 func liveGame(gameID uuid.UUID, scores ...model.GameScore) *model.Game {
@@ -163,14 +168,60 @@ func TestGameService_SyncGame_AutoStartsAndBackfills(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByGameID(mock.Anything, gameID).Return([]model.Contest{contest}, nil)
 
-	// auto-start (Q1) then backfill Q1 (->Q2) and Q2 (->Q3)
-	var lastStatus model.ContestStatus
-	c.EXPECT().Update(mock.Anything, mock.Anything).Run(func(_ context.Context, ct *model.Contest) {
-		lastStatus = ct.Status
-	}).Return(nil)
+	// auto-start writes the locked grid itself, then each scored quarter goes to the contest service
+	c.EXPECT().Update(mock.Anything, mock.Anything).Return(nil).Once()
 
-	require.NoError(t, gameSvc(g, c).SyncGame(context.Background(), gameID))
-	assert.Equal(t, model.ContestStatusQ3, lastStatus)
+	cs := mocks.NewContestService(t)
+	quarters := make([]int, 0, 2)
+	cs.EXPECT().ApplyQuarterResult(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ *model.Contest, quarter, _, _ int) {
+			quarters = append(quarters, quarter)
+		}).Return(&model.QuarterResult{}, nil).Twice()
+
+	require.NoError(t, gameSvcWithContest(g, c, cs).SyncGame(context.Background(), gameID))
+	assert.Equal(t, []int{1, 2}, quarters)
+}
+
+func TestGameService_SyncGame_SkipsUnresolvableQuarter(t *testing.T) {
+	gameID := uuid.New()
+	g := mocks.NewGameRepository(t)
+	g.EXPECT().GetByID(mock.Anything, gameID).Return(liveGame(gameID,
+		model.GameScore{Quarter: 1, HomeScore: 7, AwayScore: 3},
+		model.GameScore{Quarter: 2, HomeScore: 14, AwayScore: 10},
+	), nil)
+
+	contest := startedContest(model.ContestStatusQ1, &model.Game{ID: gameID})
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByGameID(mock.Anything, gameID).Return([]model.Contest{contest}, nil)
+
+	// an unresolvable Q1 must not stop Q2 from being applied
+	cs := mocks.NewContestService(t)
+	cs.EXPECT().ApplyQuarterResult(mock.Anything, mock.Anything, 1, 7, 3).
+		Return(nil, errs.ErrWinnerNotDeterminable).Once()
+	cs.EXPECT().ApplyQuarterResult(mock.Anything, mock.Anything, 2, 14, 10).
+		Return(&model.QuarterResult{Quarter: 2}, nil).Once()
+
+	require.NoError(t, gameSvcWithContest(g, c, cs).SyncGame(context.Background(), gameID))
+}
+
+func TestGameService_SyncGame_StopsOnApplyError(t *testing.T) {
+	gameID := uuid.New()
+	g := mocks.NewGameRepository(t)
+	g.EXPECT().GetByID(mock.Anything, gameID).Return(liveGame(gameID,
+		model.GameScore{Quarter: 1, HomeScore: 7, AwayScore: 3},
+		model.GameScore{Quarter: 2, HomeScore: 14, AwayScore: 10},
+	), nil)
+
+	contest := startedContest(model.ContestStatusQ1, &model.Game{ID: gameID})
+	c := mocks.NewContestRepository(t)
+	c.EXPECT().GetByGameID(mock.Anything, gameID).Return([]model.Contest{contest}, nil)
+
+	// a real write failure stops the loop so quarters can't be applied out of order
+	cs := mocks.NewContestService(t)
+	cs.EXPECT().ApplyQuarterResult(mock.Anything, mock.Anything, 1, 7, 3).
+		Return(nil, errors.New("db")).Once()
+
+	require.NoError(t, gameSvcWithContest(g, c, cs).SyncGame(context.Background(), gameID))
 }
 
 func TestGameService_SyncGame_SkipsWhenGameNotLive(t *testing.T) {
@@ -231,14 +282,18 @@ func TestGameService_SyncGame_FinalizesWhenGameEnds(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByGameID(mock.Anything, gameID).Return([]model.Contest{contest}, nil)
 
-	// exactly one Update: labels assigned and status jumps straight to FINISHED
-	var finalStatus model.ContestStatus
-	c.EXPECT().Update(mock.Anything, mock.Anything).Run(func(_ context.Context, ct *model.Contest) {
-		finalStatus = ct.Status
-	}).Return(nil).Once()
+	// the whole finalize, labels and every quarter, is handed off in one call
+	cs := mocks.NewContestService(t)
+	var scores []model.GameScore
+	cs.EXPECT().FinalizeFromScores(mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ *model.Contest, s []model.GameScore) {
+			scores = s
+		}).Return(nil).Once()
 
-	require.NoError(t, gameSvc(g, c).SyncGame(context.Background(), gameID))
-	assert.Equal(t, model.ContestStatusFinished, finalStatus)
+	require.NoError(t, gameSvcWithContest(g, c, cs).SyncGame(context.Background(), gameID))
+	require.Len(t, scores, 2)
+	assert.Equal(t, 1, scores[0].Quarter)
+	assert.Equal(t, 4, scores[1].Quarter)
 }
 
 func TestGameService_SyncGame_FinalizeUpdateError(t *testing.T) {
@@ -249,10 +304,11 @@ func TestGameService_SyncGame_FinalizeUpdateError(t *testing.T) {
 	contest := startedContest(model.ContestStatusActive, &model.Game{ID: gameID})
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByGameID(mock.Anything, gameID).Return([]model.Contest{contest}, nil)
-	c.EXPECT().Update(mock.Anything, mock.Anything).Return(errors.New("db")).Once()
+	cs := mocks.NewContestService(t)
+	cs.EXPECT().FinalizeFromScores(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("db")).Once()
 
 	// SyncGame logs and swallows the reconcile error, so it still returns nil
-	require.NoError(t, gameSvc(g, c).SyncGame(context.Background(), gameID))
+	require.NoError(t, gameSvcWithContest(g, c, cs).SyncGame(context.Background(), gameID))
 }
 
 func TestGameService_SyncGame_FinalizesUnfilledGrid(t *testing.T) {
@@ -268,11 +324,8 @@ func TestGameService_SyncGame_FinalizesUnfilledGrid(t *testing.T) {
 	c := mocks.NewContestRepository(t)
 	c.EXPECT().GetByGameID(mock.Anything, gameID).Return([]model.Contest{contest}, nil)
 
-	var finalStatus model.ContestStatus
-	c.EXPECT().Update(mock.Anything, mock.Anything).Run(func(_ context.Context, ct *model.Contest) {
-		finalStatus = ct.Status
-	}).Return(nil).Once()
+	cs := mocks.NewContestService(t)
+	cs.EXPECT().FinalizeFromScores(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
-	require.NoError(t, gameSvc(g, c).SyncGame(context.Background(), gameID))
-	assert.Equal(t, model.ContestStatusFinished, finalStatus)
+	require.NoError(t, gameSvcWithContest(g, c, cs).SyncGame(context.Background(), gameID))
 }

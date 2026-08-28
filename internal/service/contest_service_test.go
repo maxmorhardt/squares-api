@@ -303,14 +303,19 @@ func TestRecordQuarterResult_Success(t *testing.T) {
 		YLabels: orderedLabels(t),
 		Squares: []model.Square{{Row: 3, Col: 7, Owner: "winner", OwnerName: "Win Ner"}},
 	}, nil)
-	repo.EXPECT().CreateQuarterResult(mock.Anything, mock.Anything).Return(nil)
-	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+	// the row and the Q1 -> Q2 transition land in a single call
+	repo.EXPECT().ApplyQuarterResults(mock.Anything, mock.MatchedBy(func(c *model.Contest) bool {
+		return c.Status == model.ContestStatusQ2
+	}), mock.MatchedBy(func(results []model.QuarterResult) bool {
+		return len(results) == 1 && results[0].Quarter == 1 && results[0].Winner == "winner"
+	})).Return(nil)
 
 	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
 	require.NoError(t, err)
 	assert.Equal(t, 1, got.Quarter)
 	assert.Equal(t, "winner", got.Winner)
+	assert.Equal(t, "u", got.CreatedBy)
 }
 
 func orderedLabels(t *testing.T) []byte {
@@ -599,30 +604,92 @@ func TestRecordQuarterResult_BadYLabels(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestRecordQuarterResult_TransitionError(t *testing.T) {
+func TestRecordQuarterResult_ApplyError(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
 	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
 		Status: model.ContestStatusQ1, XLabels: orderedLabels(t), YLabels: orderedLabels(t),
 		Squares: []model.Square{{Row: 3, Col: 7, Owner: "w"}},
 	}, nil)
-	repo.EXPECT().CreateQuarterResult(mock.Anything, mock.Anything).Return(nil)
-	repo.EXPECT().Update(mock.Anything, mock.Anything).Return(errors.New("db"))
+	repo.EXPECT().ApplyQuarterResults(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("db"))
 
 	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
 		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
 	assert.Error(t, err)
 }
 
-func TestRecordQuarterResult_CreateError(t *testing.T) {
+func TestApplyQuarterResult_StepsStatusAndStamps(t *testing.T) {
 	repo := mocks.NewContestRepository(t)
-	repo.EXPECT().GetByID(mock.Anything, mock.Anything).Return(&model.Contest{
-		Status: model.ContestStatusQ1, XLabels: orderedLabels(t), YLabels: orderedLabels(t),
-		Squares: []model.Square{{Row: 3, Col: 7, Owner: "w"}},
-	}, nil)
-	repo.EXPECT().CreateQuarterResult(mock.Anything, mock.Anything).Return(errors.New("db"))
+	contest := &model.Contest{
+		ID: uuid.New(), Status: model.ContestStatusQ1,
+		XLabels: orderedLabels(t), YLabels: orderedLabels(t),
+		Squares: []model.Square{{Row: 3, Col: 7, Owner: "winner", OwnerName: "Win Ner"}},
+	}
+	repo.EXPECT().ApplyQuarterResults(mock.Anything, contest, mock.Anything).Return(nil)
 
-	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), okAuth(t)).
-		RecordQuarterResult(context.Background(), uuid.New(), 17, 23, "u")
+	got, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		ApplyQuarterResult(context.Background(), contest, 1, 17, 23)
+
+	require.NoError(t, err)
+	assert.Equal(t, "winner", got.Winner)
+	assert.Equal(t, "system", got.CreatedBy)
+	assert.Equal(t, model.ContestStatusQ2, contest.Status)
+}
+
+func TestApplyQuarterResult_InvalidQuarter(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+
+	_, err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		ApplyQuarterResult(context.Background(), &model.Contest{ID: uuid.New()}, 5, 17, 23)
+
+	assert.ErrorIs(t, err, errs.ErrInvalidQuarter)
+}
+
+func TestApplyQuarterResult_WinnerNotDeterminable(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	unlocked, err := json.Marshal([]int8{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1})
+	require.NoError(t, err)
+
+	_, err = contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		ApplyQuarterResult(context.Background(), &model.Contest{ID: uuid.New(), XLabels: unlocked, YLabels: unlocked}, 1, 17, 23)
+
+	assert.ErrorIs(t, err, errs.ErrWinnerNotDeterminable)
+}
+
+func TestFinalizeFromScores_RecordsEveryQuarter(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	contest := &model.Contest{
+		ID: uuid.New(), Status: model.ContestStatusActive,
+		Squares: []model.Square{{Row: 3, Col: 7, Owner: "winner", OwnerName: "Win Ner"}},
+	}
+
+	var persisted []model.QuarterResult
+	repo.EXPECT().ApplyQuarterResults(mock.Anything, contest, mock.Anything).
+		Run(func(_ context.Context, _ *model.Contest, results []model.QuarterResult) {
+			persisted = results
+		}).Return(nil)
+
+	err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		FinalizeFromScores(context.Background(), contest, []model.GameScore{
+			{Quarter: 1, HomeScore: 7, AwayScore: 3},
+			{Quarter: 4, HomeScore: 21, AwayScore: 17},
+		})
+
+	require.NoError(t, err)
+	assert.Equal(t, model.ContestStatusFinished, contest.Status)
+	assert.Equal(t, "system", contest.UpdatedBy)
+	// labels are randomized on finalize, so assert the quarters landed rather than a fixed winner
+	require.Len(t, persisted, 2)
+	assert.Equal(t, 1, persisted[0].Quarter)
+	assert.Equal(t, 4, persisted[1].Quarter)
+}
+
+func TestFinalizeFromScores_ApplyError(t *testing.T) {
+	repo := mocks.NewContestRepository(t)
+	repo.EXPECT().ApplyQuarterResults(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("db"))
+
+	err := contestSvc(repo, mocks.NewParticipantRepository(t), mocks.NewParticipantService(t)).
+		FinalizeFromScores(context.Background(), &model.Contest{ID: uuid.New()}, nil)
+
 	assert.Error(t, err)
 }
 

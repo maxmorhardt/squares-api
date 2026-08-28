@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,22 +25,25 @@ type GameService interface {
 }
 
 type gameService struct {
-	gameRepo    repository.GameRepository
-	contestRepo repository.ContestRepository
-	natsService NatsService
-	upcoming    *util.TTLCache[struct{}, []model.Game]
+	gameRepo       repository.GameRepository
+	contestRepo    repository.ContestRepository
+	contestService ContestService
+	natsService    NatsService
+	upcoming       *util.TTLCache[struct{}, []model.Game]
 }
 
 func NewGameService(
 	gameRepo repository.GameRepository,
 	contestRepo repository.ContestRepository,
+	contestService ContestService,
 	natsService NatsService,
 ) GameService {
 	return &gameService{
-		gameRepo:    gameRepo,
-		contestRepo: contestRepo,
-		natsService: natsService,
-		upcoming:    util.NewTTLCache[struct{}, []model.Game](1, upcomingCacheTTL),
+		gameRepo:       gameRepo,
+		contestRepo:    contestRepo,
+		contestService: contestService,
+		natsService:    natsService,
+		upcoming:       util.NewTTLCache[struct{}, []model.Game](1, upcomingCacheTTL),
 	}
 }
 
@@ -150,7 +154,7 @@ func (s *gameService) reconcile(ctx context.Context, contest *model.Contest, gam
 		switch {
 		case game.Status == model.GameStatusFinal:
 			// the game ended before the grid ever locked; finalize straight from the final scores
-			return s.finalize(ctx, contest, game)
+			return s.contestService.FinalizeFromScores(ctx, contest, game.Scores)
 		case game.Status == model.GameStatusInProgress && util.AllSquaresClaimed(contest):
 			// full grid at kickoff; lock, randomize, and score live
 			if err := s.autoStart(ctx, contest); err != nil {
@@ -173,28 +177,14 @@ func (s *gameService) reconcile(ctx context.Context, contest *model.Contest, gam
 			continue
 		}
 
-		result, err := util.QuarterResultFor(contest, score.Quarter, score.HomeScore, score.AwayScore)
+		result, err := s.contestService.ApplyQuarterResult(ctx, contest, score.Quarter, score.HomeScore, score.AwayScore)
 		if err != nil {
-			log.Warn("skipping quarter, winner not determinable", "contest_id", contest.ID, "quarter", score.Quarter, "error", err)
-			continue
-		}
-
-		next, valid := model.StatusAfterQuarter(score.Quarter)
-		if !valid {
-			continue
-		}
-
-		contest.Status = next
-		if err := s.contestRepo.Update(ctx, contest); err != nil {
-			log.Error("failed to advance contest after quarter", "contest_id", contest.ID, "quarter", score.Quarter, "error", err)
+			// a score this grid can't resolve shouldn't stall the quarters after it
+			if errors.Is(err, errs.ErrWinnerNotDeterminable) || errors.Is(err, errs.ErrInvalidQuarter) {
+				log.Warn("skipping quarter", "contest_id", contest.ID, "quarter", score.Quarter, "error", err)
+				continue
+			}
 			return err
-		}
-
-		metrics.IncQuarterResult(score.Quarter)
-
-		// publish synchronously and in order so clients apply quarters sequentially
-		if err := s.natsService.PublishQuarterResult(contest.ID, systemUser, result); err != nil {
-			log.Error("failed to publish quarter result", "contest_id", contest.ID, "quarter", score.Quarter, "error", err)
 		}
 
 		currentQuarter = score.Quarter + 1
@@ -233,51 +223,5 @@ func (s *gameService) autoStart(ctx context.Context, contest *model.Contest) err
 	}
 
 	log.Info("auto-started game-linked contest", "contest_id", contest.ID)
-	return nil
-}
-
-func (s *gameService) finalize(ctx context.Context, contest *model.Contest, game *model.Game) error {
-	log := util.LoggerFromContext(ctx)
-
-	// assign labels and empty squares don't win
-	xLabels, yLabels, err := util.RandomizedLabels()
-	if err != nil {
-		return err
-	}
-
-	contest.XLabels = xLabels
-	contest.YLabels = yLabels
-	contest.Status = model.ContestStatusFinished
-	contest.UpdatedBy = systemUser
-
-	if err := s.contestRepo.Update(ctx, contest); err != nil {
-		return err
-	}
-
-	// publish every quarter's outcome so connected clients render the final board
-	for i := range game.Scores {
-		score := game.Scores[i]
-		result, resultErr := util.QuarterResultFor(contest, score.Quarter, score.HomeScore, score.AwayScore)
-		if resultErr != nil {
-			log.Warn("skipping quarter on finalize, winner not determinable", "contest_id", contest.ID, "quarter", score.Quarter, "error", resultErr)
-			continue
-		}
-
-		metrics.IncQuarterResult(score.Quarter)
-		if err := s.natsService.PublishQuarterResult(contest.ID, systemUser, result); err != nil {
-			log.Error("failed to publish quarter result on finalize", "contest_id", contest.ID, "quarter", score.Quarter, "error", err)
-		}
-	}
-
-	// notify clients the contest resolved; strip heavy relations
-	wsContest := *contest
-	wsContest.Squares = nil
-	wsContest.QuarterResults = nil
-	wsContest.Game = nil
-	if err := s.natsService.PublishContestUpdate(contest.ID, systemUser, &wsContest); err != nil {
-		log.Error("failed to publish finalize update", "contest_id", contest.ID, "error", err)
-	}
-
-	log.Info("finalized game-linked contest from final scores", "contest_id", contest.ID, "quarters", len(game.Scores))
 	return nil
 }

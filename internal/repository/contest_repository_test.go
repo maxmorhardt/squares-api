@@ -289,16 +289,45 @@ func TestContestRepository_GetAllByParticipantUserID(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestContestRepository_CreateQuarterResult(t *testing.T) {
+func TestContestRepository_ApplyQuarterResults(t *testing.T) {
 	gdb, mock := newMockDB(t)
 	repo := NewContestRepository(gdb)
 
 	mock.ExpectBegin()
-	mock.ExpectExec(`INSERT INTO "quarter_results"`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(`UPDATE "contests"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`INSERT INTO "quarter_results" .* ON CONFLICT`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	err := repo.CreateQuarterResult(context.Background(), &model.QuarterResult{ContestID: uuid.New(), Quarter: 1})
+	contestID := uuid.New()
+	err := repo.ApplyQuarterResults(context.Background(), &model.Contest{ID: contestID, Name: "x"},
+		[]model.QuarterResult{{ContestID: contestID, Quarter: 1, Winner: "u@example.com"}})
 	require.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContestRepository_ApplyQuarterResults_NoResults(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE "contests"`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	err := repo.ApplyQuarterResults(context.Background(), &model.Contest{ID: uuid.New(), Name: "x"}, nil)
+	require.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContestRepository_ApplyQuarterResults_UpdateError(t *testing.T) {
+	gdb, mock := newMockDB(t)
+	repo := NewContestRepository(gdb)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE "contests"`).WillReturnError(errors.New("db"))
+	mock.ExpectRollback()
+
+	err := repo.ApplyQuarterResults(context.Background(), &model.Contest{ID: uuid.New(), Name: "x"}, nil)
+	require.Error(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
