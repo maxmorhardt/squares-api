@@ -79,4 +79,5 @@ var (
 	ErrInvalidSquareCount      = errors.New("participants must be allotted at least one square")
 	ErrViewerCannotHaveSquares = errors.New("viewers cannot be allotted squares")
 	ErrWinnerNotDeterminable   = errors.New("winner cannot be determined for the given score")
+	ErrInvalidQuarter          = errors.New("quarter must be between 1 and 4")
 )

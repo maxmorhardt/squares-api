@@ -24,6 +24,54 @@ func (_m *ContestRepository) EXPECT() *ContestRepository_Expecter {
 	return &ContestRepository_Expecter{mock: &_m.Mock}
 }
 
+// ApplyQuarterResults provides a mock function with given fields: ctx, contest, results
+func (_m *ContestRepository) ApplyQuarterResults(ctx context.Context, contest *model.Contest, results []model.QuarterResult) error {
+	ret := _m.Called(ctx, contest, results)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyQuarterResults")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Contest, []model.QuarterResult) error); ok {
+		r0 = rf(ctx, contest, results)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ContestRepository_ApplyQuarterResults_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApplyQuarterResults'
+type ContestRepository_ApplyQuarterResults_Call struct {
+	*mock.Call
+}
+
+// ApplyQuarterResults is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contest *model.Contest
+//   - results []model.QuarterResult
+func (_e *ContestRepository_Expecter) ApplyQuarterResults(ctx interface{}, contest interface{}, results interface{}) *ContestRepository_ApplyQuarterResults_Call {
+	return &ContestRepository_ApplyQuarterResults_Call{Call: _e.mock.On("ApplyQuarterResults", ctx, contest, results)}
+}
+
+func (_c *ContestRepository_ApplyQuarterResults_Call) Run(run func(ctx context.Context, contest *model.Contest, results []model.QuarterResult)) *ContestRepository_ApplyQuarterResults_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.Contest), args[2].([]model.QuarterResult))
+	})
+	return _c
+}
+
+func (_c *ContestRepository_ApplyQuarterResults_Call) Return(_a0 error) *ContestRepository_ApplyQuarterResults_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ContestRepository_ApplyQuarterResults_Call) RunAndReturn(run func(context.Context, *model.Contest, []model.QuarterResult) error) *ContestRepository_ApplyQuarterResults_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ClaimSquare provides a mock function with given fields: ctx, square, value, owner, ownerName
 func (_m *ContestRepository) ClaimSquare(ctx context.Context, square *model.Square, value string, owner string, ownerName string) (*model.Square, error) {
 	ret := _m.Called(ctx, square, value, owner, ownerName)
@@ -249,53 +297,6 @@ func (_c *ContestRepository_Create_Call) Return(_a0 error) *ContestRepository_Cr
 }
 
 func (_c *ContestRepository_Create_Call) RunAndReturn(run func(context.Context, *model.Contest, *model.ContestParticipant) error) *ContestRepository_Create_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CreateQuarterResult provides a mock function with given fields: ctx, result
-func (_m *ContestRepository) CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error {
-	ret := _m.Called(ctx, result)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateQuarterResult")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.QuarterResult) error); ok {
-		r0 = rf(ctx, result)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// ContestRepository_CreateQuarterResult_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateQuarterResult'
-type ContestRepository_CreateQuarterResult_Call struct {
-	*mock.Call
-}
-
-// CreateQuarterResult is a helper method to define mock.On call
-//   - ctx context.Context
-//   - result *model.QuarterResult
-func (_e *ContestRepository_Expecter) CreateQuarterResult(ctx interface{}, result interface{}) *ContestRepository_CreateQuarterResult_Call {
-	return &ContestRepository_CreateQuarterResult_Call{Call: _e.mock.On("CreateQuarterResult", ctx, result)}
-}
-
-func (_c *ContestRepository_CreateQuarterResult_Call) Run(run func(ctx context.Context, result *model.QuarterResult)) *ContestRepository_CreateQuarterResult_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.QuarterResult))
-	})
-	return _c
-}
-
-func (_c *ContestRepository_CreateQuarterResult_Call) Return(_a0 error) *ContestRepository_CreateQuarterResult_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *ContestRepository_CreateQuarterResult_Call) RunAndReturn(run func(context.Context, *model.QuarterResult) error) *ContestRepository_CreateQuarterResult_Call {
 	_c.Call.Return(run)
 	return _c
 }

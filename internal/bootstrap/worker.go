@@ -19,8 +19,13 @@ func StartScoresWorker(ctx context.Context, deps *Dependencies) {
 
 	gameRepo := repository.NewGameRepository(deps.DB)
 	contestRepo := repository.NewContestRepository(deps.DB)
+	participantRepo := repository.NewParticipantRepository(deps.DB)
+	userRepo := repository.NewUserRepository(deps.DB)
+
 	natsService := service.NewNatsService(deps.NATS)
-	gameService := service.NewGameService(gameRepo, contestRepo, natsService)
+	participantService := service.NewParticipantService(participantRepo, contestRepo, natsService)
+	contestService := service.NewContestService(contestRepo, participantRepo, gameRepo, userRepo, natsService, participantService)
+	gameService := service.NewGameService(gameRepo, contestRepo, contestService, natsService)
 
 	runner := worker.NewRunner(deps.DB, gameService, cfg)
 

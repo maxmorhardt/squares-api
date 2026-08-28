@@ -20,6 +20,8 @@ type ContestService interface {
 	UpdateContest(ctx context.Context, contestID uuid.UUID, req *model.UpdateContestRequest, user string) (*model.Contest, error)
 	StartContest(ctx context.Context, contestID uuid.UUID, user string) (*model.Contest, error)
 	RecordQuarterResult(ctx context.Context, contestID uuid.UUID, homeScore, awayScore int, user string) (*model.QuarterResult, error)
+	ApplyQuarterResult(ctx context.Context, contest *model.Contest, quarter, homeScore, awayScore int) (*model.QuarterResult, error)
+	FinalizeFromScores(ctx context.Context, contest *model.Contest, scores []model.GameScore) error
 	RollbackLastQuarterResult(ctx context.Context, contestID uuid.UUID, user string) (*model.QuarterResult, error)
 	DeleteContest(ctx context.Context, contestID uuid.UUID, user string) error
 
@@ -339,39 +341,107 @@ func (s *contestService) RecordQuarterResult(ctx context.Context, contestID uuid
 		return nil, err
 	}
 
-	if err := s.repo.CreateQuarterResult(ctx, result); err != nil {
-		log.Error("failed to create quarter result", "contest_id", contestID, "quarter", quarter, "error", err)
+	result.CreatedBy = user
+	result.UpdatedBy = user
+
+	contest.Status = nextStatus
+	results := []model.QuarterResult{*result}
+	if err := s.applyQuarterResults(ctx, contest, results, user); err != nil {
+		log.Error("failed to record quarter result", "contest_id", contestID, "quarter", quarter, "error", err)
 		return nil, err
 	}
 
-	// transition contest status and publish update
-	if err := s.transitionContestAfterQuarter(ctx, contest, nextStatus, result, user); err != nil {
-		log.Error("failed to transition contest after quarter", "contest_id", contestID, "quarter", quarter, "error", err)
-		return nil, err
-	}
-
-	metrics.IncQuarterResult(quarter)
 	log.Info("quarter result recorded and status transitioned", "contest_id", contestID, "quarter", quarter, "winner", result.Winner, "new_status", nextStatus)
-	return result, nil
+	return &results[0], nil
 }
 
-func (s *contestService) transitionContestAfterQuarter(ctx context.Context, contest *model.Contest, newStatus model.ContestStatus, result *model.QuarterResult, user string) error {
+func (s *contestService) ApplyQuarterResult(ctx context.Context, contest *model.Contest, quarter, homeScore, awayScore int) (*model.QuarterResult, error) {
 	log := util.LoggerFromContext(ctx)
 
-	contest.Status = newStatus
-	if err := s.repo.Update(ctx, contest); err != nil {
-		log.Error("failed to update contest status", "contest_id", contest.ID, "new_status", newStatus, "error", err)
+	nextStatus, valid := model.StatusAfterQuarter(quarter)
+	if !valid {
+		return nil, errs.ErrInvalidQuarter
+	}
+
+	result, err := util.QuarterResultFor(contest, quarter, homeScore, awayScore)
+	if err != nil {
+		return nil, err
+	}
+
+	result.CreatedBy = systemUser
+	result.UpdatedBy = systemUser
+
+	contest.Status = nextStatus
+	results := []model.QuarterResult{*result}
+	if err := s.applyQuarterResults(ctx, contest, results, systemUser); err != nil {
+		log.Error("failed to apply quarter result", "contest_id", contest.ID, "quarter", quarter, "error", err)
+		return nil, err
+	}
+
+	return &results[0], nil
+}
+
+func (s *contestService) FinalizeFromScores(ctx context.Context, contest *model.Contest, scores []model.GameScore) error {
+	log := util.LoggerFromContext(ctx)
+
+	// assign labels and empty squares don't win
+	xLabels, yLabels, err := util.RandomizedLabels()
+	if err != nil {
 		return err
 	}
 
-	// publish quarter result to websocket clients
-	go func() {
-		if err := s.natsService.PublishQuarterResult(contest.ID, user, result); err != nil {
-			log.Error("failed to publish quarter result", "contest_id", contest.ID, "quarter", result.Quarter, "error", err)
-		}
-	}()
+	contest.XLabels = xLabels
+	contest.YLabels = yLabels
+	contest.Status = model.ContestStatusFinished
+	contest.UpdatedBy = systemUser
 
-	log.Info("contest transitioned after quarter", "contest_id", contest.ID, "quarter", result.Quarter, "new_status", newStatus)
+	// labels are assigned above, so every quarter resolves against the grid this contest finishes with
+	results := make([]model.QuarterResult, 0, len(scores))
+	for i := range scores {
+		result, resultErr := util.QuarterResultFor(contest, scores[i].Quarter, scores[i].HomeScore, scores[i].AwayScore)
+		if resultErr != nil {
+			log.Warn("skipping quarter on finalize, winner not determinable", "contest_id", contest.ID, "quarter", scores[i].Quarter, "error", resultErr)
+			continue
+		}
+
+		result.CreatedBy = systemUser
+		result.UpdatedBy = systemUser
+		results = append(results, *result)
+	}
+
+	if err := s.applyQuarterResults(ctx, contest, results, systemUser); err != nil {
+		log.Error("failed to finalize contest from scores", "contest_id", contest.ID, "error", err)
+		return err
+	}
+
+	// notify clients the contest resolved; strip heavy relations
+	wsContest := *contest
+	wsContest.Squares = nil
+	wsContest.QuarterResults = nil
+	wsContest.Game = nil
+	if err := s.natsService.PublishContestUpdate(contest.ID, systemUser, &wsContest); err != nil {
+		log.Error("failed to publish finalize update", "contest_id", contest.ID, "error", err)
+	}
+
+	log.Info("finalized game-linked contest from final scores", "contest_id", contest.ID, "quarters", len(results))
+	return nil
+}
+
+func (s *contestService) applyQuarterResults(ctx context.Context, contest *model.Contest, results []model.QuarterResult, user string) error {
+	log := util.LoggerFromContext(ctx)
+
+	if err := s.repo.ApplyQuarterResults(ctx, contest, results); err != nil {
+		return err
+	}
+
+	// publish in quarter order so clients apply the quarters sequentially
+	for i := range results {
+		metrics.IncQuarterResult(results[i].Quarter)
+		if err := s.natsService.PublishQuarterResult(contest.ID, user, &results[i]); err != nil {
+			log.Error("failed to publish quarter result", "contest_id", contest.ID, "quarter", results[i].Quarter, "error", err)
+		}
+	}
+
 	return nil
 }
 

@@ -21,7 +21,7 @@ type ContestRepository interface {
 	Create(ctx context.Context, contest *model.Contest, owner *model.ContestParticipant) error
 	Update(ctx context.Context, contest *model.Contest) error
 	Delete(ctx context.Context, id uuid.UUID) error
-	CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error
+	ApplyQuarterResults(ctx context.Context, contest *model.Contest, results []model.QuarterResult) error
 	RollbackQuarterResult(ctx context.Context, resultID uuid.UUID, contest *model.Contest) error
 
 	ClaimSquare(ctx context.Context, square *model.Square, value, owner, ownerName string) (*model.Square, error)
@@ -181,8 +181,22 @@ func (r *contestRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		Update("status", model.ContestStatusDeleted).Error
 }
 
-func (r *contestRepository) CreateQuarterResult(ctx context.Context, result *model.QuarterResult) error {
-	return r.db.WithContext(ctx).Create(result).Error
+func (r *contestRepository) ApplyQuarterResults(ctx context.Context, contest *model.Contest, results []model.QuarterResult) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Omit(clause.Associations).Save(contest).Error; err != nil {
+			return err
+		}
+
+		if len(results) == 0 {
+			return nil
+		}
+
+		// a quarter already on record wins, so a retried tick advances status without duplicating rows
+		return tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "contest_id"}, {Name: "quarter"}},
+			DoNothing: true,
+		}).Create(results).Error
+	})
 }
 
 func (r *contestRepository) RollbackQuarterResult(ctx context.Context, resultID uuid.UUID, contest *model.Contest) error {

@@ -24,6 +24,68 @@ func (_m *ContestService) EXPECT() *ContestService_Expecter {
 	return &ContestService_Expecter{mock: &_m.Mock}
 }
 
+// ApplyQuarterResult provides a mock function with given fields: ctx, contest, quarter, homeScore, awayScore
+func (_m *ContestService) ApplyQuarterResult(ctx context.Context, contest *model.Contest, quarter int, homeScore int, awayScore int) (*model.QuarterResult, error) {
+	ret := _m.Called(ctx, contest, quarter, homeScore, awayScore)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyQuarterResult")
+	}
+
+	var r0 *model.QuarterResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Contest, int, int, int) (*model.QuarterResult, error)); ok {
+		return rf(ctx, contest, quarter, homeScore, awayScore)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Contest, int, int, int) *model.QuarterResult); ok {
+		r0 = rf(ctx, contest, quarter, homeScore, awayScore)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.QuarterResult)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *model.Contest, int, int, int) error); ok {
+		r1 = rf(ctx, contest, quarter, homeScore, awayScore)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ContestService_ApplyQuarterResult_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApplyQuarterResult'
+type ContestService_ApplyQuarterResult_Call struct {
+	*mock.Call
+}
+
+// ApplyQuarterResult is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contest *model.Contest
+//   - quarter int
+//   - homeScore int
+//   - awayScore int
+func (_e *ContestService_Expecter) ApplyQuarterResult(ctx interface{}, contest interface{}, quarter interface{}, homeScore interface{}, awayScore interface{}) *ContestService_ApplyQuarterResult_Call {
+	return &ContestService_ApplyQuarterResult_Call{Call: _e.mock.On("ApplyQuarterResult", ctx, contest, quarter, homeScore, awayScore)}
+}
+
+func (_c *ContestService_ApplyQuarterResult_Call) Run(run func(ctx context.Context, contest *model.Contest, quarter int, homeScore int, awayScore int)) *ContestService_ApplyQuarterResult_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.Contest), args[2].(int), args[3].(int), args[4].(int))
+	})
+	return _c
+}
+
+func (_c *ContestService_ApplyQuarterResult_Call) Return(_a0 *model.QuarterResult, _a1 error) *ContestService_ApplyQuarterResult_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ContestService_ApplyQuarterResult_Call) RunAndReturn(run func(context.Context, *model.Contest, int, int, int) (*model.QuarterResult, error)) *ContestService_ApplyQuarterResult_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ClaimSquare provides a mock function with given fields: ctx, contestID, squareID, user
 func (_m *ContestService) ClaimSquare(ctx context.Context, contestID uuid.UUID, squareID uuid.UUID, user string) (*model.Square, error) {
 	ret := _m.Called(ctx, contestID, squareID, user)
@@ -310,6 +372,54 @@ func (_c *ContestService_DeleteContest_Call) Return(_a0 error) *ContestService_D
 }
 
 func (_c *ContestService_DeleteContest_Call) RunAndReturn(run func(context.Context, uuid.UUID, string) error) *ContestService_DeleteContest_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FinalizeFromScores provides a mock function with given fields: ctx, contest, scores
+func (_m *ContestService) FinalizeFromScores(ctx context.Context, contest *model.Contest, scores []model.GameScore) error {
+	ret := _m.Called(ctx, contest, scores)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FinalizeFromScores")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Contest, []model.GameScore) error); ok {
+		r0 = rf(ctx, contest, scores)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ContestService_FinalizeFromScores_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinalizeFromScores'
+type ContestService_FinalizeFromScores_Call struct {
+	*mock.Call
+}
+
+// FinalizeFromScores is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contest *model.Contest
+//   - scores []model.GameScore
+func (_e *ContestService_Expecter) FinalizeFromScores(ctx interface{}, contest interface{}, scores interface{}) *ContestService_FinalizeFromScores_Call {
+	return &ContestService_FinalizeFromScores_Call{Call: _e.mock.On("FinalizeFromScores", ctx, contest, scores)}
+}
+
+func (_c *ContestService_FinalizeFromScores_Call) Run(run func(ctx context.Context, contest *model.Contest, scores []model.GameScore)) *ContestService_FinalizeFromScores_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.Contest), args[2].([]model.GameScore))
+	})
+	return _c
+}
+
+func (_c *ContestService_FinalizeFromScores_Call) Return(_a0 error) *ContestService_FinalizeFromScores_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ContestService_FinalizeFromScores_Call) RunAndReturn(run func(context.Context, *model.Contest, []model.GameScore) error) *ContestService_FinalizeFromScores_Call {
 	_c.Call.Return(run)
 	return _c
 }
