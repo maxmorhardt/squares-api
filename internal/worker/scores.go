@@ -47,14 +47,15 @@ func (w *scoresWorker) run(ctx context.Context) error {
 		return err
 	}
 
-	if wide {
-		w.lastScheduleSync = now
-	}
-
 	// the service owns all persistence and contest reconciliation
 	newScores, err := w.gameService.Ingest(ctx, games)
 	if err != nil {
 		return err
+	}
+
+	// only count the sync once the wide window actually landed, so a failed ingest retries it
+	if wide {
+		w.lastScheduleSync = now
 	}
 
 	// stay silent in steady state; only surface actual scoring changes

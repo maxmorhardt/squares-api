@@ -154,3 +154,26 @@ func TestScoresWorker_Run_FetchErrorLeavesScheduleUnsynced(t *testing.T) {
 	// a failed wide fetch must not count as a schedule sync, or the window stays narrow
 	assert.True(t, w.lastScheduleSync.IsZero())
 }
+
+func TestScoresWorker_Run_IngestErrorLeavesScheduleUnsynced(t *testing.T) {
+	var got []string
+	espn := mocks.NewESPNClient(t)
+	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, dates string) ([]model.ESPNGame, error) {
+			got = append(got, dates)
+			return nil, nil
+		}).Times(2)
+	gameSvc := mocks.NewGameService(t)
+	gameSvc.EXPECT().Ingest(mock.Anything, mock.Anything).Return(0, errors.New("db")).Once()
+	gameSvc.EXPECT().Ingest(mock.Anything, mock.Anything).Return(0, nil).Once()
+
+	w := newWorker(t, espn, gameSvc)
+	require.Error(t, w.run(context.Background()))
+
+	// the wide window was never persisted, so the next run must retry it instead of narrowing
+	assert.True(t, w.lastScheduleSync.IsZero())
+
+	require.NoError(t, w.run(context.Background()))
+	assert.Equal(t, scoreboardDates(time.Now()), got[1])
+	assert.False(t, w.lastScheduleSync.IsZero())
+}
