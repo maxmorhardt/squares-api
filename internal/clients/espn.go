@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -13,6 +14,9 @@ import (
 
 const scoreboardPath = "/apis/site/v2/sports/football/nfl/scoreboard"
 
+// identify ourselves rather than sending resty's default
+const userAgent = "squares-api (+https://github.com/maxmorhardt/squares-api)"
+
 type ESPNClient interface {
 	FetchScoreboard(ctx context.Context, dates string) ([]model.ESPNGame, error)
 }
@@ -22,12 +26,25 @@ type espnClient struct {
 }
 
 func NewESPNClient(baseURL string) ESPNClient {
+	// the poll interval is longer than a pooled connection stays good, so retire idle ones early
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		MaxIdleConnsPerHost:   2,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
 	return &espnClient{
 		client: resty.New().
 			SetBaseURL(baseURL).
-			SetTimeout(15 * time.Second).
-			SetRetryCount(2).
-			SetRetryWaitTime(200 * time.Millisecond),
+			SetTransport(transport).
+			SetHeader("User-Agent", userAgent).
+			SetTimeout(10 * time.Second).
+			SetRetryCount(1).
+			SetRetryWaitTime(1 * time.Second).
+			SetRetryMaxWaitTime(3 * time.Second),
 	}
 }
 

@@ -97,3 +97,83 @@ func TestScoresWorker_NextDelay_ActivityError(t *testing.T) {
 	// on error, fall back to the active interval rather than sleeping through a game
 	assert.Equal(t, w.activeInterval, w.nextDelay(context.Background()))
 }
+
+func TestScoresWorker_LiveDates(t *testing.T) {
+	now := time.Date(2026, 8, 22, 0, 20, 0, 0, time.UTC)
+	assert.Equal(t, "20260821-20260823", liveDates(now))
+}
+
+func TestScoresWorker_Run_FirstRunFetchesFullSchedule(t *testing.T) {
+	var got string
+	espn := mocks.NewESPNClient(t)
+	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, dates string) ([]model.ESPNGame, error) {
+			got = dates
+			return nil, nil
+		})
+	gameSvc := mocks.NewGameService(t)
+	gameSvc.EXPECT().Ingest(mock.Anything, mock.Anything).Return(0, nil)
+
+	w := newWorker(t, espn, gameSvc)
+	require.NoError(t, w.run(context.Background()))
+	assert.Equal(t, scoreboardDates(time.Now()), got)
+	assert.False(t, w.lastScheduleSync.IsZero())
+}
+
+func TestScoresWorker_Run_NarrowsWindowUntilIdleIntervalElapses(t *testing.T) {
+	var got []string
+	espn := mocks.NewESPNClient(t)
+	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, dates string) ([]model.ESPNGame, error) {
+			got = append(got, dates)
+			return nil, nil
+		}).Times(3)
+	gameSvc := mocks.NewGameService(t)
+	gameSvc.EXPECT().Ingest(mock.Anything, mock.Anything).Return(0, nil).Times(3)
+
+	w := newWorker(t, espn, gameSvc)
+	require.NoError(t, w.run(context.Background()))
+	require.NoError(t, w.run(context.Background()))
+
+	// age the last sync past the idle interval so the schedule refreshes again
+	w.lastScheduleSync = time.Now().Add(-2 * w.idleInterval)
+	require.NoError(t, w.run(context.Background()))
+
+	assert.Equal(t, scoreboardDates(time.Now()), got[0])
+	assert.Equal(t, liveDates(time.Now()), got[1])
+	assert.Equal(t, scoreboardDates(time.Now()), got[2])
+}
+
+func TestScoresWorker_Run_FetchErrorLeavesScheduleUnsynced(t *testing.T) {
+	espn := mocks.NewESPNClient(t)
+	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+
+	w := newWorker(t, espn, mocks.NewGameService(t))
+	require.Error(t, w.run(context.Background()))
+
+	// a failed wide fetch must not count as a schedule sync, or the window stays narrow
+	assert.True(t, w.lastScheduleSync.IsZero())
+}
+
+func TestScoresWorker_Run_IngestErrorLeavesScheduleUnsynced(t *testing.T) {
+	var got []string
+	espn := mocks.NewESPNClient(t)
+	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, dates string) ([]model.ESPNGame, error) {
+			got = append(got, dates)
+			return nil, nil
+		}).Times(2)
+	gameSvc := mocks.NewGameService(t)
+	gameSvc.EXPECT().Ingest(mock.Anything, mock.Anything).Return(0, errors.New("db")).Once()
+	gameSvc.EXPECT().Ingest(mock.Anything, mock.Anything).Return(0, nil).Once()
+
+	w := newWorker(t, espn, gameSvc)
+	require.Error(t, w.run(context.Background()))
+
+	// the wide window was never persisted, so the next run must retry it instead of narrowing
+	assert.True(t, w.lastScheduleSync.IsZero())
+
+	require.NoError(t, w.run(context.Background()))
+	assert.Equal(t, scoreboardDates(time.Now()), got[1])
+	assert.False(t, w.lastScheduleSync.IsZero())
+}

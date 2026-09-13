@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -83,4 +84,37 @@ func TestRunner_Loop_StopsOnContextCancel(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("loop did not stop on context cancel")
 	}
+}
+
+func TestRunner_RunGuarded_TracksConsecutiveFailures(t *testing.T) {
+	espn := mocks.NewESPNClient(t)
+	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).Return(nil, errors.New("boom")).Times(3)
+
+	r, dbMock := mockRunner(t, espn, mocks.NewGameService(t))
+	for range 3 {
+		dbMock.ExpectQuery(`pg_try_advisory_lock`).WillReturnRows(sqlmock.NewRows([]string{"locked"}).AddRow(true))
+		dbMock.ExpectExec(`pg_advisory_unlock`).WillReturnResult(sqlmock.NewResult(0, 1))
+		r.runGuarded(context.Background())
+	}
+
+	// the third failure is the one that escalates from warn to error
+	assert.Equal(t, failureLogThreshold, r.consecutiveFailures)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+func TestRunner_RunGuarded_ResetsFailuresOnSuccess(t *testing.T) {
+	espn := mocks.NewESPNClient(t)
+	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).Return(nil, nil)
+	gameSvc := mocks.NewGameService(t)
+	gameSvc.EXPECT().Ingest(mock.Anything, mock.Anything).Return(0, nil)
+
+	r, dbMock := mockRunner(t, espn, gameSvc)
+	r.consecutiveFailures = failureLogThreshold
+	dbMock.ExpectQuery(`pg_try_advisory_lock`).WillReturnRows(sqlmock.NewRows([]string{"locked"}).AddRow(true))
+	dbMock.ExpectExec(`pg_advisory_unlock`).WillReturnResult(sqlmock.NewResult(0, 1))
+
+	r.runGuarded(context.Background())
+
+	assert.Zero(t, r.consecutiveFailures)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
 }
