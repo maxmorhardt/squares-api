@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.7](https://github.com/maxmorhardt/squares-api/compare/1.4.6...1.4.7) (2026-09-13)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#57](https://github.com/maxmorhardt/squares-api/issues/57)) ([6757662](https://github.com/maxmorhardt/squares-api/commit/6757662757ff17825d532fe309283113b3867290))
+* **worker:** narrow ESPN polling window ([#58](https://github.com/maxmorhardt/squares-api/issues/58)) ([a4c91d1](https://github.com/maxmorhardt/squares-api/commit/a4c91d1a793be9b9dbfba851b99d58c62e67bec0))
+
 ## [1.4.6](https://github.com/maxmorhardt/squares-api/compare/1.4.5...1.4.6) (2026-08-28)
 
 
