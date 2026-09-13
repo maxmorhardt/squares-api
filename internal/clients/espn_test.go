@@ -54,3 +54,29 @@ func TestESPNClient_FetchScoreboard_BadStatus(t *testing.T) {
 	_, err := NewESPNClient(server.URL).FetchScoreboard(context.Background(), "2025")
 	require.Error(t, err)
 }
+
+func TestESPNClient_FetchScoreboard_SendsUserAgent(t *testing.T) {
+	var got string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("User-Agent")
+		_, _ = w.Write([]byte(scoreboardBody))
+	}))
+	defer server.Close()
+
+	_, err := NewESPNClient(server.URL).FetchScoreboard(context.Background(), "20260911-20260912")
+	require.NoError(t, err)
+	assert.Equal(t, userAgent, got)
+}
+
+func TestESPNClient_FetchScoreboard_PassesDates(t *testing.T) {
+	var got string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.Query().Get("dates")
+		_, _ = w.Write([]byte(scoreboardBody))
+	}))
+	defer server.Close()
+
+	_, err := NewESPNClient(server.URL).FetchScoreboard(context.Background(), "20260911-20260912")
+	require.NoError(t, err)
+	assert.Equal(t, "20260911-20260912", got)
+}

@@ -16,10 +16,14 @@ type Runner interface {
 	Start(ctx context.Context)
 }
 
+// transient upstream failures are self-healing, so only a sustained run of them is worth an error
+const failureLogThreshold = 3
+
 type runner struct {
-	db      *gorm.DB
-	worker  *scoresWorker
-	lockKey int64
+	db                  *gorm.DB
+	worker              *scoresWorker
+	lockKey             int64
+	consecutiveFailures int
 }
 
 func NewRunner(db *gorm.DB, gameService service.GameService, cfg model.WorkerConfig) Runner {
@@ -90,9 +94,19 @@ func (r *runner) runGuarded(ctx context.Context) {
 
 	// record the outcome so an alert can fire when the worker stops making progress
 	if err := r.worker.run(ctx); err != nil {
-		log.Error("scores job failed", "error", err)
+		r.consecutiveFailures++
+		if r.consecutiveFailures >= failureLogThreshold {
+			log.Error("scores job failed", "error", err, "consecutive_failures", r.consecutiveFailures)
+		} else {
+			log.Warn("scores job failed, will retry next interval", "error", err)
+		}
 		metrics.IncScoresRun(false)
 		return
 	}
+
+	if r.consecutiveFailures >= failureLogThreshold {
+		log.Info("scores job recovered", "after_failures", r.consecutiveFailures)
+	}
+	r.consecutiveFailures = 0
 	metrics.IncScoresRun(true)
 }

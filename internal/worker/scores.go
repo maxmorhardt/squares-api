@@ -12,13 +12,15 @@ import (
 
 const scheduleWindow = 10 * 24 * time.Hour
 const scheduleLookback = 24 * time.Hour
+const liveWindow = 24 * time.Hour
 const espnDateLayout = "20060102"
 
 type scoresWorker struct {
-	espn           clients.ESPNClient
-	gameService    service.GameService
-	activeInterval time.Duration
-	idleInterval   time.Duration
+	espn             clients.ESPNClient
+	gameService      service.GameService
+	activeInterval   time.Duration
+	idleInterval     time.Duration
+	lastScheduleSync time.Time
 }
 
 func newScoresWorker(espn clients.ESPNClient, gameService service.GameService, activeInterval, idleInterval time.Duration) *scoresWorker {
@@ -31,10 +33,22 @@ func newScoresWorker(espn clients.ESPNClient, gameService service.GameService, a
 }
 
 func (w *scoresWorker) run(ctx context.Context) error {
-	// one fetch over the schedule window covers upcoming fixtures and live scores together
-	games, err := w.espn.FetchScoreboard(ctx, scoreboardDates(time.Now()))
+	now := time.Now()
+
+	// the full schedule only needs refreshing occasionally, so live polls fetch a much smaller window
+	wide := now.Sub(w.lastScheduleSync) >= w.idleInterval
+	dates := liveDates(now)
+	if wide {
+		dates = scoreboardDates(now)
+	}
+
+	games, err := w.espn.FetchScoreboard(ctx, dates)
 	if err != nil {
 		return err
+	}
+
+	if wide {
+		w.lastScheduleSync = now
 	}
 
 	// the service owns all persistence and contest reconciliation
@@ -55,6 +69,11 @@ func (w *scoresWorker) run(ctx context.Context) error {
 // reach back a day so a game still in progress after midnight UTC stays in range
 func scoreboardDates(now time.Time) string {
 	return now.Add(-scheduleLookback).Format(espnDateLayout) + "-" + now.Add(scheduleWindow).Format(espnDateLayout)
+}
+
+// live polling only needs today's slate plus the overnight and next-day edges
+func liveDates(now time.Time) string {
+	return now.Add(-scheduleLookback).Format(espnDateLayout) + "-" + now.Add(liveWindow).Format(espnDateLayout)
 }
 
 func (w *scoresWorker) nextDelay(ctx context.Context) time.Duration {
