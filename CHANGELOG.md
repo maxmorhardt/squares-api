@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.8](https://github.com/maxmorhardt/squares-api/compare/1.4.7...1.4.8) (2026-09-17)
+
+
+### Bug Fixes
+
+* **espn:** api contract 400 error ([#60](https://github.com/maxmorhardt/squares-api/issues/60)) ([27602e2](https://github.com/maxmorhardt/squares-api/commit/27602e27227f5d8492cc47001fdffa41b9438318))
+
 ## [1.4.7](https://github.com/maxmorhardt/squares-api/compare/1.4.6...1.4.7) (2026-09-13)
 
 
