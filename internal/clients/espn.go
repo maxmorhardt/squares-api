@@ -63,13 +63,13 @@ func (c *espnClient) FetchScoreboard(ctx context.Context, dates []string) ([]mod
 			return nil, err
 		}
 
-		for _, g := range games {
-			if i, ok := seen[g.ESPNID]; ok {
-				merged[i] = g
+		for i := range games {
+			if j, ok := seen[games[i].ESPNID]; ok {
+				merged[j] = games[i]
 				continue
 			}
-			seen[g.ESPNID] = len(merged)
-			merged = append(merged, g)
+			seen[games[i].ESPNID] = len(merged)
+			merged = append(merged, games[i])
 		}
 	}
 
