@@ -48,7 +48,21 @@ func TestScoresWorker_Run_IngestError(t *testing.T) {
 func TestScoresWorker_ScoreboardDates(t *testing.T) {
 	// 00:20 UTC on the 22nd is still the evening of the 21st in ET, mid-game
 	now := time.Date(2026, 8, 22, 0, 20, 0, 0, time.UTC)
-	assert.Equal(t, "20260821-20260901", scoreboardDates(now))
+	dates := scoreboardDates(now)
+
+	// espn takes one day per request, so the window is every date from the lookback to the horizon
+	require.Len(t, dates, 14)
+	assert.Equal(t, "20260819", dates[0])
+	assert.Equal(t, "20260901", dates[len(dates)-1])
+}
+
+func TestScoresWorker_ScoreboardDates_CrossesMonthAndYearBoundaries(t *testing.T) {
+	now := time.Date(2026, 12, 28, 12, 0, 0, 0, time.UTC)
+	dates := scoreboardDates(now)
+
+	require.Len(t, dates, 14)
+	assert.Equal(t, "20261225", dates[0])
+	assert.Equal(t, "20270107", dates[len(dates)-1])
 }
 
 func TestScoresWorker_NextDelay_Live(t *testing.T) {
@@ -98,16 +112,11 @@ func TestScoresWorker_NextDelay_ActivityError(t *testing.T) {
 	assert.Equal(t, w.activeInterval, w.nextDelay(context.Background()))
 }
 
-func TestScoresWorker_LiveDates(t *testing.T) {
-	now := time.Date(2026, 8, 22, 0, 20, 0, 0, time.UTC)
-	assert.Equal(t, "20260821-20260823", liveDates(now))
-}
-
 func TestScoresWorker_Run_FirstRunFetchesFullSchedule(t *testing.T) {
-	var got string
+	var got []string
 	espn := mocks.NewESPNClient(t)
 	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).
-		RunAndReturn(func(_ context.Context, dates string) ([]model.ESPNGame, error) {
+		RunAndReturn(func(_ context.Context, dates []string) ([]model.ESPNGame, error) {
 			got = dates
 			return nil, nil
 		})
@@ -121,10 +130,10 @@ func TestScoresWorker_Run_FirstRunFetchesFullSchedule(t *testing.T) {
 }
 
 func TestScoresWorker_Run_NarrowsWindowUntilIdleIntervalElapses(t *testing.T) {
-	var got []string
+	var got [][]string
 	espn := mocks.NewESPNClient(t)
 	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).
-		RunAndReturn(func(_ context.Context, dates string) ([]model.ESPNGame, error) {
+		RunAndReturn(func(_ context.Context, dates []string) ([]model.ESPNGame, error) {
 			got = append(got, dates)
 			return nil, nil
 		}).Times(3)
@@ -140,7 +149,7 @@ func TestScoresWorker_Run_NarrowsWindowUntilIdleIntervalElapses(t *testing.T) {
 	require.NoError(t, w.run(context.Background()))
 
 	assert.Equal(t, scoreboardDates(time.Now()), got[0])
-	assert.Equal(t, liveDates(time.Now()), got[1])
+	assert.Empty(t, got[1])
 	assert.Equal(t, scoreboardDates(time.Now()), got[2])
 }
 
@@ -156,10 +165,10 @@ func TestScoresWorker_Run_FetchErrorLeavesScheduleUnsynced(t *testing.T) {
 }
 
 func TestScoresWorker_Run_IngestErrorLeavesScheduleUnsynced(t *testing.T) {
-	var got []string
+	var got [][]string
 	espn := mocks.NewESPNClient(t)
 	espn.EXPECT().FetchScoreboard(mock.Anything, mock.Anything).
-		RunAndReturn(func(_ context.Context, dates string) ([]model.ESPNGame, error) {
+		RunAndReturn(func(_ context.Context, dates []string) ([]model.ESPNGame, error) {
 			got = append(got, dates)
 			return nil, nil
 		}).Times(2)

@@ -23,7 +23,7 @@ func (_m *ESPNClient) EXPECT() *ESPNClient_Expecter {
 }
 
 // FetchScoreboard provides a mock function with given fields: ctx, dates
-func (_m *ESPNClient) FetchScoreboard(ctx context.Context, dates string) ([]model.ESPNGame, error) {
+func (_m *ESPNClient) FetchScoreboard(ctx context.Context, dates []string) ([]model.ESPNGame, error) {
 	ret := _m.Called(ctx, dates)
 
 	if len(ret) == 0 {
@@ -32,10 +32,10 @@ func (_m *ESPNClient) FetchScoreboard(ctx context.Context, dates string) ([]mode
 
 	var r0 []model.ESPNGame
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) ([]model.ESPNGame, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []string) ([]model.ESPNGame, error)); ok {
 		return rf(ctx, dates)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) []model.ESPNGame); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []string) []model.ESPNGame); ok {
 		r0 = rf(ctx, dates)
 	} else {
 		if ret.Get(0) != nil {
@@ -43,7 +43,7 @@ func (_m *ESPNClient) FetchScoreboard(ctx context.Context, dates string) ([]mode
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
 		r1 = rf(ctx, dates)
 	} else {
 		r1 = ret.Error(1)
@@ -59,14 +59,14 @@ type ESPNClient_FetchScoreboard_Call struct {
 
 // FetchScoreboard is a helper method to define mock.On call
 //   - ctx context.Context
-//   - dates string
+//   - dates []string
 func (_e *ESPNClient_Expecter) FetchScoreboard(ctx interface{}, dates interface{}) *ESPNClient_FetchScoreboard_Call {
 	return &ESPNClient_FetchScoreboard_Call{Call: _e.mock.On("FetchScoreboard", ctx, dates)}
 }
 
-func (_c *ESPNClient_FetchScoreboard_Call) Run(run func(ctx context.Context, dates string)) *ESPNClient_FetchScoreboard_Call {
+func (_c *ESPNClient_FetchScoreboard_Call) Run(run func(ctx context.Context, dates []string)) *ESPNClient_FetchScoreboard_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].([]string))
 	})
 	return _c
 }
@@ -76,7 +76,7 @@ func (_c *ESPNClient_FetchScoreboard_Call) Return(_a0 []model.ESPNGame, _a1 erro
 	return _c
 }
 
-func (_c *ESPNClient_FetchScoreboard_Call) RunAndReturn(run func(context.Context, string) ([]model.ESPNGame, error)) *ESPNClient_FetchScoreboard_Call {
+func (_c *ESPNClient_FetchScoreboard_Call) RunAndReturn(run func(context.Context, []string) ([]model.ESPNGame, error)) *ESPNClient_FetchScoreboard_Call {
 	_c.Call.Return(run)
 	return _c
 }
