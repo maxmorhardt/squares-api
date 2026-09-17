@@ -11,8 +11,7 @@ import (
 )
 
 const scheduleWindow = 10 * 24 * time.Hour
-const scheduleLookback = 24 * time.Hour
-const liveWindow = 24 * time.Hour
+const scheduleLookback = 3 * 24 * time.Hour
 const espnDateLayout = "20060102"
 
 type scoresWorker struct {
@@ -35,9 +34,9 @@ func newScoresWorker(espn clients.ESPNClient, gameService service.GameService, a
 func (w *scoresWorker) run(ctx context.Context) error {
 	now := time.Now()
 
-	// the full schedule only needs refreshing occasionally, so live polls fetch a much smaller window
+	// the full schedule only needs refreshing occasionally, so live polls take espn's default current week
 	wide := now.Sub(w.lastScheduleSync) >= w.idleInterval
-	dates := liveDates(now)
+	var dates []string
 	if wide {
 		dates = scoreboardDates(now)
 	}
@@ -67,14 +66,16 @@ func (w *scoresWorker) run(ctx context.Context) error {
 	return nil
 }
 
-// reach back a day so a game still in progress after midnight UTC stays in range
-func scoreboardDates(now time.Time) string {
-	return now.Add(-scheduleLookback).Format(espnDateLayout) + "-" + now.Add(scheduleWindow).Format(espnDateLayout)
-}
+func scoreboardDates(now time.Time) []string {
+	start := now.Add(-scheduleLookback)
+	days := int((scheduleLookback+scheduleWindow)/(24*time.Hour)) + 1
 
-// live polling only needs today's slate plus the overnight and next-day edges
-func liveDates(now time.Time) string {
-	return now.Add(-scheduleLookback).Format(espnDateLayout) + "-" + now.Add(liveWindow).Format(espnDateLayout)
+	dates := make([]string, 0, days)
+	for i := range days {
+		dates = append(dates, start.AddDate(0, 0, i).Format(espnDateLayout))
+	}
+
+	return dates
 }
 
 func (w *scoresWorker) nextDelay(ctx context.Context) time.Duration {
