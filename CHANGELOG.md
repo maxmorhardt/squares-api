@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.9](https://github.com/maxmorhardt/squares-api/compare/1.4.8...1.4.9) (2026-09-20)
+
+
+### Bug Fixes
+
+* **deps:** update module gorm.io/driver/postgres to v1.6.3 ([#62](https://github.com/maxmorhardt/squares-api/issues/62)) ([a7c2645](https://github.com/maxmorhardt/squares-api/commit/a7c264532e253573607a79caafb751a93223649f))
+
 ## [1.4.8](https://github.com/maxmorhardt/squares-api/compare/1.4.7...1.4.8) (2026-09-17)
 
 
