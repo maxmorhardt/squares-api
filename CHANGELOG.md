@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.10](https://github.com/maxmorhardt/squares-api/compare/1.4.9...1.4.10) (2026-09-26)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#64](https://github.com/maxmorhardt/squares-api/issues/64)) ([1b66948](https://github.com/maxmorhardt/squares-api/commit/1b6694872f09b9311974ff79c56f3826823d3136))
+
 ## [1.4.9](https://github.com/maxmorhardt/squares-api/compare/1.4.8...1.4.9) (2026-09-20)
 
 
